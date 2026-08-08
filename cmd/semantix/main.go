@@ -18,7 +18,7 @@ type dependencies struct {
 func productionDependencies() dependencies {
 	return dependencies{
 		newExtractor: slice.NewExtractor,
-		openStore:    slice.NewBboltStore,
+		openStore:    slice.NewFileStore,
 		newIndex: func() slice.Index {
 			return bm25.New()
 		},

@@ -159,19 +159,30 @@ func TestSearchJSONOutput(t *testing.T) {
 	}
 }
 
-func TestExtractReportsMissingU4Implementation(t *testing.T) {
+func TestExtractWithProductionDependencies(t *testing.T) {
 	input := filepath.Join(t.TempDir(), "session.jsonl")
-	if err := os.WriteFile(input, []byte("{}\n"), 0o600); err != nil {
+	if err := os.WriteFile(input, []byte(`{"role":"user","content":"查一下"}
+{"role":"assistant","content":"","tool_calls":[{"id":"c1","name":"readFile"},{"id":"c2","name":"editFile"}]}
+`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
+	db := filepath.Join(t.TempDir(), "slices.jsonl")
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"extract", "--input", input}, &stdout, &stderr, productionDependencies())
-	if code != 1 {
-		t.Fatalf("run() code = %d, want 1", code)
+	code := run([]string{"extract", "--input", input, "--db", db}, &stdout, &stderr, productionDependencies())
+	if code != 0 {
+		t.Fatalf("run() code = %d, want 0; stderr = %q", code, stderr.String())
 	}
-	if !strings.Contains(stderr.String(), "merge the U4 implementation first") {
-		t.Fatalf("stderr = %q", stderr.String())
+	store, err := slice.NewFileStore(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, err := store.List(slice.Project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) == 0 {
+		t.Fatal("extract with production dependencies stored no slices")
 	}
 }
 
