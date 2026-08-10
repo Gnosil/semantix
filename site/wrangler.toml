@@ -1,0 +1,10 @@
+# Cloudflare Pages 静态导出部署配置（对应 site/README.md Deploy 章节）
+# 用法：npm run build 后 npx wrangler pages deploy（自动读取本文件）
+
+name = "semantix"
+compatibility_date = "2026-08-10"
+
+# 静态导出产物目录（next.config.ts output: "export" + trailingSlash）
+pages_build_output_dir = "./out"
+
+# 输出目录所有路由均按目录式 URL（/docs/xxx/ → out/docs/xxx/index.html）服务

@@ -4,7 +4,9 @@ The official landing page for [Semantix](https://github.com/Gnosil/semantix), a 
 
 Built with **Next.js 16** (App Router) + **Tailwind CSS v4** + **shadcn/ui**, white + `#2F967F` theme. Design layout inspired by [reasonix.io](https://reasonix.io/).
 
-> **静态导出模式**：本页为纯展示（无 API/动态数据），`next.config.ts` 使用 `output: "export"`——构建产物 `site/out/` 可由任意静态托管（Cloudflare Pages / Netlify / S3）直接服务。
+> **静态导出模式**：本页为纯展示（无 API/动态数据），`next.config.ts` 使用 `output: "export"` + `trailingSlash: true`——构建产物 `site/out/` 可由任意静态托管（Cloudflare Pages / Netlify / S3）直接服务。
+>
+> **GEO 收尾配套**：`src/app/sitemap.ts`（sitemap.xml）、`public/llms.txt`、`public/robots.txt` 提供 AI 引擎入口；`wrangler.toml` 为 Cloudflare Pages 部署配置。文档站路由见 PR #23（`src/app/docs/` 固定页方案）。
 
 ## Development
 
@@ -71,6 +73,16 @@ semantix.ensureok.ai
 site/
   src/
     app/           # layout, metadata, globals.css (design tokens), page assembly
+    app/sitemap.ts # sitemap.xml（站点级入口：/ 与 /docs/）
     components/    # Nav, Hero, Features, Components, Roadmap, Community, Install, Footer
     lib/           # cn() utility
+  public/          # robots.txt、llms.txt、seo/ 静态资源
+  wrangler.toml    # Cloudflare Pages 部署配置（pages_build_output_dir = ./out）
 ```
+
+## GEO 收尾说明
+
+- `public/llms.txt`：站点一句话说明 + 站点级链接（AI 引擎入口，不绑定具体文档路由）；
+- `public/robots.txt`：允许全部爬虫 + `Sitemap:` 声明；
+- `src/app/sitemap.ts`：`/` 与 `/docs/` 索引入口（具体文档 URL 由文档站路由负责，见 PR #23）；
+- `next.config.ts` 的 `trailingSlash: true` 保证 `/docs/` 目录式 URL 在 Cloudflare Pages 可直接服务。

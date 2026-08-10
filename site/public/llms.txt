@@ -1,0 +1,11 @@
+# Semantix
+
+> Semantix is a self-evolving agent kernel that sits between any agent harness and its resources — semantic caching, speculative prefetch, and scheduling that learn from your usage habits. Open source (MIT), implemented in Go.
+
+Semantix 是一个自进化的 Agent Kernel 层：架设在 agent harness 与资源之间，提供语义切片库、三级语义缓存、内核调度与投机预取。MIT 开源，Go 实现。
+
+## Links
+
+- Website: https://semantix.ensureok.ai
+- Docs: https://semantix.ensureok.ai/docs/
+- Repository: https://github.com/Gnosil/semantix
