@@ -15,6 +15,7 @@ export const siteIdentity = {
     // Add ONLY human-verified, live URLs that unambiguously belong to this entity
     // (see issue #75). Never fabricate a link to hit a count.
     externalProfiles: [
+      "https://ensureok.ai/", // EnsureOK apex — AI insurance-analysis product (distinct site from www.)
       "https://www.xiaohongshu.com/user/profile/6883a11a000000000d03f4d3", // 小红书 @确石智能
       "https://discord.gg/GDTUW5pta", // Discord community
     ],
