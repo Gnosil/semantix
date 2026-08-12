@@ -11,6 +11,13 @@ export const siteIdentity = {
     url: "https://www.ensureok.ai/",
     logoUrl: "https://www.ensureok.ai/ensureok-logo.png",
     email: "junhaihuang@aiqueshi.com",
+    // Other official web properties & accounts of 确石智能, used as Organization sameAs.
+    // Add ONLY human-verified, live URLs that unambiguously belong to this entity
+    // (see issue #75). Never fabricate a link to hit a count.
+    externalProfiles: [
+      "https://www.xiaohongshu.com/user/profile/6883a11a000000000d03f4d3", // 小红书 @确石智能
+      "https://discord.gg/GDTUW5pta", // Discord community
+    ],
   },
 } as const;
 
@@ -26,7 +33,11 @@ export const organizationJsonLd = {
   url: siteIdentity.operator.url,
   logo: siteIdentity.operator.logoUrl,
   email: siteIdentity.operator.email,
-  sameAs: [siteIdentity.repositoryUrl, siteIdentity.operator.url],
+  sameAs: [
+    siteIdentity.repositoryUrl,
+    siteIdentity.operator.url,
+    ...siteIdentity.operator.externalProfiles,
+  ],
   contactPoint: {
     "@type": "ContactPoint",
     email: siteIdentity.operator.email,
