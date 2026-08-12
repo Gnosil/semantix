@@ -22,7 +22,7 @@ Feature matrices flatten the part that matters: what happens when memory is wron
 
 ## Read the implementation, not the adjective
 
-The repository calls its search ?semantic,? but the implementation deserves a more precise description. BM25 provides lexical ranking, a zero-dependency hash embedder maps character n-grams into deterministic vectors, and hybrid mode fuses the two rankings with Reciprocal Rank Fusion. It is not a neural embedding model and should not be evaluated as one.
+The repository calls its search “semantic,” but the implementation deserves a more precise description. BM25 provides lexical ranking, a zero-dependency hash embedder maps character n-grams into deterministic vectors, and hybrid mode fuses the two rankings with Reciprocal Rank Fusion. It is not a neural embedding model and should not be evaluated as one.
 
 ```bash
 semantix search --query "fix the failing Go test" --retriever bm25
@@ -38,6 +38,6 @@ Semantix has unusually inspectable failure policies for a young project. Its wea
 
 ## Sources and limitations
 
-- [Quickstart](https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md) ? commands and supported release paths.
-- [M0 gate report](https://github.com/Gnosil/semantix/blob/main/docs/reports/m0-gate.md) ? what passed, what is conditional, and what remains unverified.
-- [Source and tests](https://github.com/Gnosil/semantix) ? implementation is the final authority.
+- [Quickstart](https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md) — commands and supported release paths.
+- [M0 gate report](https://github.com/Gnosil/semantix/blob/main/docs/reports/m0-gate.md) — what passed, what is conditional, and what remains unverified.
+- [Source and tests](https://github.com/Gnosil/semantix) — implementation is the final authority.

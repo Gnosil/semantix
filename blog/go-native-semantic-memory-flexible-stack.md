@@ -1,14 +1,14 @@
 ---
-title: "Go Builder?s Guide: Add Local Memory Without Choosing a Framework"
+title: "Go Builder’s Guide: Add Local Memory Without Choosing a Framework"
 description: "A Go-focused builder guide for integrating local semantic memory through a CLI and stable data contracts."
 updated: 2026-08-12
 group: "Go & Framework Independence"
 order: 401
 ---
 
-# Go Builder?s Guide: Add Local Memory Without Choosing a Framework
+# Go Builder’s Guide: Add Local Memory Without Choosing a Framework
 
-If your agent stack is already written in Go?or merely needs a portable local binary?the smallest integration surface is a process plus files. Semantix builds as one binary and uses JSONL and a local database rather than requiring a framework SDK.
+If your agent stack is already written in Go—or merely needs a portable local binary—the smallest integration surface is a process plus files. Semantix builds as one binary and uses JSONL and a local database rather than requiring a framework SDK.
 
 ## Build and inspect
 
@@ -43,6 +43,6 @@ The repository builds and tests these paths and publishes six v0.2.0 platform ar
 
 ## Sources and limitations
 
-- [Quickstart](https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md) ? commands and supported release paths.
-- [M0 gate report](https://github.com/Gnosil/semantix/blob/main/docs/reports/m0-gate.md) ? what passed, what is conditional, and what remains unverified.
-- [Source and tests](https://github.com/Gnosil/semantix) ? implementation is the final authority.
+- [Quickstart](https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md) — commands and supported release paths.
+- [M0 gate report](https://github.com/Gnosil/semantix/blob/main/docs/reports/m0-gate.md) — what passed, what is conditional, and what remains unverified.
+- [Source and tests](https://github.com/Gnosil/semantix) — implementation is the final authority.

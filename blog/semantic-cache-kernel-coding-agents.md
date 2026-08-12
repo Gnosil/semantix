@@ -22,7 +22,7 @@ go vet ./...
 go test ./...
 ```
 
-Store sanitized session JSONL locally. Semantix?s file store is designed for 0600 files and 0700 directories, atomic replacement, and symlink defenses. That does not remove the operator?s obligation to exclude credentials.
+Store sanitized session JSONL locally. Semantix’s file store is designed for 0600 files and 0700 directories, atomic replacement, and symlink defenses. That does not remove the operator’s obligation to exclude credentials.
 
 ## 3. Extract, retrieve, inject
 
@@ -41,10 +41,10 @@ If retrieval fails, continue without the cache. If injected content degrades tas
 
 ## 5. Measure the right outcomes
 
-Track retrieval relevance, repeated tool calls avoided, completion tokens, task success, and user rejection. A lower token count paired with a worse fix is not a win. The project?s synthetic cost report is a useful calculation template; replace every assumed value with observations from your own workload.
+Track retrieval relevance, repeated tool calls avoided, completion tokens, task success, and user rejection. A lower token count paired with a worse fix is not a win. The project’s synthetic cost report is a useful calculation template; replace every assumed value with observations from your own workload.
 
 ## Sources and limitations
 
-- [Quickstart](https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md) ? commands and supported release paths.
-- [M0 gate report](https://github.com/Gnosil/semantix/blob/main/docs/reports/m0-gate.md) ? what passed, what is conditional, and what remains unverified.
-- [Source and tests](https://github.com/Gnosil/semantix) ? implementation is the final authority.
+- [Quickstart](https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md) — commands and supported release paths.
+- [M0 gate report](https://github.com/Gnosil/semantix/blob/main/docs/reports/m0-gate.md) — what passed, what is conditional, and what remains unverified.
+- [Source and tests](https://github.com/Gnosil/semantix) — implementation is the final authority.

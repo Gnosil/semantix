@@ -41,10 +41,10 @@ The cost is process integration, mapping harness events, and ownership of a youn
 
 ## Decision rationale
 
-The repository passes mechanism-level tests and provides a runnable CLI. The real-data relevance gate remains open. A time-boxed pilot is therefore justified; a platform-wide mandate is not. If two extraction-granularity trials remain below the relevance gate, the project?s own M0 decision rule calls for a stop/review.
+The repository passes mechanism-level tests and provides a runnable CLI. The real-data relevance gate remains open. A time-boxed pilot is therefore justified; a platform-wide mandate is not. If two extraction-granularity trials remain below the relevance gate, the project’s own M0 decision rule calls for a stop/review.
 
 ## Sources and limitations
 
-- [Quickstart](https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md) ? commands and supported release paths.
-- [M0 gate report](https://github.com/Gnosil/semantix/blob/main/docs/reports/m0-gate.md) ? what passed, what is conditional, and what remains unverified.
-- [Source and tests](https://github.com/Gnosil/semantix) ? implementation is the final authority.
+- [Quickstart](https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md) — commands and supported release paths.
+- [M0 gate report](https://github.com/Gnosil/semantix/blob/main/docs/reports/m0-gate.md) — what passed, what is conditional, and what remains unverified.
+- [Source and tests](https://github.com/Gnosil/semantix) — implementation is the final authority.

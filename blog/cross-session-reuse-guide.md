@@ -31,10 +31,10 @@ Run the injection twice and diff the outputs. A clean diff matters because deter
 
 ## Where this lab stops
 
-This fixture proves data flow, not usefulness at scale. It does not establish how often real developers repeat a task, whether injected context improves answer quality, or whether a provider grants a cache hit. The repository?s verify command exists precisely because those questions require held-out real sessions and human labels.
+This fixture proves data flow, not usefulness at scale. It does not establish how often real developers repeat a task, whether injected context improves answer quality, or whether a provider grants a cache hit. The repository’s verify command exists precisely because those questions require held-out real sessions and human labels.
 
 ## Sources and limitations
 
-- [Quickstart](https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md) ? commands and supported release paths.
-- [M0 gate report](https://github.com/Gnosil/semantix/blob/main/docs/reports/m0-gate.md) ? what passed, what is conditional, and what remains unverified.
-- [Source and tests](https://github.com/Gnosil/semantix) ? implementation is the final authority.
+- [Quickstart](https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md) — commands and supported release paths.
+- [M0 gate report](https://github.com/Gnosil/semantix/blob/main/docs/reports/m0-gate.md) — what passed, what is conditional, and what remains unverified.
+- [Source and tests](https://github.com/Gnosil/semantix) — implementation is the final authority.

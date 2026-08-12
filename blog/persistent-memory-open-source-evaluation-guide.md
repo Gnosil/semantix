@@ -8,7 +8,7 @@ order: 1
 
 # Persistent Memory for Coding Agents: An Evidence-First Evaluation Worksheet
 
-Treat every memory-product claim as an experiment proposal, not a feature checkbox. ?Remembers across sessions? is too vague to buy or deploy. A useful evaluation names the saved unit, the retrieval trigger, the scope boundary, the failure path, and the evidence that proves each step.
+Treat every memory-product claim as an experiment proposal, not a feature checkbox. “Remembers across sessions” is too vague to buy or deploy. A useful evaluation names the saved unit, the retrieval trigger, the scope boundary, the failure path, and the evidence that proves each step.
 
 ## The five tests I would run before shortlisting anything
 
@@ -31,16 +31,16 @@ semantix inject --query "fix the failing Go test" --db .semantix/project.db
 semantix verify --session ./sessions --project demo > eval.tsv
 ```
 
-Do not grade this trial by whether the output ?looks relevant.? Keep ten held-out queries, label each result before calculating relevance, and retain the TSV. That turns an impression into an audit trail.
+Do not grade this trial by whether the output “looks relevant.” Keep ten held-out queries, label each result before calculating relevance, and retain the TSV. That turns an impression into an audit trail.
 
 ## Evidence grade for the current project
 
-Semantix has source tests for extraction, retrieval, stable injection, and fail-closed L3 verification. The M0 report also records a 79.8% savings result, but that number comes from a synthetic two-session demonstration with assumed token counts and an 80% reuse ratio. It is evidence that the cost model can be computed?not proof of production savings.
+Semantix has source tests for extraction, retrieval, stable injection, and fail-closed L3 verification. The M0 report also records a 79.8% savings result, but that number comes from a synthetic two-session demonstration with assumed token counts and an 80% reuse ratio. It is evidence that the cost model can be computed—not proof of production savings.
 
-The unresolved gate is real-session relevance of at least 70%. Until a representative session set passes that gate, the responsible conclusion is ?technically testable, operational value unconfirmed.?
+The unresolved gate is real-session relevance of at least 70%. Until a representative session set passes that gate, the responsible conclusion is “technically testable, operational value unconfirmed.”
 
 ## Sources and limitations
 
-- [Quickstart](https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md) ? commands and supported release paths.
-- [M0 gate report](https://github.com/Gnosil/semantix/blob/main/docs/reports/m0-gate.md) ? what passed, what is conditional, and what remains unverified.
-- [Source and tests](https://github.com/Gnosil/semantix) ? implementation is the final authority.
+- [Quickstart](https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md) — commands and supported release paths.
+- [M0 gate report](https://github.com/Gnosil/semantix/blob/main/docs/reports/m0-gate.md) — what passed, what is conditional, and what remains unverified.
+- [Source and tests](https://github.com/Gnosil/semantix) — implementation is the final authority.

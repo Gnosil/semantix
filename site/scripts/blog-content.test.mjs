@@ -28,7 +28,7 @@ const expectedEditorialAngles = [
   "Threat Model",
   "Decision Record",
   "Control-Loop Walkthrough",
-  "Builder?s Guide",
+  "Builder’s Guide",
   "Integration Recipe",
   "Code Review",
 ];
@@ -78,7 +78,7 @@ test("every article carries reproducible evidence and visible limitations", asyn
   for (const file of files) {
     const source = await readFile(path.join(blogRoot, file), "utf8");
     const prose = source.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, "");
-    const wordCount = (prose.match(/\b[A-Za-z][A-Za-z?'-]*\b/g) ?? []).length;
+    const wordCount = (prose.match(/\b[A-Za-z][A-Za-z’'-]*\b/g) ?? []).length;
 
     assert.ok(wordCount >= 275, `${file} should contain at least 275 words of substantive prose`);
     assert.match(source, /^updated: 2026-08-12$/m, `${file} should expose the editorial update date`);

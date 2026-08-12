@@ -8,7 +8,7 @@ order: 204
 
 # Cost Notebook: What Repository Context Actually Costs Twice
 
-?We saved 79.8%? is an attractive sentence and an incomplete one. This notebook reconstructs what that number means so it can be replaced with real measurements.
+“We saved 79.8%” is an attractive sentence and an incomplete one. This notebook reconstructs what that number means so it can be replaced with real measurements.
 
 ## The demonstration
 
@@ -35,11 +35,11 @@ semantix verify --session ./sessions --project demo > eval.tsv
 
 ## A claim I would publish
 
-?In a synthetic two-session fixture, the listed assumptions produce 79.8% modeled savings; real-session relevance and production savings remain unverified.? That sentence is less exciting and far more citable because every qualifier is visible.
+“In a synthetic two-session fixture, the listed assumptions produce 79.8% modeled savings; real-session relevance and production savings remain unverified.” That sentence is less exciting and far more citable because every qualifier is visible.
 
 ## Sources and limitations
 
-- [Cost report](https://github.com/Gnosil/semantix/blob/main/docs/reports/m0-cost-comparison.md) ? formula, inputs, output, and sensitivity table.
-- [Quickstart](https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md) ? commands and supported release paths.
-- [M0 gate report](https://github.com/Gnosil/semantix/blob/main/docs/reports/m0-gate.md) ? what passed, what is conditional, and what remains unverified.
-- [Source and tests](https://github.com/Gnosil/semantix) ? implementation is the final authority.
+- [Cost report](https://github.com/Gnosil/semantix/blob/main/docs/reports/m0-cost-comparison.md) — formula, inputs, output, and sensitivity table.
+- [Quickstart](https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md) — commands and supported release paths.
+- [M0 gate report](https://github.com/Gnosil/semantix/blob/main/docs/reports/m0-gate.md) — what passed, what is conditional, and what remains unverified.
+- [Source and tests](https://github.com/Gnosil/semantix) — implementation is the final authority.

@@ -8,7 +8,7 @@ order: 103
 
 # Field Note: Searchable Experience Is Not Conversation History
 
-Conversation history answers ?what was said?? Reusable execution experience answers ?what part of that work should change the next run?? The difference sounds philosophical until a repository contains thousands of file reads and command outputs.
+Conversation history answers “what was said?” Reusable execution experience answers “what part of that work should change the next run?” The difference sounds philosophical until a repository contains thousands of file reads and command outputs.
 
 ## A practical distinction
 
@@ -35,6 +35,6 @@ The honest evaluation is therefore two-part: measure retrieval relevance, then m
 
 ## Sources and limitations
 
-- [Quickstart](https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md) ? commands and supported release paths.
-- [M0 gate report](https://github.com/Gnosil/semantix/blob/main/docs/reports/m0-gate.md) ? what passed, what is conditional, and what remains unverified.
-- [Source and tests](https://github.com/Gnosil/semantix) ? implementation is the final authority.
+- [Quickstart](https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md) — commands and supported release paths.
+- [M0 gate report](https://github.com/Gnosil/semantix/blob/main/docs/reports/m0-gate.md) — what passed, what is conditional, and what remains unverified.
+- [Source and tests](https://github.com/Gnosil/semantix) — implementation is the final authority.

@@ -8,7 +8,7 @@ order: 101
 
 # From Noisy Tool Traces to Three Reusable Slice Types
 
-A tool trace mixes several kinds of information: what the user wanted, which operations the agent attempted, and what finally worked. Saving the whole trace preserves context but makes later retrieval noisy. Semantix?s extractor makes a specific editorial choice: split the trace into Prompt, ToolPattern, and Result slices.
+A tool trace mixes several kinds of information: what the user wanted, which operations the agent attempted, and what finally worked. Saving the whole trace preserves context but makes later retrieval noisy. Semantix’s extractor makes a specific editorial choice: split the trace into Prompt, ToolPattern, and Result slices.
 
 ## An annotated example
 
@@ -29,7 +29,7 @@ semantix verify --session ./sessions --project demo > eval.tsv
 
 ## Why three types are better than one summary
 
-Different later queries want different evidence. ?How did we diagnose this?? should favor a ToolPattern. ?What was the accepted fix?? should favor a Result. ?Have we seen this request?? should favor a Prompt. A single generated summary hides those distinctions and introduces another model call before retrieval can even begin.
+Different later queries want different evidence. “How did we diagnose this?” should favor a ToolPattern. “What was the accepted fix?” should favor a Result. “Have we seen this request?” should favor a Prompt. A single generated summary hides those distinctions and introduces another model call before retrieval can even begin.
 
 ## Boundary conditions
 
@@ -37,6 +37,6 @@ The extractor does not prove that every turn boundary is the correct semantic bo
 
 ## Sources and limitations
 
-- [Quickstart](https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md) ? commands and supported release paths.
-- [M0 gate report](https://github.com/Gnosil/semantix/blob/main/docs/reports/m0-gate.md) ? what passed, what is conditional, and what remains unverified.
-- [Source and tests](https://github.com/Gnosil/semantix) ? implementation is the final authority.
+- [Quickstart](https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md) — commands and supported release paths.
+- [M0 gate report](https://github.com/Gnosil/semantix/blob/main/docs/reports/m0-gate.md) — what passed, what is conditional, and what remains unverified.
+- [Source and tests](https://github.com/Gnosil/semantix) — implementation is the final authority.

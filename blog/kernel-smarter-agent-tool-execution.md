@@ -8,7 +8,7 @@ order: 301
 
 # Architecture Review: Put Execution Policy Beside the Harness
 
-The proposal under review is not ?replace the agent.? It is ?move reusable execution policy into a separate local kernel.? That boundary deserves scrutiny because every new layer adds integration and debugging cost.
+The proposal under review is not “replace the agent.” It is “move reusable execution policy into a separate local kernel.” That boundary deserves scrutiny because every new layer adds integration and debugging cost.
 
 ## Responsibilities
 
@@ -35,6 +35,6 @@ Approve a pilot when two harnesses need the same reuse logic or when keeping the
 
 ## Sources and limitations
 
-- [Quickstart](https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md) ? commands and supported release paths.
-- [M0 gate report](https://github.com/Gnosil/semantix/blob/main/docs/reports/m0-gate.md) ? what passed, what is conditional, and what remains unverified.
-- [Source and tests](https://github.com/Gnosil/semantix) ? implementation is the final authority.
+- [Quickstart](https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md) — commands and supported release paths.
+- [M0 gate report](https://github.com/Gnosil/semantix/blob/main/docs/reports/m0-gate.md) — what passed, what is conditional, and what remains unverified.
+- [Source and tests](https://github.com/Gnosil/semantix) — implementation is the final authority.

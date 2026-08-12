@@ -10,7 +10,7 @@ order: 304
 
 Start with the shipped path, not the roadmap diagram.
 
-## Today?s path
+## Today’s path
 
 Historical sessions are captured as JSONL. The extractor creates typed slices. Search ranks them with BM25, deterministic hash vectors, or hybrid fusion. Injection selects relevant slices and emits a stable marked block for the harness.
 
@@ -37,6 +37,6 @@ Use Semantix today as a testable retrieval-and-reuse side layer. Evaluate schedu
 
 ## Sources and limitations
 
-- [Quickstart](https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md) ? commands and supported release paths.
-- [M0 gate report](https://github.com/Gnosil/semantix/blob/main/docs/reports/m0-gate.md) ? what passed, what is conditional, and what remains unverified.
-- [Source and tests](https://github.com/Gnosil/semantix) ? implementation is the final authority.
+- [Quickstart](https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md) — commands and supported release paths.
+- [M0 gate report](https://github.com/Gnosil/semantix/blob/main/docs/reports/m0-gate.md) — what passed, what is conditional, and what remains unverified.
+- [Source and tests](https://github.com/Gnosil/semantix) — implementation is the final authority.
