@@ -1,101 +1,103 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { notFound } from "next/navigation";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { getBlogPost, listBlogPosts, readBlogPost } from "@/lib/blog";
+import Footer from "@/components/Footer";
+import Nav from "@/components/Nav";
 import { siteIdentity } from "@/lib/site-identity";
-import { getContentAuthor, personJsonLd } from "@/lib/content-authors";
 
-type BlogPageProps = { params: Promise<{ slug: string }> };
+export const metadata: Metadata = {
+  title: "æœåŠ¡æ¡æ¬¾ Â· Semantix",
+  description: "Semantix å®˜ç½‘æœåŠ¡æ¡æ¬¾ï¼šé€‚ç”¨ä¸»ä½“ã€æœåŠ¡æ€§è´¨ã€è®¸å¯è¾¹ç•Œã€å…è´£å£°æ˜ä¸è”ç³»æ–¹å¼ã€‚",
+  alternates: { canonical: "/terms" },
+};
 
-export const dynamicParams = false;
+const sections = [
+  {
+    title: "1. é€‚ç”¨ä¸»ä½“ä¸æœåŠ¡æ€§è´¨",
+    body: [
+      `æœ¬ç½‘ç«™ï¼ˆ${siteIdentity.productUrl}ï¼‰ç”± ${siteIdentity.operator.legalName}ï¼ˆå“ç‰Œå ${siteIdentity.operator.brandName}ï¼‰è¿è¥å’Œç»´æŠ¤ã€‚æœ¬æœåŠ¡æ¡æ¬¾é€‚ç”¨äºè®¿é—®å’Œä½¿ç”¨æœ¬ç½‘ç«™çš„è®¿é—®è€…ã€‚`,
+      "Semantix æ˜¯ä¸€ä¸ªå¼€æºè½¯ä»¶é¡¹ç›®ã€‚æœ¬ç½‘ç«™æä¾›é¡¹ç›®ä»‹ç»ã€æŠ€æœ¯æ–‡æ¡£ã€è·¯çº¿å›¾ä»¥åŠæŒ‡å‘å¼€æºä»£ç ä»“åº“çš„é“¾æ¥ï¼Œä¸å‘è®¿é—®è€…æä¾›ä»»ä½•å•†ä¸šè½¯ä»¶å³æœåŠ¡ï¼ˆSaaSï¼‰å½¢æ€çš„æœåŠ¡ã€‚",
+    ],
+  },
+  {
+    title: "2. å¼€æºè®¸å¯è¾¹ç•Œ",
+    body: [
+      `æœ¬é¡¹ç›®ä»£ç é‡‡ç”¨ ${siteIdentity.licenseName} è®¸å¯å‘å¸ƒã€‚å„ç‰ˆæœ¬å°†ä¾ç…§è®¸å¯è¯æ¡æ¬¾ï¼Œåœ¨è§„å®šçš„æ—¥æœŸåè½¬æ¢ä¸º MIT Licenseã€‚`,
+      "ä½¿ç”¨ã€ä¿®æ”¹æˆ–åˆ†å‘é¡¹ç›®ä»£ç å‰ï¼Œè¯·é˜…è¯»ä»“åº“å†…éšé™„çš„ LICENSE æ–‡ä»¶åŠ FSL-1.1 è®¸å¯çš„å®Œæ•´æ¡æ¬¾ã€‚ä»£ç çš„ä½¿ç”¨è¡Œä¸ºå—å¯¹åº”è®¸å¯è¯çº¦æŸï¼Œä¸æœ¬æœåŠ¡æ¡æ¬¾ç›¸äº’ç‹¬ç«‹ã€‚",
+    ],
+  },
+  {
+    title: "3. ç½‘ç«™å†…å®¹çš„ä½¿ç”¨",
+    body: [
+      "ç«™å†…æ–‡æ¡£ã€è®¾è®¡è¯´æ˜å’Œè·¯çº¿å›¾å†…å®¹ä»…ç”¨äºä¿¡æ¯å‚è€ƒã€‚åœ¨æ³¨æ˜æ¥æºçš„å‰æä¸‹ï¼Œå¯å¯¹ç«™å†…å†…å®¹è¿›è¡Œå¼•ç”¨æˆ–è½¬è½½ã€‚",
+      "ç«™å†…æè¿°çš„æŠ€æœ¯èƒ½åŠ›ã€æ€§èƒ½æŒ‡æ ‡å’Œè·¯çº¿å›¾å±äºé¡¹ç›®å½“å‰æˆ–é¢„æœŸçš„å¼€å‘çŠ¶æ€ï¼Œå¯èƒ½éšå¼€å‘è¿›å±•å‘ç”Ÿå˜åŒ–ï¼Œä¸æ„æˆå¯¹ä»»ä½•åŠŸèƒ½çš„äº¤ä»˜æ‰¿è¯ºã€‚",
+    ],
+  },
+  {
+    title: "4. å…è´£å£°æ˜",
+    body: [
+      "æœ¬ç½‘ç«™åŠç«™å†…æ‰€æœ‰å†…å®¹æŒ‰â€œç°çŠ¶â€ï¼ˆas isï¼‰æä¾›ï¼Œè¿è¥ä¸»ä½“ä¸å¯¹å†…å®¹çš„å®Œæ•´æ€§ã€å‡†ç¡®æ€§æˆ–é€‚ç”¨æ€§ä½œä»»ä½•æ˜ç¤ºæˆ–æš—ç¤ºçš„ä¿è¯ã€‚",
+      "æœ¬ç½‘ç«™å†…å®¹ä¸æ„æˆæ³•å¾‹ã€å•†ä¸šæˆ–æŠ•èµ„å»ºè®®ã€‚å¦‚å› ä¾èµ–ç«™å†…ä¿¡æ¯ä½œå‡ºå†³ç­–è€Œäº§ç”ŸæŸå¤±ï¼Œè¿è¥ä¸»ä½“ä¸æ‰¿æ‹…è´£ä»»ï¼Œä½†æ³•å¾‹æ³•è§„å¦æœ‰è§„å®šçš„é™¤å¤–ã€‚",
+    ],
+  },
+  {
+    title: "5. å¤–éƒ¨é“¾æ¥",
+    body: [
+      "æœ¬ç½‘ç«™å¯èƒ½åŒ…å«æŒ‡å‘ç¬¬ä¸‰æ–¹ç½‘ç«™ï¼ˆåŒ…æ‹¬ä½†ä¸é™äºä»£ç æ‰˜ç®¡å¹³å°ã€å…¬å¸å®˜ç½‘ï¼‰çš„é“¾æ¥ã€‚ç¬¬ä¸‰æ–¹ç½‘ç«™çš„å†…å®¹ã€éšç§å®è·µå’ŒæœåŠ¡ç”±å…¶å„è‡ªè¿è¥æ–¹è´Ÿè´£ï¼Œä¸æœ¬æœåŠ¡æ¡æ¬¾æ— å…³ã€‚",
+    ],
+  },
+  {
+    title: "6. æ¡æ¬¾æ›´æ–°ä¸è”ç³»æ–¹å¼",
+    body: [
+      "è¿è¥ä¸»ä½“å¯èƒ½é€‚æ—¶æ›´æ–°æœ¬æœåŠ¡æ¡æ¬¾ï¼Œæ›´æ–°åçš„æ¡æ¬¾å°†åœ¨æœ¬é¡µé¢å‘å¸ƒå¹¶æ›´æ–°ç”Ÿæ•ˆæ—¥æœŸã€‚é‡å¤§å˜æ›´å°†ä»¥ç½‘ç«™å…¬å‘Šæ–¹å¼æç¤ºã€‚",
+      `å¦‚å¯¹æœ¬æœåŠ¡æ¡æ¬¾æˆ–ç½‘ç«™å†…å®¹æœ‰ç–‘é—®ï¼Œå¯é€šè¿‡ç«™å†…è”ç³»é¡µé¢è”ç³»è¿è¥ä¸»ä½“ï¼Œæˆ–åœ¨é¡¹ç›®ä»“åº“ ${siteIdentity.repositoryUrl} æäº¤ Issueã€‚`,
+    ],
+  },
+] as const;
 
-export function generateStaticParams() {
-  return listBlogPosts().map(({ slug }) => ({ slug }));
-}
-
-export async function generateMetadata({ params }: BlogPageProps): Promise<Metadata> {
-  const post = getBlogPost((await params).slug);
-  return post
-    ? {
-        title: `${post.title} | Semantix`,
-        description: post.description,
-        alternates: { canonical: `/blog/${post.slug}` },
-      }
-    : {};
-}
-
-export default async function BlogArticlePage({ params }: BlogPageProps) {
-  const postMeta = getBlogPost((await params).slug);
-  if (!postMeta) notFound();
-  const post = readBlogPost(postMeta);
-  const author = getContentAuthor(`blog/${post.slug}`);
-  const sourceUrl = `${siteIdentity.repositoryUrl}/blob/main/blog/${post.fileName}`;
-  const articleJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "BlogPosting",
-    "@id": `${siteIdentity.productUrl}/blog/${post.slug}#article`,
-    headline: post.title,
-    description: post.description,
-    dateModified: post.updated,
-    datePublished: post.updated,
-    inLanguage: "en",
-    mainEntityOfPage: `${siteIdentity.productUrl}/blog/${post.slug}`,
-    author: personJsonLd(author),
-    publisher: { "@id": `${siteIdentity.operator.url}#organization` },
-    citation: sourceUrl,
-  };
-
+export default function TermsPage() {
   return (
-    <div className="px-6 py-10 md:py-14">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd).replace(/</g, "\\u003c") }}
-      />
-      <div className="mx-auto max-w-4xl">
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-5">
-          <Link href="/blog" className="text-sm font-medium text-muted-foreground hover:text-accent">
-            â† è¿”å› Blog
-          </Link>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 font-mono text-xs text-muted-foreground">
-            <a href={author.url} target="_blank" rel="author noopener noreferrer" className="hover:text-accent">
-              By {author.name}
-            </a>
-            <span aria-hidden="true">Â·</span>
-            <time dateTime={post.updated}>Updated {post.updated}</time>
-            <span aria-hidden="true">Â·</span>
-            <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="hover:text-accent">
-              Source â†—
-            </a>
+    <>
+      <Nav />
+      <main className="min-h-[100dvh] bg-background pt-16">
+        <section className="border-b border-border bg-muted/40 py-20 md:py-28">
+          <div className="wrap">
+            <p className="font-mono text-sm font-semibold text-accent">
+              Terms of Service
+            </p>
+            <h1 className="mt-5 max-w-3xl text-4xl font-semibold tracking-tight text-foreground md:text-6xl">
+              æœåŠ¡æ¡æ¬¾
+            </h1>
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
+              æœ¬æ¡æ¬¾é€‚ç”¨äºè®¿é—®å’Œä½¿ç”¨ Semantix å®˜ç½‘ï¼ˆ{siteIdentity.productUrl}ï¼‰çš„æ‰€æœ‰è®¿é—®è€…ã€‚
+            </p>
+            <div className="mt-5 flex flex-wrap gap-x-8 gap-y-2 font-mono text-xs text-muted-foreground">
+              <p>ç”Ÿæ•ˆæ—¥æœŸï¼š{siteIdentity.lastUpdated}</p>
+              <p>è¿è¥ä¸»ä½“ï¼š{siteIdentity.operator.legalName}</p>
+            </div>
           </div>
-        </div>
+        </section>
 
-        <aside className="mb-8 max-w-3xl border-l-2 border-accent bg-muted/40 px-5 py-4 text-sm leading-6 text-muted-foreground">
-          <p>
-            Evidence and limitations: implementation claims should be verified against the current release and repository tests. Architectural direction is identified separately from shipped behavior.
-          </p>
-          <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block font-medium text-foreground underline decoration-border underline-offset-4 hover:text-accent">
-            View source and revision history â†—
-          </a>
-        </aside>
-
-        <article className="geo-prose max-w-3xl">
-          <Reacvã¿m¢G§²ÚîÆ­yÓyb¨y )ú-*‹Bˆ›ÙNˆÃBˆ9§+9ïdyêæ{ï"	ÜÚ]RY[]Kœ›ÙXİ\›{ï"yå,H	ÜÚ]RY[]K›Ü\˜]Ü‹›YØ[˜[Y_{ï"9dàyâc9d#H	ÜÚ]RY[]K›Ü\˜]Ü‹˜œ˜[™˜[Y_{ï"z/ä:$)yd£9îí9¢©8à ¹§+9§#yb¨y§hy«/º` ¹å*9.£º+¯úeë¹d£9/oùå*9§+9ïdyêæyæ¡:+¯úeëº !xà ˜Bˆ”Ù[X[^9¦+ù. 9.*¹o 9®¤:/kù.íºhnyæë¸à ¹§+9ïdyêæy£ä9/¦úhnyæë¹.âùîãxà y¢ 9§+ù¥¡ù¨høà z-ëùî¯ùfï¹.éycâ¹£!ùd$yo 9®¤9.èùè y.äùn¤ùæ¡:dï¹£©{ï#9.#yd$z+¯úeëº !y£ä9/¦ù.îù/eyea¹.&º/kù.í¹clù§#yb¨{ï"ØXTûï"yoh¹  yæ¡9§#yb¨xà ˆ‹BˆKBˆKBˆÃBˆ]NˆŒ‹ˆ9o 9®¤:+®9cëú/®yåc‹Bˆ›ÙNˆÃBˆ9§+:hnyæë¹.èùè zaáùå*	ÜÚ]RY[]K›XÙ[œÙS˜[Y_H:+®9cëùcäyn øà ¹d!9âb9§+9l!¹/§yáiú+®9cëú+ày§hy«/»ï#9g*:)á9k¦¹æ¡9¥éy§'ùd#º/k9£h¹..ˆRUXÙ[œÙxà ˜Bˆ¹/oùå*8à y/ë¹¥.y¢%¹b!¹cäzhnyæë¹.èùè ybc{ï#:+íúf!z+îù.äùn¤ùa¡zf£úfa9æ¡PÑS”ÑH9¥¡ù.í¹câˆ”ÓLKŒH:+®9cëùæ¡9k£9¥m9§hy«/¸à ¹.èùè yæ¡9/oùå*:(c9..¹cåùkîyn¥:+®9cëú+àyî©¹§gûï#9.#¹§+9§#yb¨y§hy«/¹æî9.¤¹âë9êâøà ˆ‹BˆKBˆKBˆÃBˆ]NˆŒËˆ9ïdyêæya¡yk®yæ¡9/oùå*‹Bˆ›ÙNˆÃBˆ¹êæya¡y¥¡ù¨høà z+¯º+¨z+í9¦#¹d£:-ëùî¯ùfï¹a¡yk®y.áyå*9.£¹/èy kùcàº  øà ¹g*9¬ê9¦#¹§iy®¤9æ¡9bcy£ä9."ûï#9cëùkîyêæya¡ya¡yk®z/æú(c9o%yå*9¢%º/k:/oxà ˆ‹Bˆ¹êæya¡y£ãú/ì9æ¡9¢ 9§+ú ïyb¦øà y )ú ïy£!ù¨!ùd£:-ëùî¯ùfï¹lg¹.£ºhnyæë¹odùbcy¢%ºh¡9§'ùæ¡9o 9cäyâ­¹  {ï#9cëú ïzf£ùo 9cäz/æùleycäyå'ùcæ9c%»ï#9.#y§¡9¢$9kîy.îù/eyb§ú ïyæ¡9.©9.æ9¢oú+î¸à ˆ‹BˆKBˆKBˆÃBˆ]Nˆˆ9acz-(ùhì9¦#ˆ‹Bˆ›ÙNˆÃBˆ¹§+9ïdyêæycâ¹êæya¡y¢`9§"ya¡yk®y£"x '9ã¬9â­¸ '{ï"\È\ûï"y£ä9/¦ûï#:/ä:$)y..ù/dù.#ykîya¡yk®yæ¡9k£9¥m9 )øà yaá¹èk¹ )ù¢%º` ¹å*9 )ù/g9.îù/ey¦#¹é.¹¢%¹¦¥ùé.¹æ¡9/çz+àxà ˆ‹Bˆ¹§+9ïdyêæya¡yk®y.#y§¡9¢$9¬åyo¢øà yea¹.&¹¢%¹¢¥z-a9nîº+«¸à ¹i ¹fè9/§z-e¹êæya¡y/èy kù/g9aî¹a¬ùëeº #9.©ùå'ù£gùi,{ï#:/ä:$)y..ù/dù.#y¢où¢áz-(ù.îûï#9/a¹¬åyo¢ù¬åz)á9cé¹§"z)á9k¦¹æ¡:fi9i%¸à ˆ‹BˆKBˆKBˆÃBˆ]NˆKˆ9i%º`ê:dï¹£©H‹Bˆ›ÙNˆÃBˆ¹§+9ïdyêæycëú ïyc!yd*ù£!ùd$yë+9."y¥®yïdyêæ{ï"9c!y¢ë9/a¹.#zfd9.£¹.èùè y¢f9ë¨ynlùcì8à yak9cî9k¦9ïd{ï"yæ¡:dï¹£©xà ¹ë+9."y¥®yïdyêæyæ¡9a¡yk®xà zf¤9éàyk§º-íyd£9§#yb¨yå,yam¹d!:!êº/ä:$)y¥®z-'ú-(ûï#9.#¹§+9§#yb¨y§hy«/¹¥è9aløà ˆ‹BˆKBˆKBˆÃBˆ]Nˆ‹ˆ9§hy«/¹¦í9¥¬9.#º e9ìîù¥®yo#È‹Bˆ›ÙNˆÃBˆº/ä:$)y..ù/dùcëú ïz` ¹¥í¹¦í9¥¬9§+9§#yb¨y§hy«/»ï#9¦í9¥¬9d#¹æ¡9§hy«/¹l!¹g*9§+:hmzgh¹cäyn ùnm¹¦í9¥¬9å'ù¥b9¥éy§'øà ºaãyi)ùcæ9¦í9l!¹.éyïdyêæyak9db¹¥®yo#ù£ä9é.¸à ˆ‹Bˆ9i ¹kîy§+9§#yb¨y§hy«/¹¢%¹ïdyêæya¡yk®y§"yå¤zeë»ï#9cëú`&º/áùêæya¡z e9ìîúhmzghº e9ìîú/ä:$)y..ù/dûï#9¢%¹g*:hnyæë¹.äùn¤È	ÜÚ]RY[]Kœ™\ÜÚ]ÜU\›H9£ä9.©\ÜİYxà ˜ˆKBˆKB—H\ÈÛÛœİÂ‚˜ÛÛœİ[™Û\Úİ[[X\HHÂˆ•\ÈÙXœÚ]H\ÈÜ\˜]YH]Y\ÚH[[YÙ[˜ÙH\ÈHX›XÈ[™›Ü›X][ÛˆÚ]H›ÜˆHÙ[X[^Ü[‹\Ûİ\˜ÙH›Ú™Xİˆ]›İšY\È›ÙXİ^[˜][ÛœËXÚšXØ[Øİ[Y[][Û‹›Ú™Xİİ]\ËÛÛ[][š]H[™›Ü›X][Û‹[™[šÜÈÈHX›XÈÛİ\˜ÙH™\ÜÚ]ÜKˆHÙXœÚ]HÙ\È›İ]Ù[ˆ›İšYHHÜİYÛÙØ\™KX\ËXK\Ù\šXÙH›ÙXİ[™š\Ú][™È]Ù\È›İÜ™X]HHÛÛ[Y\˜ÚX[Ù\šXÙH™[][ÛœÚ\ˆ‹ˆÙ[X[^Ûİ\˜ÙHÛÙH\È\İšX]Y[™\ˆH	ÜÚ]RY[]K›XÙ[œÙS˜[Y_HXÙ[œÙKˆ[[Û™HÚÈ\Ù\Ë[ÙYšY\ËÜˆ™Y\İšX]\ÈHÛÙHÚİ[™]šY]ÈHPÑS”ÑHš[H[ˆH™\ÜÚ]ÜH[™ÛÛ\HÚ]HXÙ[œÙH]\Y\ÈÈH™[]˜[™\œÚ[Û‹ˆÙXœÚ]H^[˜][ÛœÈÈ›İ™\XÙHÜˆ[Y[™]ÛÙØ\™HXÙ[œÙK˜ˆ‘Øİ[Y[][Û‹\˜Ú]Xİ\™H\ØÜš\[ÛœË™[˜ÚX\šÜË[™›ØYX\İ][Y[È\™H›İšYY›ÜˆÙ[™\˜[[™›Ü›X][Û‹ˆ^HX^HÚ[™ÙH\È[\[Y[][Ûˆ[™˜[Y][Ûˆ›ÙÜ™\ÜËˆÛZ[\ÈX›İ]Ú\Y™Z]š[ÜˆÚİ[™HÚXÚÙYYØZ[œİHİ\œ™[™[X\ÙKÛİ\˜ÙHÛÙK\İË[™X›\ÚY[Z]][ÛœËˆ›İ[™ÈÛˆ\ÈÙXœÚ]HÛÛœİ]]\ÈYØ[[™\İY[ÜˆÛÛ[Y\˜ÚX[YšXÙK[™›È]\™H™X]\™HÜˆ\™›Ü›X[˜ÙH™\İ[\ÈİX\˜[YYˆ‹ˆ•HÙXœÚ]HX^H[šÈÈ[™\[™[HÜ\˜]YÙ\šXÙ\ÈİXÚ\ÈÚ]Xˆ[™HÛÜœÜ˜]HÙXœÚ]KˆÜÙHÙ\šXÙ\ÈÛÛ›ÛZ\ˆİÛˆÛÛ[]˜Z[Xš[]K[™š]˜XŞH˜XİXÙ\Ëˆ]Y\İ[ÛœÈX›İ]\ÙH\›\ÈÜˆÛÜœ™Xİ[ÛœÈÈÙXœÚ]HÛÛ[Ø[ˆ™HÙ[›İYÚHš\œİ\\HÛÛXİYÙNÈ™\›ÙXÚX›HÛÙØ\™HY™XİÈ[™Øİ[Y[][Ûˆ\ÜİY\ÈØ[ˆ[ÛÈ™HİX›Z]Y[ˆHX›XÈ™\ÜÚ]ÜKˆ‹—H\ÈÛÛœİÂƒB™^ÜY˜][[˜İ[Ûˆ\›\ÔYÙJ
-HÃBˆ™]\›ˆ
-BˆƒBˆ˜]ˆÏƒBˆXZ[ˆÛ\ÜÓ˜[YOH›Z[‹ZVÌLšH™ËX˜XÚÙÜ›İ[™LMˆƒBˆÙXİ[ÛˆÛ\ÜÓ˜[YOH˜›Ü™\‹Xˆ›Ü™\‹X›Ü™\ˆ™Ë[]]YÍKLŒYœKLƒBˆ]ˆÛ\ÜÓ˜[YOHÜ˜\ƒBˆÛ\ÜÓ˜[YOH™›Û[[Û›È^\ÛH›Û\Ù[ZX›Û^XXØÙ[ƒBˆ\›\ÈÙˆÙ\šXÙCBˆÜƒBˆHÛ\ÜÓ˜[YOH›]MHX^]ËLŞ^M›Û\Ù[ZX›Û˜XÚÚ[™Ë]YÚ^Y›Ü™YÜ›İ[™Y^MƒBˆ9§#yb¨y§hy«/ƒBˆÚOƒBˆÛ\ÜÓ˜[YOH›]MˆX^]ËL^[ÈXY[™ËN^[]]YY›Ü™YÜ›İ[™ƒBˆ9§+9§hy«/º` ¹å*9.£º+¯úeë¹d£9/oùå*Ù[X[^9k¦9ïd{ï"ÜÚ]RY[]Kœ›ÙXİ\›{ï"yæ¡9¢`9§"z+¯úeëº !xà ƒBˆÜƒBˆ]ˆÛ\ÜÓ˜[YOH›]MH›^›^]Ü˜\Ø\^NØ\^KLˆ›Û[[Û›È^^È^[]]YY›Ü™YÜ›İ[™ƒBˆ¹å'ù¥b9¥éy§'ûï&ÜÚ]RY[]K›\İ\]YOÜƒBˆº/ä:$)y..ù/dûï&ÜÚ]RY[]K›Ü\˜]Ü‹›YØ[˜[Y_OÜƒBˆÙ]ƒBˆÙ]ƒBˆÜÙXİ[ÛƒBƒBˆÙXİ[ÛˆÛ\ÜÓ˜[YOHÜ˜\KLMˆYœKLƒBˆ]ˆÛ\ÜÓ˜[YOH›^X]]ÈX^]ËLŞƒBˆ]ˆÛ\ÜÓ˜[YOHœÜXÙK^KLLˆ‚ˆÜÙXİ[ÛœË›X\
-
-ÙXİ[ÛŠHOˆ
-BˆÙXİ[ÛˆÙ^O^ÜÙXİ[Û‹]_OƒBˆˆÛ\ÜÓ˜[YOH^^›Û\Ù[ZX›Û˜XÚÚ[™Ë]YÚ^Y›Ü™YÜ›İ[™ƒBˆÜÙXİ[Û‹]_CBˆÚƒBˆ]ˆÛ\ÜÓ˜[YOH›]MÜXÙK^KMƒBˆÜÙXİ[Û‹˜›ÙK›X\
-
-\˜YÜ˜\
-HOˆ
-BˆÙ^O^Ü\˜YÜ˜\HÛ\ÜÓ˜[YOH›XY[™ËMÈ^[]]YY›Ü™YÜ›İ[™ƒBˆÜ\˜YÜ˜\CBˆÜƒBˆ
-J_CBˆÙ]ƒBˆÜÙXİ[ÛƒBˆ
-J_BˆÙXİ[Ûˆ[™ÏH™[ˆ‚ˆˆÛ\ÜÓ˜[YOH^^›Û\Ù[ZX›Û˜XÚÚ[™Ë]YÚ^Y›Ü™YÜ›İ[™‚ˆ[™Û\Úİ[[X\BˆÚ‚ˆ]ˆÛ\ÜÓ˜[YOH›]MÜXÙK^KM‚ˆÙ[™Û\Úİ[[X\K›X\
-
-\˜YÜ˜\
-HOˆ
-ˆÙ^O^Ü\˜YÜ˜\HÛ\ÜÓ˜[YOH›XY[™ËMÈ^[]]YY›Ü™YÜ›İ[™‚ˆÜ\˜YÜ˜\BˆÜ‚ˆ
-J_BˆÙ]‚ˆÜÙXİ[Û‚ˆÙ]‚ˆÙ]ƒBˆÜÙXİ[ÛƒBˆÛXZ[ƒBˆ›Ûİ\ˆÏƒBˆÏƒBˆ
-NÃBŸCB
+        <section className="wrap py-16 md:py-24">
+          <div className="mx-auto max-w-3xl">
+            <div className="space-y-12">
+              {sections.map((section) => (
+                <section key={section.title}>
+                  <h2 className="text-xl font-semibold tracking-tight text-foreground">
+                    {section.title}
+                  </h2>
+                  <div className="mt-4 space-y-4">
+                    {section.body.map((paragraph) => (
+                      <p key={paragraph} className="leading-7 text-muted-foreground">
+                        {paragraph}
+                      </p>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </div>
+        </section>
+      </main>
+      <Footer />
+    </>
+  );
+}

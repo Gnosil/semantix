@@ -22,7 +22,7 @@
   "scripts": {
     "dev": "next dev",
     "generate:llms-full": "node scripts/generate-llms-full.mjs",
-    "prebuild": "node scripts/generate-llms-full.mjs",
+    "prebuild": "node --test scripts/source-encoding.test.mjs && node scripts/generate-llms-full.mjs",
     "build": "next build",
     "start": "next start",
     "test:content": "node --test scripts/*.test.mjs",
