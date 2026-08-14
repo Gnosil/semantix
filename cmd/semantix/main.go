@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"semantix/kernel/bm25"
+	"semantix/kernel/config"
 	"semantix/kernel/slice"
 )
 
@@ -68,6 +69,10 @@ func run(args []string, stdout, stderr io.Writer, deps dependencies) int {
 		// package reports ErrHelp after printing usage for any subcommand.
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
+		}
+		if _, ok := config.IsError(err); ok {
+			fmt.Fprintf(stderr, "semantix %s: %v\n", args[0], err)
+			return 2
 		}
 		fmt.Fprintf(stderr, "semantix %s: %v\n", args[0], err)
 		return 1

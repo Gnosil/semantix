@@ -23,17 +23,24 @@ type searchResult struct {
 }
 
 func runSearch(args []string, stdout, stderr io.Writer, deps dependencies) error {
+	cfgPath, cfgExplicit := explicitConfigPath(args, defaultGetenv)
+	cfg, err := loadConfigFor(cfgPath, cfgExplicit, defaultGetenv)
+	if err != nil {
+		return err
+	}
+
 	flags := flag.NewFlagSet("search", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	queryFlag := flags.String("query", "", "search query (alternatively pass it as positional text)")
-	scopeValue := flags.String("scope", "project", "slice scope: session, project, or user")
-	limit := flags.Int("limit", 10, "maximum number of results")
+	scopeValue := flags.String("scope", cfg.Store.Scope, "slice scope: session, project, or user")
+	limit := flags.Int("limit", cfg.Retrieval.SearchLimit, "maximum number of results")
 	dbOverride := flags.String("db", "", "database path override")
-	projectDB := flags.String("project-db", defaultProjectDB(), "project/session database path")
+	projectDB := flags.String("project-db", cfg.Store.DB, "project/session database path")
 	userDB := flags.String("user-db", defaultUserDB(), "user database path")
 	jsonOutput := flags.Bool("json", false, "write JSON results")
-	retriever := flags.String("retriever", "bm25", "retriever: bm25 (default) | vector (hash-embedding) | hybrid (RRF fusion)")
+	retriever := flags.String("retriever", cfg.Retrieval.Retriever, "retriever: bm25 (default) | vector (hash-embedding) | hybrid (RRF fusion)")
 	embedder := flags.String("embedder", "hash", "embedder: hash (default, zero-dependency) | model (remote OpenAI-compatible API; see SEMANTIX_EMBED_* env)")
+	_ = flags.String("config", cfgPath, "config file path (default ./semantix.toml)")
 	zf := addZoneFlags(flags)
 	if err := flags.Parse(args); err != nil {
 		return err

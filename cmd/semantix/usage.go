@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"semantix/kernel/config"
 	"semantix/kernel/evolve"
 	"semantix/kernel/usage"
 )
@@ -16,11 +17,23 @@ import (
 // U17). With --evolve-db it also feeds cost/latency signals into the
 // evolution engine and prints the adjusted params.
 func runUsage(args []string, stdout io.Writer) int {
+	cfgPath, cfgExplicit := explicitConfigPath(args, defaultGetenv)
+	cfg, err := loadConfigFor(cfgPath, cfgExplicit, defaultGetenv)
+	if err != nil {
+		if _, ok := config.IsError(err); ok {
+			fmt.Fprintln(os.Stderr, err)
+			return 2
+		}
+		fmt.Fprintln(os.Stderr, "usage:", err)
+		return 2
+	}
+
 	fs := flag.NewFlagSet("usage", flag.ContinueOnError)
 	db := fs.String("db", filepath.Join(".semantix", "usage.jsonl"), "usage log path (default .semantix/usage.jsonl)")
-	costMiss := fs.Float64("cost-miss", usage.DefaultCostMissPerMTok, "USD per 1M tokens at cache miss")
-	costHit := fs.Float64("cost-hit", usage.DefaultCostHitPerMTok, "USD per 1M tokens at cache hit")
+	costMiss := fs.Float64("cost-miss", cfg.Cost.InputPriceUSD, "USD per 1M tokens at cache miss")
+	costHit := fs.Float64("cost-hit", cfg.Cost.CachePriceUSD, "USD per 1M tokens at cache hit")
 	evolveDB := fs.String("evolve-db", "", "optional evolve engine state dir (feeds cost signals and prints adjusted params)")
+	_ = fs.String("config", cfgPath, "config file path (default ./semantix.toml)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}

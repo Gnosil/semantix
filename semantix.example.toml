@@ -1,30 +1,33 @@
 # semantix.example.toml — 示例配置（复制为 semantix.toml 后按需修改）
-# 当前版本：CLI 参数优先于配置文件；此文件为团队约定与文档用途。
+# 优先级：CLI flag > 环境变量(SEMANTIX_DB / SEMANTIX_CONFIG) > semantix.toml > 内置默认
+# 本文件自 M2-U20 起已接线生效；未列出的字段仍为内置默认。
 
 [project]
-name = "my-project"          # 项目 slug（切片 scope=project 的聚合键）
+name = "my-project"          # 项目 slug（extract/verify 的 --project 默认值）
 
 [store]
-# 切片库路径（extract/lookup/inject/verify 的 --db 默认值）
+# 切片库路径（extract/search 的 --project-db 默认值；lookup/inject 的 project 库 fallback）。
+# 相对路径按进程工作目录解析，不按本配置文件所在目录。
 db = ".semantix/project.db"
 scope = "project"           # 默认切片作用域：session | project | user
 
 [retrieval]
 retriever = "hybrid"        # bm25 | vector | hybrid（RRF 融合）
-limit = 5                   # search 默认 top-k
-vector_dim = 256            # HashEmbedder 维度（模型级 Embedder 接入后忽略）
+search_limit = 10           # search 默认 top-k
+lookup_limit = 5            # lookup 默认 top-k
+vector_dim = 256            # HashEmbedder 维度（本期仅解析校验，暂未改变运行行为）
 
 [inject]
-budget = 4096               # L2 注入块最大字节数（整切片截断）
-top_k = 5                   # 注入候选切片数
+budget = 4096               # L2 注入块最大字节数（--budget）
+top_k = 5                   # 注入候选切片数（--k）
 
 [verify]
-holdout = 0.3               # 离线回放验证：后 30% 会话作为测试流
-target_hit_rate = 0.7       # M0-2 验收目标命中率
+holdout = 0.3               # 离线回放验证：后 30% 会话作为测试流（--holdout）
+target_hit_rate = 0.7       # M0-2 验收目标命中率（暂无程序消费方，仅文档语义）
 
-[cost]                      # 成本对比参数（scripts/demo/cross-session.sh 同步）
-tool_tokens = 300           # 每工具调用输出 token 估算
-reuse_ratio = 0.8           # 注入替代重复步骤比例
-input_price_usd = 0.27      # 每 1M 输入 token（cache miss）
-cache_price_usd = 0.07      # 每 1M 输入 token（cache hit）
-output_price_usd = 1.10     # 每 1M 输出 token
+[cost]                      # usage 命令的成本参数
+tool_tokens = 300           # 每工具调用输出 token 估算（暂无消费方）
+reuse_ratio = 0.8           # 注入替代重复步骤比例（暂无消费方）
+input_price_usd = 0.27      # 每 1M 输入 token（cache miss）→ usage --cost-miss
+cache_price_usd = 0.07      # 每 1M 输入 token（cache hit）→ usage --cost-hit
+output_price_usd = 1.10     # 每 1M 输出 token（暂无消费方）

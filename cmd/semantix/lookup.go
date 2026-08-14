@@ -14,15 +14,22 @@ import (
 // runLookup exposes the semantix_lookup tool contract over the CLI
 // (U8 tool side): given a query, print top-k reuse slices as JSON.
 func runLookup(args []string, stdout, stderr io.Writer, deps dependencies) error {
+	cfgPath, cfgExplicit := explicitConfigPath(args, defaultGetenv)
+	cfg, err := loadConfigFor(cfgPath, cfgExplicit, defaultGetenv)
+	if err != nil {
+		return err
+	}
+
 	flags := flag.NewFlagSet("lookup", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	query := flags.String("query", "", "task description to match against stored slices")
-	scopeValue := flags.String("scope", "project", "slice scope: session, project, or user")
-	limit := flags.Int("limit", 5, "maximum number of slices (capped at 50)")
+	scopeValue := flags.String("scope", cfg.Store.Scope, "slice scope: session, project, or user")
+	limit := flags.Int("limit", cfg.Retrieval.LookupLimit, "maximum number of slices (capped at 50)")
 	dbOverride := flags.String("db", "", "database path override")
 	// Accepted for compatibility with the harness tool contract
 	// (semantix_lookup calls `semantix lookup --json`); output is JSON anyway.
 	_ = flags.Bool("json", false, "output as JSON (default output is already JSON)")
+	_ = flags.String("config", cfgPath, "config file path (default ./semantix.toml)")
 	zf := addZoneFlags(flags)
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -43,7 +50,7 @@ func runLookup(args []string, stdout, stderr io.Writer, deps dependencies) error
 		return fmt.Errorf("lookup: --query is required")
 	}
 
-	store, err := deps.openStore(storePath(*dbOverride, *scopeValue))
+	store, err := deps.openStore(storePath(*dbOverride, *scopeValue, cfg.Store.DB))
 	if err != nil {
 		return err
 	}
@@ -86,13 +93,20 @@ func runLookup(args []string, stdout, stderr io.Writer, deps dependencies) error
 // runInject assembles an L2 injection block for a query (U8 compose side):
 // top-k reuse slices in canonical order, budget-capped, marker-wrapped.
 func runInject(args []string, stdout, stderr io.Writer, deps dependencies) error {
+	cfgPath, cfgExplicit := explicitConfigPath(args, defaultGetenv)
+	cfg, err := loadConfigFor(cfgPath, cfgExplicit, defaultGetenv)
+	if err != nil {
+		return err
+	}
+
 	flags := flag.NewFlagSet("inject", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	query := flags.String("query", "", "current user turn to match against stored slices")
-	scopeValue := flags.String("scope", "project", "slice scope: session, project, or user")
-	k := flags.Int("k", 5, "top-k slices to consider")
-	budget := flags.Int("budget", inject.DefaultBudget, "max injection block bytes")
+	scopeValue := flags.String("scope", cfg.Store.Scope, "slice scope: session, project, or user")
+	k := flags.Int("k", cfg.Inject.TopK, "top-k slices to consider")
+	budget := flags.Int("budget", cfg.Inject.Budget, "max injection block bytes")
 	dbOverride := flags.String("db", "", "database path override")
+	_ = flags.String("config", cfgPath, "config file path (default ./semantix.toml)")
 	zf := addZoneFlags(flags)
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -107,7 +121,7 @@ func runInject(args []string, stdout, stderr io.Writer, deps dependencies) error
 		return fmt.Errorf("inject: --query is required")
 	}
 
-	store, err := deps.openStore(storePath(*dbOverride, *scopeValue))
+	store, err := deps.openStore(storePath(*dbOverride, *scopeValue, cfg.Store.DB))
 	if err != nil {
 		return err
 	}
@@ -129,19 +143,16 @@ func runInject(args []string, stdout, stderr io.Writer, deps dependencies) error
 	return nil
 }
 
-// storePath resolves the store path for a scope (mirrors search.go).
-func storePath(override, scope string) string {
+// storePath resolves the store path for a scope. projectDefault comes from
+// config (store.db); user scope keeps the built-in user library path.
+func storePath(override, scope, projectDefault string) string {
 	if override != "" {
 		return override
 	}
-	switch scope {
-	case "session":
-		return defaultProjectDB()
-	case "user":
+	if scope == "user" {
 		return defaultUserDB()
-	default:
-		return defaultProjectDB()
 	}
+	return projectDefault
 }
 
 // indexFromStore rebuilds an in-memory index from the persistent store,

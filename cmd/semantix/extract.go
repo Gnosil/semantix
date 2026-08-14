@@ -14,20 +14,27 @@ import (
 )
 
 func runExtract(args []string, stdout, stderr io.Writer, deps dependencies) error {
+	cfgPath, cfgExplicit := explicitConfigPath(args, defaultGetenv)
+	cfg, err := loadConfigFor(cfgPath, cfgExplicit, defaultGetenv)
+	if err != nil {
+		return err
+	}
+
 	flags := flag.NewFlagSet("extract", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	input := flags.String("input", "", "session JSONL path, or - for stdin")
-	scopeValue := flags.String("scope", "project", "slice scope: session, project, or user")
+	scopeValue := flags.String("scope", cfg.Store.Scope, "slice scope: session, project, or user")
 	dbOverride := flags.String("db", "", "database path override")
-	projectDB := flags.String("project-db", defaultProjectDB(), "project/session database path")
+	projectDB := flags.String("project-db", cfg.Store.DB, "project/session database path")
 	userDB := flags.String("user-db", defaultUserDB(), "user database path")
 	session := flags.String("session", "", "source session identifier")
-	project := flags.String("project", "", "project slug")
+	project := flags.String("project", cfg.Project.Name, "project slug")
 	taskType := flags.String("task-type", "", "task type metadata")
 	language := flags.String("language", "", "language metadata")
 	fingerprintPaths := flags.String("fingerprint", "", "comma-separated relative paths to fingerprint (sha256) into each slice's Deps")
 	l3Safe := flags.Bool("l3-safe", false, "mark dependency-free Result slices as explicitly L3-reusable (opt-in; ignored when --fingerprint is set)")
 	embedder := flags.String("embedder", "hash", "embedder for stored slices: hash (default, zero-dependency) | model (remote OpenAI-compatible API; see SEMANTIX_EMBED_* env)")
+	_ = flags.String("config", cfgPath, "config file path (default ./semantix.toml)")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}

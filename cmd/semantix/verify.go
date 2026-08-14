@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strings"
 
+	"semantix/kernel/config"
 	"semantix/kernel/judge"
 	"semantix/kernel/slice"
 	"semantix/kernel/zone"
@@ -125,20 +126,32 @@ func parseTurns(path string) ([]verifyTurn, error) {
 }
 
 func runVerify(args []string, stdout io.Writer, deps dependencies) int {
+	cfgPath, cfgExplicit := explicitConfigPath(args, defaultGetenv)
+	cfg, err := loadConfigFor(cfgPath, cfgExplicit, defaultGetenv)
+	if err != nil {
+		if _, ok := config.IsError(err); ok {
+			fmt.Fprintln(os.Stderr, err)
+			return 2
+		}
+		fmt.Fprintln(os.Stderr, "verify:", err)
+		return 1
+	}
+
 	fs := flag.NewFlagSet("verify", flag.ContinueOnError)
 	var opt verifyOptions
 	fs.Var(stringListFlag{&opt.sessions}, "session", "session JSONL file or directory (repeatable)")
-	fs.StringVar(&opt.db, "db", "", "database path override (default: .semantix/project.db)")
-	fs.StringVar(&opt.project, "project", "", "project slug")
-	fs.Float64Var(&opt.holdout, "holdout", 0.3, "fraction of latest sessions reserved as replay stream (0-1)")
+	fs.StringVar(&opt.db, "db", "", "database path override (default: .semantix/verify.db)")
+	fs.StringVar(&opt.project, "project", cfg.Project.Name, "project slug")
+	fs.Float64Var(&opt.holdout, "holdout", cfg.Verify.Holdout, "fraction of latest sessions reserved as replay stream (0-1)")
 	var scopeName string
-	fs.StringVar(&scopeName, "scope", "project", "scope: project|user|session")
+	fs.StringVar(&scopeName, "scope", cfg.Store.Scope, "scope: project|user|session")
 	greyTarget := fs.Float64("grey-target", 30.0, "grey-zone traffic ratio alarm threshold in percent (0 disables the alarm)")
 	strict := fs.Bool("strict", false, "return exit code 3 when the grey-zone ratio exceeds --grey-target")
 	zf := addZoneFlags(fs)
 	judgeProtocol := fs.String("judge-protocol", "", "LLM judge protocol: openai|anthropic (empty = rules only)")
 	judgeBaseURL := fs.String("judge-base-url", "", "LLM judge endpoint base URL (e.g. https://api.openai.com/v1)")
 	judgeModel := fs.String("judge-model", "", "LLM judge model name")
+	_ = fs.String("config", cfgPath, "config file path (default ./semantix.toml)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
