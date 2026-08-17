@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -45,6 +46,11 @@ func runIntro(args []string, stdout io.Writer) int {
 	fs.SetOutput(stdout)
 	noAnimation := fs.Bool("no-animation", false, "render the final frame without animation")
 	if err := fs.Parse(args); err != nil {
+		// --help is a clean exit (U19 help contract): flag prints the usage
+		// to stdout (fs.SetOutput(stdout)) and returns ErrHelp.
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
 		return 2
 	}
 
