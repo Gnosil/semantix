@@ -155,7 +155,11 @@ harness 不维护指令历史，恢复 = 下一轮不在集合中。
 
 ## 7. C5 视觉基线（Semantix Design 最小集）
 
-- 主题 token：深色基调 + 语义绿 `#2F967F`（蓝图 §4，与 landing page 一致）；
+- **H4 换皮已另行实现并验证**（2026-08-17，spec `docs/specs/h4-branding.md` 已批准 + as-built，
+  待随治理文件落仓）：品牌色真源 = site `--primary` `oklch(0.608 0.14 165)` ≈ **`#009c6d`**
+  （蓝图旧值 #2F967F 作废）；产物为 binary patch（基于 fork@bf0d859 干净基线），
+  vendor 后 `git apply --directory=harness h4-branding-reskin.patch` 套用——U39 的主题部分
+  由套 patch + 验证构成，不重做；
 - U33 复用面板（每 turn：📦 命中切片数 / 💰 节省成本 / 🗂 来源会话）从 fork 迁入 `harness/tui/`，
   数据源从 CLI 子进程改为进程内直读；
 - 资源仪表（侧栏实时资源占用）**本期只留挂点不实现**（等 C1-C3 数据稳定后单独 issue）。
