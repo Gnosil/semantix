@@ -35,6 +35,8 @@
 
 - M0 ✅；M1 中 **#58 真实数据命中率 ≥70% 是唯一 P0 遗留门禁**（30 天窗口，`semantix verify` 回放）
 - v0.3.1 已发布（bundle + QUICKSTART + agent-skill + 官网）
+- v0.4.0 已发布（CLI v2 完整版：命令树 / config / --json 信封 / completion / doctor / install / gc / serve，4 平台资产）
+- v0.4.1 已发布（CLI 可用性修复：doctor --json 信封 version 与发布版本一致 #169 + zoneIcon 同名冲突修复 #172，4 平台资产，见 `docs/releases/v0.4.1.md`）
 - CLI v2（M2/U19-U27）是本 Agile 的补强，不阻塞 DoD
 
 ### DoD（完成定义）
