@@ -199,6 +199,46 @@ export default function Components() {
 
         <ComponentList />
 
+        <Reveal delay={55}>
+          <div className="mt-5 border border-[#168b6d]/35 bg-[#101313] text-[#bde8d9]">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-5 py-3 font-mono text-[10px] font-semibold tracking-[0.18em]">
+              <span>REUSE VISUALIZATION / CLI 真实输出</span>
+              <span className="text-white/35">semantix v0.3.1+（U28–U31）· 演示库实录</span>
+            </div>
+            <pre className="overflow-x-auto p-5 font-mono text-xs leading-6 text-[#bde8d9] md:p-6">
+{`$ semantix dashboard
+
+  💰 Cost savings
+     paid        $ 0.0060
+     baseline    $ 0.0141
+     saved       $ 0.0080  (56.99%)
+     ██████████████░░░░░░░░░░
+
+  🎯 Cache hit rate (L3/L2)
+     4 / 5 turns  (80.00%)
+     L3 1 · L2 3
+     ███████████████████░░░░░
+
+  🗂 Zone distribution (library replay)
+     hit  ████ 4   grey ██████ 6   miss  0
+
+  📦 Slice library
+     10 slices · 3 cross-session sessions
+
+$ semantix search --query "fix failing go test"
+1. 🟢 score=4.331011 zone=hit id=619551c54af5437a scope=project from:2026-08-14-c9d4
+   fix failing go test after refactor
+2. 🟢 score=3.852740 zone=hit id=73b12bb117664106 scope=project from:2026-08-13-b7c2
+   fix failing go test in kernel slice extractor
+3. 🟢 score=3.852740 zone=hit id=adfecdd9bff0db2d scope=project from:2026-08-12-a1f3
+   fix failing go test in kernel slice store
+🎯 3/3 hits in 3 sessions`}
+            </pre>
+            <p className="border-t border-white/10 px-5 py-3 font-mono text-[10px] leading-5 text-white/40">
+              三要素：命中率（🎯）· 节省成本（💰）· 来源会话（from:）——以上为演示库真实运行输出；门禁数据以 semantix verify 报告为准
+            </p>
+          </div>
+        </Reveal>
       </div>
     </section>
   );

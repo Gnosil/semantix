@@ -185,6 +185,26 @@
   }
 }
 
+@keyframes roadmap-return-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  45% {
+    opacity: 0.35;
+  }
+}
+
+.roadmap-return-pulse {
+  animation: roadmap-return-pulse 0.8s ease-out 1 0.8s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roadmap-return-pulse {
+    animation: none;
+  }
+}
+
 .brand-intro-wordmark {
   font-size: clamp(4.25rem, 19vw, 24rem);
   font-weight: 400;

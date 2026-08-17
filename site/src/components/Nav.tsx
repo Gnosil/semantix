@@ -14,6 +14,7 @@ import type { NavLink } from "@/types/content";
 const links: NavLink[] = [
   { label: "特性", labelEn: "Features", href: "/#features" },
   { label: "组件", labelEn: "Components", href: "/#components" },
+  { label: "路线图", labelEn: "Roadmap", href: "/#roadmap" },
   { label: "文档", labelEn: "Docs", href: "/docs" },
   { label: "博客", labelEn: "Blog", href: "/blog" },
   { label: "社区", labelEn: "Community", href: "/#community" },
