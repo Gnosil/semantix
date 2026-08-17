@@ -231,13 +231,31 @@ func (g *Gateway) streamThrough(w http.ResponseWriter, resp *http.Response, sess
 	// Scan lines rather than blind blocks: we must detect the [DONE]
 	// marker to guarantee stream termination even when the upstream
 	// disconnects early. Lines are still forwarded verbatim.
+	// Issue #187 / GW7 (spec §3.4): when the upstream finishes without a
+	// usage event, we synthesize one before [DONE] carrying the injection
+	// stats, so streaming clients see the same cached_tokens accounting as
+	// non-streaming paths.
 	br := bufio.NewReader(resp.Body)
 	sawDone := false
+	sawUsage := false
 	for {
 		line, err := br.ReadBytes('\n')
 		if len(line) > 0 {
-			if bytes.HasPrefix(bytes.TrimSpace(line), []byte("data: [DONE]")) {
+			trimmed := bytes.TrimSpace(line)
+			switch {
+			case bytes.HasPrefix(trimmed, []byte("data: [DONE]")):
 				sawDone = true
+			case bytes.HasPrefix(trimmed, []byte("data:")):
+				if sseDataHasUsage(trimmed) {
+					sawUsage = true
+				}
+			}
+			if sawDone && !sawUsage {
+				// Synthesize the usage block before the terminator.
+				_, _ = w.Write(g.streamUsageBlock(req.Model, int64(len(query)/4), injectedTokens))
+				if flusher != nil {
+					flusher.Flush()
+				}
 			}
 			_, _ = w.Write(line)
 			if flusher != nil {
@@ -250,7 +268,8 @@ func (g *Gateway) streamThrough(w http.ResponseWriter, resp *http.Response, sess
 	}
 	if !sawDone {
 		// Abnormal termination: close the stream ourselves so the client
-		// does not hang (design §3.4: [DONE] always terminates).
+		// does not hang (design §3.4: [DONE] always terminates). No usage
+		// block: the stream never completed normally.
 		_, _ = io.WriteString(w, "data: [DONE]\n\n")
 		if flusher != nil {
 			flusher.Flush()
@@ -264,6 +283,49 @@ func (g *Gateway) streamThrough(w http.ResponseWriter, resp *http.Response, sess
 		SliceHits:      sliceHits,
 		At:             g.now().Unix(),
 	})
+}
+
+// sseDataHasUsage reports whether an SSE data line's JSON payload carries a
+// top-level "usage" object (OpenAI-compatible streaming usage block).
+func sseDataHasUsage(line []byte) bool {
+	payload := bytes.TrimSpace(bytes.TrimPrefix(bytes.TrimSpace(line), []byte("data:")))
+	var obj struct {
+		Usage json.RawMessage `json:"usage"`
+	}
+	if err := json.Unmarshal(payload, &obj); err != nil {
+		return false
+	}
+	return len(obj.Usage) > 0 && string(obj.Usage) != "null"
+}
+
+// streamUsageBlock builds the synthetic OpenAI-compatible streaming usage
+// block injected before [DONE] when the upstream omitted usage (Issue #187).
+// Token counts are byte estimates (len/4), stamped with estimator for
+// downstream accounting; cached_tokens carries the L2 injection stats.
+func (g *Gateway) streamUsageBlock(model string, promptTokens, cachedTokens int64) []byte {
+	chunk := struct {
+		ID      string          `json:"id"`
+		Object  string          `json:"object"`
+		Created int64           `json:"created"`
+		Model   string          `json:"model"`
+		Choices []choicePayload `json:"choices"`
+		Usage   usagePayload    `json:"usage"`
+	}{
+		ID:      "chatcmpl-stream",
+		Object:  "chat.completion.chunk",
+		Created: g.now().Unix(),
+		Model:   model,
+		Choices: []choicePayload{},
+		Usage: usagePayload{
+			PromptTokens:     int(promptTokens),
+			CompletionTokens: 0,
+			TotalTokens:      int(promptTokens),
+			PromptDetails:    struct{ CachedTokens int `json:"cached_tokens"` }{CachedTokens: int(cachedTokens)},
+			Estimator:        "bytes/4",
+		},
+	}
+	raw, _ := json.Marshal(chunk)
+	return append([]byte("data: "), append(raw, '\n', '\n')...)
 }
 
 // isHopByHopHeader reports connection-scoped headers that must never be
@@ -347,6 +409,10 @@ type usagePayload struct {
 	PromptDetails    struct {
 		CachedTokens int `json:"cached_tokens"`
 	} `json:"prompt_tokens_details"`
+	// Estimator marks gateway-synthesized token counts (Issue #187 / GW7):
+	// the numbers are byte estimates (len/4), not real tokenizer counts.
+	// Omitted when the usage block is relayed verbatim from upstream.
+	Estimator string `json:"estimator,omitempty"`
 }
 
 // replyFromCache serves a verified L3 hit: a plain JSON response, or a
@@ -374,6 +440,7 @@ func (g *Gateway) replyFromCache(w http.ResponseWriter, r *http.Request, req *ch
 			PromptTokens:     prompt + cached,
 			CompletionTokens: 0,
 			TotalTokens:      prompt + cached,
+			Estimator:        "bytes/4",
 		},
 	}
 	body.Usage.PromptDetails.CachedTokens = cached

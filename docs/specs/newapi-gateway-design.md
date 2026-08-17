@@ -88,11 +88,11 @@
 | §3.8 / §7 M2 | Claude / Anthropic 适配（messages 格式转换 + `cache_control` 断点） | **配置层显式拒绝**：`vendor="anthropic"` 在 `validate()` 直接报错，避免把 Anthropic 流量误发到 OpenAI 式端点。§3.6 对 Claude 打断点同理未做 |
 | §3.5 | `promote.CascadeInvalidate` 级联失效 | gateway 零引用 `kernel/promote`。上游内容版本变化时不会级联失效下游条目（deps 指纹仍能兜住文件类变更） |
 | §3.9 | `[retrieval] retriever = bm25 \| vector \| hybrid` | **死配置键**：字段被解析和校验，但 `New()` 固定构造 `bm25.New()`，填 `hybrid`/`vector` 不报错也不生效。与 `[cache] judge_api_key` 同属「保留但未接线」（验收报告 §4 已列为 nit、§6 记为「预留字段」） |
-| §3.4 | 未命中流式：上游不返回 usage 时，网关在 `[DONE]` 前补含注入统计的末块 | 未做。逐块原样透传，只在上游异常断流时补 `[DONE]` |
+| §3.4 | 未命中流式：上游不返回 usage 时，网关在 `[DONE]` 前补含注入统计的末块 | **GW7 已实现**（Issue #187）：`streamThrough` 扫描 SSE data 块，上游全程无 usage 时在 `[DONE]` 前合成 `{"choices":[],"usage":{...,"prompt_tokens_details":{"cached_tokens":<注入统计>},"estimator":"bytes/4"}}`；上游已带 usage 则原样透传不补。异常断流仍只补 `[DONE]` |
 | §3.7 | 流式路径的**响应侧**写记忆 | `streamThrough` 只把请求 turns 写进旁路文件，不解析 SSE 取 assistant 内容（代码内已标注为 documented debt，验收报告 §6 也记为债务）。后果：**流式请求的本次响应不会成为可复用的 Result 切片**——Result 提取取的是旁路文件里最后一条无 tool_calls 的 assistant 消息，流式路径下那只可能是请求里带的历史轮次。L3 的写入实际只来自非流式请求 |
 | §3.2 | `/healthz` 检查「切片库可打开 + **上游可达性**」 | 只回 `{"status":"ok"}`。切片库在 `New()` 阶段已打开（打不开进程起不来），上游探活未做 |
 | §5 | 部署产物：`docker-compose.yml`、网关镜像 Dockerfile、`semantix-gateway.toml` 示例 | 仓库中**均不存在**。§5 目前仍是纯文字方案，照它部署需要自己写 compose 与配置文件（验收报告 §6 建议另开运维 issue） |
-| §4.3 | 与 New API 计费对账的 token 口径 | 合成 usage 已实现，但 token 数是 `len(bytes)/4` 的**字节估算**，不是真 tokenizer 计数。对账时须知道这个口径差 |
+| §4.3 | 与 New API 计费对账的 token 口径 | 合成 usage（L3 命中非流式 + 流式补块）的 token 数是 `len(bytes)/4` 的**字节估算**，非真 tokenizer 计数；自 GW7（Issue #187）起合成 usage 均附 `"estimator":"bytes/4"` 字段，对账时按此字段识别口径差。未引入真 tokenizer（tiktoken 等）——依赖成本高（模型词表 + 外部库），口径文档化替代 |
 | §7 M0 | 门：真实客户端 → New API → 网关 → DeepSeek 全链路跑通 **且** 会话入库后 `semantix search` 可检索到切片 | **合取门只满足后半**：入库可检索有 e2e 证据（`TestE2ESidecarWrittenAndIngested`，验收报告 §3「写记忆」✅），这半句本就不依赖真上游；**真实全链路无记录**——`gateway/e2e_test.go` 与验收报告 §3 的上游都是 `httptest` 假上游 |
 | §7 M1 | 门：重复任务第二次命中 `x-semantix-cache: hit` 且零上游调用；成本节省 ≥30% 实测 | 前半在 e2e 中以假上游验证（`TestE2EL3HitZeroUpstreamCalls`：命中且上游 0 调用），**真实环境与成本节省实测无记录**；验收报告 §6 明确「M1/M2 里程碑项未在本 issue 范围」 |
 | §7 M2 | 四家模型全通 + 命中率周报 + New API 对账一致 | 未开始 |
