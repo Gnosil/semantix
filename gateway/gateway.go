@@ -68,13 +68,22 @@ func New(cfg *Config) (*Gateway, error) {
 	if err != nil {
 		return nil, fmt.Errorf("gateway: open store %s: %w", cfg.Store.DB, err)
 	}
-	// Startup is a process boundary: fold any journal into the base before
-	// serving (freeze-window semantics — the library never shifts mid-flight).
-	// Best-effort: a failed fold still leaves a consistent store.
-	if c, ok := store.(interface{ Compact() error }); ok {
-		if err := c.Compact(); err != nil {
-			log.Printf("gateway: store compact: %v", err)
-		}
+	// Startup is a process boundary: run the scoring + eviction pass and
+	// fold the journal before serving (freeze-window semantics — the
+	// library never shifts mid-flight; over-cap growth during a run is
+	// tolerated and converges at the next boot/gc). Best-effort: a failed
+	// pass still leaves a consistent store.
+	gcRes, gcErr := slice.GC(store, slice.GCOptions{
+		Rescore:     true,
+		MaxSlices:   cfg.Store.EffectiveMaxSlices(),
+		Params:      slice.DefaultScoreParams(),
+		ArchivePath: cfg.Store.DB + ".archive.jsonl",
+	})
+	if gcErr != nil {
+		log.Printf("gateway: store maintenance: %v", gcErr)
+	} else if gcRes.Removed > 0 || gcRes.RescoredWeights > 0 {
+		log.Printf("gateway: store maintenance: rescored=%d evicted=%d archived=%d capacity=%d",
+			gcRes.RescoredWeights, gcRes.Removed, gcRes.Archived, gcRes.Capacity)
 	}
 	idx := bm25.New()
 	if err := loadIndex(store, idx); err != nil {

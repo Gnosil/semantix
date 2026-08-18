@@ -125,7 +125,8 @@ func runDashboard(args []string, stdout, stderr io.Writer, deps dependencies) in
 			h, g, m := libraryZones(store, deps.newIndex())
 			data.Zones = dashboardZones{Hit: h, Grey: g, Miss: m, Total: h + g + m}
 			n, xs := libraryTotals(store)
-			data.Library = dashboardLibrary{Slices: n, CrossSessions: xs}
+			data.Library = dashboardLibrary{Slices: n, CrossSessions: xs,
+				Capacity: cfgInt(deps.resolved, "store.max_slices", 5000)}
 		}
 	}
 
@@ -176,6 +177,8 @@ type dashboardZones struct {
 type dashboardLibrary struct {
 	Slices        int `json:"slices"`
 	CrossSessions int `json:"cross_sessions"`
+	// Capacity is the configured store.max_slices (0 = unlimited).
+	Capacity int `json:"capacity"`
 }
 
 // countL2Hits scans the usage log and counts turns with an L2 injection
@@ -324,9 +327,16 @@ func renderDashboard(w io.Writer, d dashboardPayload, color bool, width int) {
 	}
 	fmt.Fprintln(w)
 
-	// 📦 Slice library.
+	// 📦 Slice library (+ capacity water level when a cap is configured).
 	fmt.Fprintf(w, "  %s\n", paint(color, ansiBold, "📦 Slice library"))
-	fmt.Fprintf(w, "     %d slices · %d cross-session sessions\n", d.Library.Slices, d.Library.CrossSessions)
+	if d.Library.Capacity > 0 {
+		level := float64(d.Library.Slices) / float64(d.Library.Capacity)
+		fmt.Fprintf(w, "     %d / %d slices (%.0f%%) · %d cross-session sessions\n",
+			d.Library.Slices, d.Library.Capacity, 100*level, d.Library.CrossSessions)
+		fmt.Fprintf(w, "     %s\n", paint(color, ansiCyan, bar(level, width)))
+	} else {
+		fmt.Fprintf(w, "     %d slices · %d cross-session sessions\n", d.Library.Slices, d.Library.CrossSessions)
+	}
 	fmt.Fprintln(w)
 }
 

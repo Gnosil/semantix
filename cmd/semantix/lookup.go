@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"semantix/kernel/inject"
 	"semantix/kernel/lookup"
@@ -80,6 +81,20 @@ func runLookup(args []string, stdout, stderr io.Writer, deps dependencies) error
 			SourceSession: h.Slice.Meta.SourceSession,
 		})
 	}
+	// Reuse accounting (评分器原料，spec slice-value-eviction §3): only clear
+	// hits count — grey/miss are not reuse signals, crediting them would
+	// reward weakly-related slices. Best-effort: stats must never fail a
+	// read path.
+	hitDeltas := map[string]slice.SliceStats{}
+	nowUnix := time.Now().Unix()
+	for _, r := range out {
+		if r.Zone == "hit" {
+			hitDeltas[r.ID] = slice.SliceStats{Hits: 1, LastUsed: nowUnix}
+		}
+	}
+	if err := slice.ApplyStats(store, hitDeltas); err != nil {
+		fmt.Fprintf(stderr, "semantix: stats write-back: %v\n", err)
+	}
 	if *jsonOut {
 		return writeJSON(stdout, okEnvelope("lookup", out))
 	}
@@ -136,6 +151,18 @@ func runInject(args []string, stdout, stderr io.Writer, deps dependencies) error
 	inj, err := (&inject.Injector{Index: idx, Scope: scope, K: *k, Budget: *budget, Zones: &z}).Build(*query)
 	if err != nil {
 		return err
+	}
+	// Injection accounting stays on the caller side — Injector.Build itself
+	// must remain read-only (kernel decision chain has no side effects).
+	if inj != nil && len(inj.Slices) > 0 {
+		deltas := make(map[string]slice.SliceStats, len(inj.Slices))
+		nowUnix := time.Now().Unix()
+		for _, sl := range inj.Slices {
+			deltas[sl.ID] = slice.SliceStats{Injected: 1, LastUsed: nowUnix}
+		}
+		if err := slice.ApplyStats(store, deltas); err != nil {
+			fmt.Fprintf(stderr, "semantix: stats write-back: %v\n", err)
+		}
 	}
 	fmt.Fprintf(stdout, "%s\n", stripESC(inj.Text))
 	return nil

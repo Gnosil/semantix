@@ -159,6 +159,10 @@ type SliceStats struct {
 }
 ```
 
+> 落地注（2026-08-16）：实现中 `LastUsed` 为 unix 秒 `int64`（journal max-merge 合并）；
+> `FirstSeen` 不单独落盘——语义等同 `Slice.CreatedAt`，刻意去重。评分器④/淘汰器⑤
+> 已落地于 `kernel/slice`（score.go + GC 上限/归档），见 `docs/specs/slice-value-eviction.md`。
+
 ### 3.4 与记忆/线程的联动
 
 - **记忆（陈述性）**：`remember` 存的偏好 → 作为 C-Slice 的种子内容；

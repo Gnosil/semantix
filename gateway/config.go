@@ -42,6 +42,21 @@ type StoreConfig struct {
 	// against (design §3.5: "deps root provided by config"). Missing files
 	// fail closed → the cached entry is treated as stale.
 	DepsRoot string `toml:"deps_root"`
+	// MaxSlices caps the library; the worst-scored slices are archived down
+	// to this count at startup (spec slice-value-eviction §4). Pointer so an
+	// absent key gets the default while an explicit 0 disables the cap.
+	MaxSlices *int `toml:"max_slices"`
+}
+
+// defaultMaxSlices matches the CLI config default (store.max_slices).
+const defaultMaxSlices = 5000
+
+// EffectiveMaxSlices resolves the cap: absent → default, explicit 0 → off.
+func (s StoreConfig) EffectiveMaxSlices() int {
+	if s.MaxSlices == nil {
+		return defaultMaxSlices
+	}
+	return *s.MaxSlices
 }
 
 // RetrievalConfig tunes the L2 injector.
@@ -222,6 +237,9 @@ func (c *Config) validate() error {
 	}
 	if c.Cache.TTLSeconds < 0 {
 		return fmt.Errorf("gateway config: [cache] ttl_seconds must be >= 0 (0 disables the time window)")
+	}
+	if c.Store.MaxSlices != nil && *c.Store.MaxSlices < 0 {
+		return fmt.Errorf("gateway config: [store] max_slices must be >= 0 (0 disables the cap)")
 	}
 	if len(c.Upstreams) == 0 {
 		return fmt.Errorf("gateway config: at least one [[upstreams]] entry is required")

@@ -22,6 +22,11 @@ name = "my-project"          # 项目 slug（切片 scope=project 的聚合键�
 # 切片库路径（extract/lookup/inject/verify 的 --db 默认值）
 db = ".semantix/project.db"
 scope = "project"           # 默认切片作用域：session | project | user
+max_slices = 5000           # 库条目上限（超限按价值评分归档到 <db>.archive.jsonl；0 = 不限）
+
+[score]                     # 价值评分（gc / gateway 启动时批算，决定淘汰序）
+half_life_days = 30         # 时效半衰期：30 天不用价值减半
+grace_days = 7              # 新切片保护窗：淘汰序中排最后（不豁免上限）
 
 [retrieval]
 retriever = "hybrid"        # bm25 | vector | hybrid（RRF 融合）

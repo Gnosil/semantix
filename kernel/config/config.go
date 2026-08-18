@@ -31,6 +31,7 @@ type File struct {
 	Store     fileStore     `toml:"store"`
 	Retrieval fileRetrieval `toml:"retrieval"`
 	Inject    fileInject    `toml:"inject"`
+	Score     fileScore     `toml:"score"`
 	Verify    fileVerify    `toml:"verify"`
 	Cost      fileCost      `toml:"cost"`
 }
@@ -40,8 +41,9 @@ type fileProject struct {
 }
 
 type fileStore struct {
-	DB    *string `toml:"db"`
-	Scope *string `toml:"scope"`
+	DB        *string `toml:"db"`
+	Scope     *string `toml:"scope"`
+	MaxSlices *int    `toml:"max_slices"`
 }
 
 type fileRetrieval struct {
@@ -53,6 +55,11 @@ type fileRetrieval struct {
 type fileInject struct {
 	Budget *int `toml:"budget"`
 	TopK   *int `toml:"top_k"`
+}
+
+type fileScore struct {
+	HalfLifeDays *float64 `toml:"half_life_days"`
+	GraceDays    *float64 `toml:"grace_days"`
 }
 
 type fileVerify struct {
@@ -154,6 +161,9 @@ func Load(opts Options) (*Resolved, error) {
 	if err := add(mergePtr("store.scope", "project", "SEMANTIX_SCOPE", file.Store.Scope, (*string)(nil))); err != nil {
 		return nil, err
 	}
+	if err := add(mergePtr("store.max_slices", 5000, "SEMANTIX_MAX_SLICES", file.Store.MaxSlices, (*int)(nil))); err != nil {
+		return nil, err
+	}
 	if err := add(mergePtr("retrieval.retriever", "hybrid", "SEMANTIX_RETRIEVER", file.Retrieval.Retriever, (*string)(nil))); err != nil {
 		return nil, err
 	}
@@ -167,6 +177,12 @@ func Load(opts Options) (*Resolved, error) {
 		return nil, err
 	}
 	if err := add(mergePtr("inject.top_k", 5, "SEMANTIX_INJECT_TOP_K", file.Inject.TopK, (*int)(nil))); err != nil {
+		return nil, err
+	}
+	if err := add(mergePtr("score.half_life_days", 30.0, "", file.Score.HalfLifeDays, (*float64)(nil))); err != nil {
+		return nil, err
+	}
+	if err := add(mergePtr("score.grace_days", 7.0, "", file.Score.GraceDays, (*float64)(nil))); err != nil {
 		return nil, err
 	}
 	if err := add(mergePtr("verify.holdout", 0.3, "SEMANTIX_VERIFY_HOLDOUT", file.Verify.Holdout, (*float64)(nil))); err != nil {
@@ -267,6 +283,18 @@ func (r *Resolved) validate() error {
 		case "retrieval.limit":
 			if v, ok := f.Value.(int); ok && v <= 0 {
 				errs = append(errs, "retrieval.limit: must be > 0")
+			}
+		case "store.max_slices":
+			if v, ok := f.Value.(int); ok && v < 0 {
+				errs = append(errs, "store.max_slices: must be >= 0 (0 disables the cap)")
+			}
+		case "score.half_life_days":
+			if v, ok := f.Value.(float64); ok && v <= 0 {
+				errs = append(errs, "score.half_life_days: must be > 0")
+			}
+		case "score.grace_days":
+			if v, ok := f.Value.(float64); ok && v < 0 {
+				errs = append(errs, "score.grace_days: must be >= 0")
 			}
 		case "retrieval.retriever":
 			if s, ok := f.Value.(string); ok {

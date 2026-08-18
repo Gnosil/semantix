@@ -78,7 +78,7 @@ Semantix 的 adapter 监听 Reasonix（或任意 harness）并翻译为上述契
 |---|---|
 | `TurnStarted` / `ToolDispatch` / `ToolResult` / `ToolRoundEnd` | 切片提取器（turn 切分 + T-Slice n-gram） |
 | `Usage` | 成本统计、缓存收益核算 |
-| `SliceHit` / `SliceInject` / `SliceReject` | 切片评分（命中/污染信号 → 进化引擎） |
+| `SliceHit` / `SliceInject` / `SliceReject` | 切片评分（命中/污染信号 → 进化引擎）。现状（2026-08-16）：切片评分原料由 store 统计回写直接采集（`slice.ApplyStats`，lookup/inject/gateway 四挂点），这三个事件仍零生产者，留给 harness 闭环接线 |
 | `PrefetchHit` / `PrefetchWaste` | 预取策略调参 |
 | `Compact` | 压缩统计 |
 | `EvolutionTick` | 参数持久化 + 审计 |

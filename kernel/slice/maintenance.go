@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"os"
+	"sort"
 	"time"
 )
 
@@ -140,35 +142,69 @@ type GCOptions struct {
 	// never went through the evolution engine) and are never removed by the
 	// score criterion — same protection as unknown CreatedAt.
 	MinWeight float64
-	// DryRun reports candidates without deleting anything.
+	// DryRun reports candidates without deleting, archiving, or persisting
+	// rescored weights.
 	DryRun bool
+	// MaxSlices caps the library size: after the threshold criteria, the
+	// worst-scored survivors are evicted down to this count. Unlike the
+	// threshold criteria, the cap exempts nothing — a cap that legacy
+	// entries can overflow is not a cap (they compete on the neutral
+	// rescore prior and lose ties by age). 0 disables.
+	MaxSlices int
+	// Rescore recomputes every Weight (ComputeWeight) before applying the
+	// criteria, turning gc into the offline scoring pass of 架构 §3.2 ④⑤.
+	Rescore bool
+	// Params tunes scoring and the eviction grace window (zero → defaults;
+	// Params.GraceDays 0 disables grace).
+	Params ScoreParams
+	// Now is the scoring clock (unix seconds); 0 → time.Now(). Injectable so
+	// the same library + same Now reproduce byte-identical decisions.
+	Now int64
+	// ArchivePath: when non-empty, evicted slices are appended there (Export
+	// line format — `semantix import` restores them) before removal. Written
+	// before deletion, so a crash can only leave duplicates, which Import
+	// resolves idempotently.
+	ArchivePath string
 }
 
 // GCResult summarizes one GC pass.
 type GCResult struct {
-	Checked  int      // slices inspected
-	Removed  int      // slices removed (or that would be removed in dry-run)
-	Expired  []string // ids expired by retention
-	LowScore []string // ids below the weight threshold
+	Checked         int      // slices inspected
+	Removed         int      // slices removed (or that would be, in dry-run)
+	Expired         []string // ids expired by retention
+	LowScore        []string // ids below the weight threshold
+	OverCap         []string // ids evicted by the capacity cap
+	Capacity        int      // effective MaxSlices (0 = unlimited)
+	Archived        int      // slices appended to ArchivePath
+	RescoredWeights int      // weights that changed in the rescore pass
 }
 
-// GC removes expired / low-score slices from the store. A slice is a candidate
-// when it matches the retention criterion OR the score criterion; ids appear
-// in the matching list(s) but are only removed once. With DryRun nothing is
-// deleted and Removed reports the candidate count.
+// GC is the scoring + eviction pass over the store. Pipeline: optional
+// rescore → threshold criteria (retention OR min-weight; legacy exemptions
+// preserved) → capacity cap (deterministic order: unprotected-by-grace
+// first, then Weight asc, CreatedAt asc with 0 oldest, ID asc) → archive →
+// apply. On stores supporting CompactWith the apply is a single fold that
+// also persists new weights and keeps raw embedding bytes intact; otherwise
+// it falls back to per-ID Delete/Put. With DryRun nothing is persisted.
 func GC(store Store, opts GCOptions) (GCResult, error) {
-	var res GCResult
+	res := GCResult{Capacity: opts.MaxSlices}
 	all, err := store.ListAll()
 	if err != nil {
 		return res, err
 	}
 	res.Checked = len(all)
-	cutoff := time.Now().Add(-time.Duration(opts.RetentionDays) * 24 * time.Hour).Unix()
+	now := opts.Now
+	if now == 0 {
+		now = time.Now().Unix()
+	}
+	if opts.Rescore {
+		res.RescoredWeights = Rescore(all, now, opts.Params)
+	}
+
+	evict := make(map[string]bool)
+	cutoff := now - int64(opts.RetentionDays)*86400
 	for _, sl := range all {
 		expired := opts.RetentionDays > 0 && sl.CreatedAt > 0 && sl.CreatedAt < cutoff
-		// Weight==0 means "never scored" (legacy/unknown), not "worthless":
-		// protect it like unknown CreatedAt so a threshold run cannot wipe
-		// the pre-U26 library.
 		low := opts.MinWeight > 0 && sl.Weight > 0 && sl.Weight < opts.MinWeight
 		if expired {
 			res.Expired = append(res.Expired, sl.ID)
@@ -176,15 +212,154 @@ func GC(store Store, opts GCOptions) (GCResult, error) {
 		if low {
 			res.LowScore = append(res.LowScore, sl.ID)
 		}
-		if !expired && !low {
-			continue
+		if expired || low {
+			evict[sl.ID] = true
 		}
-		res.Removed++
-		if !opts.DryRun {
-			if err := store.Delete(sl.ID); err != nil {
-				return res, err
+	}
+
+	if opts.MaxSlices > 0 {
+		live := make([]*Slice, 0, len(all))
+		for _, sl := range all {
+			if !evict[sl.ID] {
+				live = append(live, sl)
+			}
+		}
+		if over := len(live) - opts.MaxSlices; over > 0 {
+			graceSecs := int64(opts.Params.withDefaults().GraceDays * 86400)
+			protected := func(sl *Slice) bool {
+				return graceSecs > 0 && sl.CreatedAt > 0 && now-sl.CreatedAt < graceSecs
+			}
+			sort.SliceStable(live, func(i, j int) bool {
+				a, b := live[i], live[j]
+				if pa, pb := protected(a), protected(b); pa != pb {
+					return !pa // grace-protected sort last (evicted last)
+				}
+				if a.Weight != b.Weight {
+					return a.Weight < b.Weight
+				}
+				if a.CreatedAt != b.CreatedAt {
+					return a.CreatedAt < b.CreatedAt // 0 = unknown = oldest
+				}
+				return a.ID < b.ID
+			})
+			for _, sl := range live[:over] {
+				evict[sl.ID] = true
+				res.OverCap = append(res.OverCap, sl.ID)
 			}
 		}
 	}
+	res.Removed = len(evict)
+	if opts.DryRun {
+		return res, nil
+	}
+
+	if opts.ArchivePath != "" && len(evict) > 0 {
+		n, err := archiveEvicted(store, all, evict, opts.ArchivePath)
+		if err != nil {
+			return res, err
+		}
+		res.Archived = n
+	}
+
+	changed := len(evict) > 0 || res.RescoredWeights > 0
+	if cw, ok := store.(interface {
+		CompactWith(func([]*Slice) []*Slice) error
+	}); ok && changed {
+		weights := make(map[string]float64, len(all))
+		for _, sl := range all {
+			weights[sl.ID] = sl.Weight
+		}
+		if err := cw.CompactWith(func(live []*Slice) []*Slice {
+			kept := live[:0]
+			for _, sl := range live {
+				if evict[sl.ID] {
+					continue
+				}
+				if w, ok := weights[sl.ID]; ok {
+					sl.Weight = w
+				}
+				kept = append(kept, sl)
+			}
+			return kept
+		}); err != nil {
+			return res, err
+		}
+		return res, nil
+	}
+	if changed {
+		// Fallback for stores without CompactWith (fakes, future backends):
+		// per-ID ops, deterministic order.
+		ids := make([]string, 0, len(evict))
+		for id := range evict {
+			ids = append(ids, id)
+		}
+		sort.Strings(ids)
+		for _, id := range ids {
+			if err := store.Delete(id); err != nil {
+				return res, err
+			}
+		}
+		if opts.Rescore {
+			for _, sl := range all {
+				if !evict[sl.ID] {
+					if err := store.Put(sl); err != nil {
+						return res, err
+					}
+				}
+			}
+		}
+		return res, nil
+	}
+	// Nothing to apply: still fold any pending journal so gc keeps doubling
+	// as the downgrade path (no-op on a clean store).
+	if c, ok := store.(interface{ Compact() error }); ok {
+		return res, c.Compact()
+	}
 	return res, nil
+}
+
+// archiveEvicted appends the evicted slices to path in Export line format.
+// It prefers the store's raw lines (embedding bytes preserved verbatim);
+// weights in the archive are the last persisted ones — the archive records
+// what the store held, the eviction decision used the rescored values.
+func archiveEvicted(store Store, all []*Slice, evict map[string]bool, path string) (int, error) {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+	n := 0
+	if re, ok := store.(rawExporter); ok {
+		lines, _, err := re.exportLines()
+		if err != nil {
+			return 0, err
+		}
+		for _, line := range lines {
+			var id struct {
+				ID string `json:"ID"`
+			}
+			if json.Unmarshal(line, &id) != nil || !evict[id.ID] {
+				continue
+			}
+			if _, err := f.Write(append(line, '\n')); err != nil {
+				return n, err
+			}
+			n++
+		}
+		return n, f.Sync()
+	}
+	for _, sl := range all {
+		if !evict[sl.ID] {
+			continue
+		}
+		b, err := json.Marshal(sl)
+		if err != nil {
+			return n, err
+		}
+		if _, err := f.Write(append(b, '\n')); err != nil {
+			return n, err
+		}
+		n++
+	}
+	return n, f.Sync()
 }

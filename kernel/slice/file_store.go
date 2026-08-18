@@ -557,10 +557,10 @@ func (s *fileStore) maybeCompactLocked() error {
 func (s *fileStore) Compact() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.jOps == 0 && s.baseSkipped == 0 && s.journalSkipped == 0 && s.jw == nil {
-		if _, err := os.Stat(s.journalPath()); os.IsNotExist(err) {
-			return nil
-		}
+	// Nothing folded, nothing corrupt to shed → true no-op (a header-only
+	// journal may linger; it stays correctly bound to the base generation).
+	if s.jOps == 0 && s.baseSkipped == 0 && s.journalSkipped == 0 {
+		return nil
 	}
 	return s.compactLocked(nil)
 }

@@ -252,10 +252,10 @@ func buildCommands() []commandSpec {
 		run:     errCommand("import", runImport),
 		completionFlags: []string{"--input", "--db", "--json"}},
 	{name: "gc", group: groupMaintenance,
-		usage:   "semantix gc [--retention-days N] [--min-weight W] [--dry-run] [--json]",
-		summary: "prune stale / low-weight slices",
+		usage:   "semantix gc [--retention-days N] [--min-weight W] [--max-slices M] [--no-rescore] [--no-archive] [--dry-run] [--json]",
+		summary: "rescore weights, prune stale / low-weight slices, enforce the library cap",
 		run:     errCommand("gc", runGC),
-		completionFlags: []string{"--retention-days", "--min-weight", "--dry-run", "--json"}},
+		completionFlags: []string{"--retention-days", "--min-weight", "--max-slices", "--no-rescore", "--no-archive", "--dry-run", "--json"}},
 	}
 }
 

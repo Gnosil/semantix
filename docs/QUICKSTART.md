@@ -97,7 +97,7 @@ semantix install --target custom --dir ./agent  # 自定义目录
 semantix install --target claude-code --uninstall   # 卸载（仅移除 install 记录的文件）
 ```
 
-**维护**：`export`（JSONL 备份）`import`（恢复）`gc`（清理过期/低权重切片）已实现。
+**维护**：`export`（JSONL 备份）`import`（恢复）`gc`（评分 + 清理 + 上限淘汰）已实现。`gc` 默认重算价值权重并按 `store.max_slices`（默认 5000）归档超限切片到 `<db>.archive.jsonl`（`import` 可还原）；`--retention-days` / `--min-weight` / `--max-slices` / `--no-rescore` / `--no-archive` / `--dry-run`。
 
 **服务模式**：`serve` `watch` 为规划中命令（执行会报 unknown command）。
 

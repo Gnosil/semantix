@@ -554,7 +554,7 @@ and
 
 # Self-Evolving Optimization
 
-> **Status: shipped (MVP)** — `kernel/evolve` implements EWMA tuning (retrieval threshold, injection budget, pollution guard) with online and offline optimization paths.
+> **Status: shipped (MVP)** — slice value scoring + capacity eviction are live: hit/injection accounting feeds `weight = recency · frequency · injection-success · feedback` (`kernel/slice` scorer), and `gc` / gateway startup enforce a capped, archived library. `kernel/evolve` remains an EWMA-tuning MVP (retrieval threshold only; signal wiring pending).
 
 Semantix is designed around a feedback loop.
 
@@ -985,6 +985,7 @@ Agile 1 · First downloadable agent   🚧 M0 ✅ · M1 near-complete (gate #58)
 Agile 2 · Self-evolving loop          🚧 kernel-side MVP landed (M1-U18b); harness side pending
   · Adaptive Scheduler (P3)           ✅  kernel/sched.RuleDecider (MVP)
   · Speculative Prefetch (P4)         ✅  Planner + MatrixPrefetcher + Runner (MVP)
+  · Value scoring & eviction          ✅  kernel/slice scorer + capped/archived gc
   · Evolution Loop (P5)               ✅  kernel/evolve (MVP); closed-loop wiring pending
   · H2 ResourceLayer / H3 orchestration ⏳ blueprint only
 
@@ -1018,7 +1019,7 @@ Execution is organized in **Agile cycles** — one downloadable milestone per Ag
 | **P2** | Semantic cache — stable L2 injection, verified L3 reuse, pollution detection    | 🚧 L2 + L3 shipped ✅; real-harness e2e pending                      | 1        |
 | **P3** | Adaptive scheduler — intent classification, concurrency learning, model tier    | ✅ `kernel/sched.RuleDecider` MVP (M1-U18b); learning overlay pending | 2        |
 | **P4** | Speculative prefetch — T-Slice prediction, path patterns, budget control        | ✅ Planner + MatrixPrefetcher + Runner MVP (M1-U18b)                 | 2        |
-| **P5** | Evolution loop — online adaptation, offline optimization, ablation              | ✅ `kernel/evolve` MVP; closed-loop wiring + ablation pending        | 2        |
+| **P5** | Evolution loop — online adaptation, offline optimization, ablation              | ✅ slice scoring/eviction shipped (`kernel/slice`); `kernel/evolve` MVP, closed-loop wiring + ablation pending | 2        |
 
 Each stage should remain independently measurable.
 

@@ -13,6 +13,7 @@ import (
 
 	"semantix/kernel/cache"
 	"semantix/kernel/inject"
+	"semantix/kernel/slice"
 	"semantix/kernel/usage"
 )
 
@@ -57,6 +58,9 @@ func (g *Gateway) handleChat(w http.ResponseWriter, r *http.Request, body []byte
 				L3Reuse: true, At: g.now().Unix(),
 			})
 			g.replyFromCache(w, r, req, res)
+			g.recordSliceStats(map[string]slice.SliceStats{
+				res.SliceID: {Hits: 1, LastUsed: g.now().Unix()},
+			})
 			return
 		}
 	}
@@ -71,6 +75,18 @@ func (g *Gateway) handleChat(w http.ResponseWriter, r *http.Request, body []byte
 	if inj != nil {
 		injectedTokens = int64(inj.Bytes / 4)
 		sliceHits = len(inj.Slices)
+	}
+	if inj != nil && len(inj.Slices) > 0 {
+		// Injection-attempt accounting (评分器原料): recorded before the
+		// forward on purpose — upstream availability is not a property of
+		// the slice, and threading IDs through the two relay paths would
+		// widen their signatures for nothing.
+		deltas := make(map[string]slice.SliceStats, len(inj.Slices))
+		nowUnix := g.now().Unix()
+		for _, sl := range inj.Slices {
+			deltas[sl.ID] = slice.SliceStats{Injected: 1, LastUsed: nowUnix}
+		}
+		g.recordSliceStats(deltas)
 	}
 	body = g.rewriteOutgoing(body, req, up, inj)
 
@@ -304,6 +320,15 @@ func extractAssistantContent(body []byte) string {
 		return ""
 	}
 	return resp.Choices[0].Message.Content
+}
+
+// recordSliceStats writes reuse accounting for served slices (评分器原料,
+// spec slice-value-eviction §3). Best-effort: a stats failure is logged and
+// never surfaces to the client.
+func (g *Gateway) recordSliceStats(deltas map[string]slice.SliceStats) {
+	if err := slice.ApplyStats(g.store, deltas); err != nil {
+		log.Printf("gateway: slice stats: %v", err)
+	}
 }
 
 // recordUsage appends one kernel/usage event (best-effort).
