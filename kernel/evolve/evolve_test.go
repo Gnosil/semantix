@@ -87,8 +87,8 @@ func TestPollutionTightensTau(t *testing.T) {
 	if e.Adjustments() == 0 {
 		t.Fatal("pollution must trigger a tightening adjustment")
 	}
-	if got := e.Params().TauL2; got >= DefaultTauL2 {
-		t.Fatalf("TauL2 = %v, want < %v after pollution", got, DefaultTauL2)
+	if got := e.Params().TauL2; got <= DefaultTauL2 {
+		t.Fatalf("TauL2 = %v, want > %v after pollution (tighten = raise the floor)", got, DefaultTauL2)
 	}
 }
 
@@ -103,21 +103,31 @@ func TestHitsRelaxTau(t *testing.T) {
 	if e.Adjustments() == 0 {
 		t.Fatal("high hit rate must trigger a relaxation adjustment")
 	}
-	if got := e.Params().TauL2; got <= DefaultTauL2 {
-		t.Fatalf("TauL2 = %v, want > %v after hits", got, DefaultTauL2)
+	if got := e.Params().TauL2; got >= DefaultTauL2 {
+		t.Fatalf("TauL2 = %v, want < %v after hits (relax = admit more reuse)", got, DefaultTauL2)
 	}
 }
 
 func TestTauClampedToBounds(t *testing.T) {
 	cfg := Config{Alpha: 0.5, MinSamples: 1, FreezeEpochs: 0, MinTau: 0.30, MaxTau: 0.80}
 	e := New(cfg)
-	// Hammer pollution: tau must never go below MinTau.
+	// Hammer pollution (tighten drives tau up): must never exceed MaxTau.
 	for i := uint64(1); i <= 30; i++ {
 		if err := e.RecordSignal(Signal{Name: "inject_pollution", Value: 1, Epoch: i}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if got := e.Params().TauL2; got < cfg.MinTau {
+	if got := e.Params().TauL2; got > cfg.MaxTau {
+		t.Fatalf("TauL2 = %v above max %v", got, cfg.MaxTau)
+	}
+	// Hammer hits (relax drives tau down): must never go below MinTau.
+	e2 := New(cfg)
+	for i := uint64(1); i <= 30; i++ {
+		if err := e2.RecordSignal(Signal{Name: "cache_hit", Value: 1, Epoch: i}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := e2.Params().TauL2; got < cfg.MinTau {
 		t.Fatalf("TauL2 = %v below min %v", got, cfg.MinTau)
 	}
 }

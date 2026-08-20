@@ -164,18 +164,18 @@ func TestFeedEvolveAdjustsTauAfterHistory(t *testing.T) {
 		t.Fatalf("epoch must count consumed turns:\n%s", s)
 	}
 	// 65 signals at 0.9 hit ratio: hit EWMA ≥ HitTarget with zero pollution
-	// after the 60-epoch cold start → exactly one +TauStep adjustment
-	// (0.55 → 0.60), then the freeze window blocks further movement.
-	if !strings.Contains(s, "evolve_tau_l2\t0.600") {
-		t.Fatalf("tau must move off the default after sustained hits:\n%s", s)
+	// after the 60-epoch cold start → exactly one -TauStep relaxation
+	// (0.55 → 0.50), then the freeze window blocks further movement.
+	if !strings.Contains(s, "evolve_tau_l2\t0.500") {
+		t.Fatalf("tau must relax after sustained hits:\n%s", s)
 	}
 	// The persisted snapshot carries the adjusted value for consumers.
 	st, err := loadEvolveState(evolveDir)
 	if err != nil || st == nil {
 		t.Fatalf("loadEvolveState: st=%v err=%v", st, err)
 	}
-	if diff := st.Params.TauL2 - 0.60; diff < -1e-9 || diff > 1e-9 {
-		t.Fatalf("persisted TauL2 = %v, want 0.60", st.Params.TauL2)
+	if diff := st.Params.TauL2 - 0.50; diff < -1e-9 || diff > 1e-9 {
+		t.Fatalf("persisted TauL2 = %v, want 0.50", st.Params.TauL2)
 	}
 	// Deterministic replay: a second pass reproduces the identical output.
 	var again bytes.Buffer

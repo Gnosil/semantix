@@ -213,11 +213,13 @@ func (e *ewmaEngine) maybeAdjustLocked() {
 		return
 	}
 	old := e.params.TauL2
+	// TauL2 is a relative-confidence floor (zone.TauLow semantics): raising
+	// it admits fewer slices (tighten), lowering it admits more (relax).
 	switch {
 	case e.polEWMA >= PollutionRiseAt:
-		e.params.TauL2 = e.params.TauL2 - TauStep
+		e.params.TauL2 = e.params.TauL2 + TauStep // tighten: raise the floor
 	case e.hitEWMA >= HitTarget && e.polEWMA <= PollutionLow:
-		e.params.TauL2 = e.params.TauL2 + TauStep
+		e.params.TauL2 = e.params.TauL2 - TauStep // relax: admit more reuse
 	default:
 		return
 	}
