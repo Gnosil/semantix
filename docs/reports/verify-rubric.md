@@ -33,7 +33,7 @@
 
 - `kernel/judge` 已落地：RuleGate 三段路由 + Judge 接口 + NoopJudge（无模型时 grey 保守 Reject）。
 - **依赖指纹已接入**（`kernel/fingerprint`）：`extract --fingerprint <paths>` 采集 sha256 存入 `SliceMeta.Deps`；`RuleGate.Chain` 对带 Deps 的候选先跑指纹闸（变化 → 硬 Reject，零 LLM 成本）。
-- **waste++ 观测已接入**：`judge.Stats`（Confirmed/RulesReject/Fingerprint/JudgeReject/JudgeApproved），`verify --judge-*` 输出统计行。
+- **waste++ 观测已接入**：`judge.Stats`（Confirmed/RulesReject/Fingerprint/JudgeReject/JudgeApproved/JudgeError），`verify --judge-*` 输出统计行；judge 调用出错单独计 `JudgeError`（与「judge 拒绝」区分，Issue #245）。
 - **LLM judge 已实现**（`kernel/judge/llm.go`，双协议）：用户自选 `openai`（chat completions）或 `anthropic`（Messages API），`--judge-base-url` + `--judge-model` 指向自己的端点/模型，API key 从环境变量 `SEMANTIX_JUDGE_API_KEY` 读取（绝不入库/入参）。
 
 ## 模型 judge 配置（用户操作）

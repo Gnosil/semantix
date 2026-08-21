@@ -59,12 +59,13 @@ func (NoopJudge) Confirm(context.Context, Candidate) (bool, error) { return fals
 // Stats accumulates verification observability (waste++ tracking, Issue #8):
 // every rejection is a wasted reuse opportunity to be monitored.
 type Stats struct {
-	Confirmed    int // clear hits + judge-approved
-	RulesReject  int // miss / grey-without-judge
-	Fingerprint  int // dependency fingerprint changed (stage ① gate)
-	JudgeReject  int // judge declined
-	JudgeApproved int
-	NeedJudge    int // routed to judge
+	Confirmed     int // clear hits + judge-approved
+	RulesReject   int // miss / grey-without-judge
+	Fingerprint   int // dependency fingerprint changed (stage ① gate)
+	JudgeReject   int // judge declined
+	JudgeApproved int // judge approved
+	JudgeError    int // judge call failed (network/timeout/parse) — conservative reject, not a verdict
+	NeedJudge     int // routed to judge
 }
 
 func (s *Stats) add(o Stats) {
@@ -73,6 +74,7 @@ func (s *Stats) add(o Stats) {
 	s.Fingerprint += o.Fingerprint
 	s.JudgeReject += o.JudgeReject
 	s.JudgeApproved += o.JudgeApproved
+	s.JudgeError += o.JudgeError
 	s.NeedJudge += o.NeedJudge
 }
 
@@ -136,7 +138,10 @@ func (g RuleGate) Chain(ctx context.Context, c Candidate) (Verdict, string, erro
 	}
 	ok, err := g.Judge.Confirm(ctx, c)
 	if err != nil {
-		g.count(Stats{RulesReject: 1})
+		// Judge call failure (network/timeout/parse) is not a judge verdict:
+		// count it separately so observability can tell "judge unavailable"
+		// apart from "judge declined" (Issue #245).
+		g.count(Stats{JudgeError: 1})
 		return Reject, "judge error: conservative reject", err
 	}
 	if ok {

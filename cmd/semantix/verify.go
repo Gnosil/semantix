@@ -438,9 +438,9 @@ func runVerify(args []string, stdout io.Writer, deps dependencies) int {
 		fmt.Fprintf(stdout, "# ⚠ WARN grey_ratio=%.1f%% exceeds target %.1f%%\n", greyRatio, *greyTarget)
 	}
 	if *judgeProtocol != "" {
-		fmt.Fprintf(stdout, "# judge: confirmed=%d rules_reject=%d fingerprint=%d judge_reject=%d judge_approved=%d waste=%d\n",
-			jstats.Confirmed, jstats.RulesReject, jstats.Fingerprint, jstats.JudgeReject, jstats.JudgeApproved,
-			jstats.JudgeReject+jstats.Fingerprint+jstats.RulesReject)
+		fmt.Fprintf(stdout, "# judge: confirmed=%d rules_reject=%d fingerprint=%d judge_reject=%d judge_approved=%d judge_error=%d waste=%d\n",
+			jstats.Confirmed, jstats.RulesReject, jstats.Fingerprint, jstats.JudgeReject, jstats.JudgeApproved, jstats.JudgeError,
+			jstats.JudgeReject+jstats.Fingerprint+jstats.RulesReject+jstats.JudgeError)
 	}
 	if *greyTarget > 0 && greyRatio > *greyTarget {
 		// Issue #7 acceptance: the grey-zone share is an observability
