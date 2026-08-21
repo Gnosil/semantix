@@ -105,7 +105,11 @@ func (d *L3Decider) DecideL3(ctx context.Context, q Query) (*L3Result, error) {
 
 	for _, h := range cands {
 		s := h.Slice
-		switch z.ClassifyL3(h.Score, resultTop1, globalTop1) {
+		verdict := z.ClassifyL3(h.Score, resultTop1, globalTop1)
+		if fresh := q.Freshness.classify(s.CreatedAt); fresh < verdict {
+			verdict = fresh // freshness may only make reuse more conservative
+		}
+		switch verdict {
 		case zone.Hit:
 			// clear hit: reuse after the remaining gates below
 		case zone.Grey:
@@ -140,6 +144,26 @@ func (d *L3Decider) DecideL3(ctx context.Context, q Query) (*L3Result, error) {
 		}, nil
 	}
 	return nil, nil
+}
+
+// classify maps candidate age onto the existing three-zone decision model.
+// A disabled policy is neutral (Hit); active policies reject timestamps they
+// cannot establish as valid rather than silently treating legacy data as new.
+func (f Freshness) classify(createdAt int64) zone.Zone {
+	if f.TTLSeconds <= 0 {
+		return zone.Hit
+	}
+	if f.NowUnix <= 0 || createdAt <= 0 || createdAt > f.NowUnix {
+		return zone.Miss
+	}
+	age := f.NowUnix - createdAt
+	if age > f.TTLSeconds {
+		return zone.Miss
+	}
+	if age > f.TTLSeconds/2 {
+		return zone.Grey
+	}
+	return zone.Hit
 }
 
 // verified runs the two-stage dependency check; false is fail-closed.
