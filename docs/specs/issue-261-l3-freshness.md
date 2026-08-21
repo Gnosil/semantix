@@ -29,8 +29,9 @@ For every Result candidate, `L3Decider` applies:
 1. semantic Hit/Grey/Miss classification;
 2. freshness Hit/Grey/Miss classification;
 3. the stricter of the two verdicts;
-4. context and model isolation;
-5. dependency mtime and fingerprint verification.
+4. the existing judge path when the combined verdict is Grey;
+5. context and model isolation;
+6. dependency mtime and fingerprint verification.
 
 A freshness Grey candidate follows the existing grey-zone judge path. A Miss
 continues to the next candidate, so one stale high-ranked result cannot hide a

@@ -12,10 +12,11 @@ import (
 )
 
 // L3Decider implements Decider with a fail-closed L3 path (Issue #59 / U16):
-// a Result slice is reusable only when (a) retrieval finds it clearly
-// relevant (zone Hit), (b) its dependency files still match the captured
-// mtimes (fast path) and (c) the sha256 fingerprint still matches (authority
-// path). Any failure in the chain rejects reuse — never returns stale data.
+// a Result slice is reusable only when (a) retrieval finds it relevant,
+// (b) an optional age policy keeps it in Hit or a judge approves its Grey
+// verdict, (c) its dependency files still match the captured mtimes (fast
+// path) and (d) the sha256 fingerprint still matches (authority path). Any
+// failure in the chain rejects reuse — never returns stale data.
 type L3Decider struct {
 	Index slice.Index
 	Store slice.Store // optional; used to re-read full slices by ID
@@ -59,12 +60,12 @@ func (d *L3Decider) DecideL2(ctx context.Context, q Query) ([]slice.Hit, error) 
 // DecideL3 returns a verified reusable result, or nil when any gate fails
 // (fail-closed). Verification chain, cheapest first:
 //
-//	1. retrieval: Result-typed slice, zone Hit — classified with the
-//	   two-axis L3 verdict (Issue #241): prominence among Result peers
-//	   (resultTop1) plus a scale anchor to the raw top-1 hit (globalTop1,
-//	   usually the byte-identical Prompt twin)
-//	2. mtime fast-fail: every captured dep's mtime unchanged
-//	3. fingerprint authority: Verify reports zero changed paths
+//  1. retrieval: Result-typed slice, classified with the two-axis L3 verdict
+//     (Issue #241) and the optional freshness policy; combined Grey verdicts
+//     require judge approval
+//  2. context/model isolation
+//  3. mtime fast-fail: every captured dep's mtime unchanged
+//  4. fingerprint authority: Verify reports zero changed paths
 //
 // A slice with no dependency capture (Deps nil) is eligible without
 // verification — it depended on nothing, so nothing can go stale.
