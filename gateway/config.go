@@ -101,6 +101,21 @@ type RetrievalConfig struct {
 	TopK      int    `toml:"top_k"`
 	Budget    int    `toml:"budget"`
 	VectorDim int    `toml:"vector_dim"` // HashEmbedder dimension (<=0 -> 256)
+	// Embedder optionally selects a real semantic embedder for vector/hybrid
+	// retrieval (Issue #275). Empty or kind=hash keeps the zero-dependency
+	// HashEmbedder; kind=model wires kernel/embed.ModelEmbedder (fail-soft to
+	// hash). API key comes from env SEMANTIX_EMBED_API_KEY, matching the CLI.
+	Embedder EmbedderConfig `toml:"embedder"`
+}
+
+// EmbedderConfig selects how vector retrieval embeds text. kind is "hash"
+// (default, zero-dependency, feature-hashing) or "model" (OpenAI-compatible
+// remote embeddings). Mirror of the CLI's --embedder, adapted to toml.
+type EmbedderConfig struct {
+	Kind    string `toml:"kind"`     // "hash" (default) | "model"
+	BaseURL string `toml:"base_url"` // model: OpenAI-compatible base (e.g. https://api.openai.com/v1)
+	Model   string `toml:"model"`    // model: embedding model id
+	Dim     int    `toml:"dim"`      // optional declared dimension; <=0 unused
 }
 
 // CacheConfig holds L3 policy. TTL is resolved by the gateway and passed to
@@ -320,6 +335,16 @@ func (c *Config) validate() error {
 	}
 	if c.Cache.JudgeProtocol != "" && c.Cache.JudgeProtocol != "openai" && c.Cache.JudgeProtocol != "anthropic" {
 		return fmt.Errorf("gateway config: [cache] judge_protocol %q must be openai or anthropic", c.Cache.JudgeProtocol)
+	}
+	switch c.Retrieval.Embedder.Kind {
+	case "", "hash":
+		// zero-dep default, nothing to validate
+	case "model":
+		if strings.TrimSpace(c.Retrieval.Embedder.BaseURL) == "" || strings.TrimSpace(c.Retrieval.Embedder.Model) == "" {
+			return fmt.Errorf("gateway config: [retrieval.embedder] kind=model requires base_url and model (api key via SEMANTIX_EMBED_API_KEY)")
+		}
+	default:
+		return fmt.Errorf("gateway config: [retrieval.embedder] kind %q must be hash or model", c.Retrieval.Embedder.Kind)
 	}
 	if c.Cache.TTLSeconds < 0 {
 		return fmt.Errorf("gateway config: [cache] ttl_seconds must be >= 0 (0 disables the time window)")
