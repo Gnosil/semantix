@@ -218,6 +218,37 @@ func TestE2EL3HitZeroUpstreamCalls(t *testing.T) {
 	}
 }
 
+func TestE2EL3UnknownCreatedAtFailsClosed(t *testing.T) {
+	up := &testUpstream{plain: `{"choices":[{"message":{"role":"assistant","content":"fresh upstream"}}]}`}
+	upSrv := httptest.NewServer(up.handler())
+	defer upSrv.Close()
+	g := newTestGateway(t, upSrv.URL)
+	srv := httptest.NewServer(g)
+	defer srv.Close()
+
+	chash, _ := contextHash([]chatMessage{msg("user", "hello world")})
+	s := &slice.Slice{
+		ID: "l3-legacy", Type: slice.Result, Scope: slice.Project,
+		Content: []byte("hello world legacy cached answer"),
+		Meta:    slice.SliceMeta{L3Safe: true, ContextHash: chash, Model: "deepseek-chat"},
+	}
+	// Bypass seed: it intentionally backfills CreatedAt for ordinary tests.
+	if err := g.store.Put(s); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.index.Insert(s); err != nil {
+		t.Fatal(err)
+	}
+
+	resp, out := postChat(t, srv, "test-key", chatBody("deepseek-chat", "hello world", false))
+	if resp.Header.Get("x-semantix-cache") != "miss" {
+		t.Fatalf("cache = %q, want miss for unknown CreatedAt (%s)", resp.Header.Get("x-semantix-cache"), out)
+	}
+	if n := up.callCount(); n != 1 {
+		t.Fatalf("upstream calls = %d, want 1", n)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // L2 injection: forwarded request carries the reuse block (acceptance #2)
 

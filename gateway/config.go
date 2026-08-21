@@ -55,11 +55,12 @@ type RetrievalConfig struct {
 	VectorDim int    `toml:"vector_dim"` // HashEmbedder dimension (<=0 -> 256)
 }
 
-// CacheConfig holds L3 policy. TTL is a gateway-side time window over
-// Slice.CreatedAt (CreatedAt==0 never expires); the kernel dep-fingerprint
-// chain remains the authority for staleness. TTLSeconds is the generic
-// window; VendorTTL overrides it per vendor (design §3.5: DeepSeek 24h /
-// Anthropic 5m) and wins over the built-in vendor defaults in TTLFor.
+// CacheConfig holds L3 policy. TTL is resolved by the gateway and passed to
+// the kernel's age-aware L3 gate: candidates in the second half of the window
+// require a judge, while expired or unstamped candidates fail closed. The
+// dependency-fingerprint chain remains the content-change authority.
+// TTLSeconds is the generic window; VendorTTL overrides it per vendor (design
+// §3.5: DeepSeek 24h / Anthropic 5m) and wins over the built-in defaults.
 type CacheConfig struct {
 	TTLSeconds    int64            `toml:"ttl_seconds"`
 	VendorTTL     map[string]int64 `toml:"vendor_ttl"`

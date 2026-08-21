@@ -248,16 +248,19 @@ func (g *Gateway) resolveScope(r *http.Request) (slice.Scope, error) {
 	return parseScope(v)
 }
 
-// cacheFresh applies the vendor-aware TTL window over Slice.CreatedAt
-// (design §3.5: DeepSeek 24h / Anthropic 5m, resolved by Config.TTLFor).
-// ttl<=0 or unknown age (CreatedAt==0) never expire (kernel gc semantics);
-// the kernel dep-fingerprint chain stays the staleness authority.
+// cacheFresh is the gateway's final defensive TTL check after the kernel's
+// age-aware candidate gate. An active window treats unknown, future and
+// expired timestamps as stale; ttl<=0 explicitly disables the time policy.
 func (g *Gateway) cacheFresh(s *slice.Slice, vendor string) bool {
 	ttl := g.cfg.TTLFor(vendor)
-	if ttl <= 0 || s.CreatedAt == 0 {
+	if ttl <= 0 {
 		return true
 	}
-	return g.now().Unix()-s.CreatedAt <= ttl
+	now := g.now().Unix()
+	if s.CreatedAt <= 0 || s.CreatedAt > now {
+		return false
+	}
+	return now-s.CreatedAt <= ttl
 }
 
 // randomID returns a hex id for sidecar session files.
