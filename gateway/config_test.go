@@ -322,3 +322,48 @@ func TestLexicalFloorConfigParse(t *testing.T) {
 		t.Fatalf("lexical_floor=0.2 = %v, want 0.2", got)
 	}
 }
+
+// TestValidateEmbedderSection rejects an incomplete or invalid
+// [retrieval.embedder] and accepts hash/model (Issue #275).
+func TestValidateEmbedderSection(t *testing.T) {
+	base := func() *Config {
+		c := DefaultConfig()
+		c.Server.GatewayKey = "k"
+		c.Store.DB = "x.jsonl"
+		c.Upstreams = []UpstreamConfig{{
+			Name: "ds", BaseURL: "https://u/v1", APIKey: "k",
+			ModelAlias: []string{"m"}, UpstreamModel: "m", Vendor: "deepseek",
+		}}
+		return c
+	}
+
+	// model without base_url/model must be rejected.
+	c := base()
+	c.Retrieval.Embedder = EmbedderConfig{Kind: "model", BaseURL: "https://emb/v1"}
+	if err := c.validate(); err == nil {
+		t.Fatal("kind=model without base_url+model must be rejected")
+	}
+
+	// unknown kind must be rejected.
+	c = base()
+	c.Retrieval.Embedder = EmbedderConfig{Kind: "nope"}
+	if err := c.validate(); err == nil {
+		t.Fatal("unknown embedder kind must be rejected")
+	}
+
+	// empty / hash accepted (default, zero-dep).
+	if c := base(); c.validate() != nil {
+		t.Fatalf("empty embedder rejected: %v", c.validate())
+	}
+	c = base()
+	c.Retrieval.Embedder = EmbedderConfig{Kind: "hash"}
+	if err := c.validate(); err != nil {
+		t.Fatalf("kind=hash rejected: %v", err)
+	}
+	// model with everything present accepted.
+	c = base()
+	c.Retrieval.Embedder = EmbedderConfig{Kind: "model", BaseURL: "https://emb/v1", Model: "text-emb"}
+	if err := c.validate(); err != nil {
+		t.Fatalf("full model embedder rejected: %v", err)
+	}
+}
