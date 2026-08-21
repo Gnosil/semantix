@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -26,18 +27,45 @@ import (
 
 const defaultVectorDim = 256
 
+// newGatewayEmbedder builds the retrieval embedder from [retrieval.embedder]
+// (Issue #275). kind=hash / empty returns nil (caller falls back to the
+// zero-dependency HashEmbedder); kind=model returns a kernel/embed.ModelEmbedder
+// wired from the config + SEMANTIX_EMBED_API_KEY (fail-soft to hash on remote
+// failure, matching the CLI). An invalid/mismatched kind was rejected earlier
+// by config.validate, so this only constructs; the nil return keeps defaults.
+func newGatewayEmbedder(ec EmbedderConfig) embed.Embedder {
+	switch ec.Kind {
+	case "model":
+		me, err := embed.NewModelEmbedder(embed.ModelEmbedderConfig{
+			BaseURL: ec.BaseURL,
+			Model:   ec.Model,
+			APIKey:  os.Getenv("SEMANTIX_EMBED_API_KEY"),
+		})
+		if err == nil {
+			return me
+		}
+		// Config validated earlier; if construction still fails (e.g. missing
+		// API key env), degrade to the zero-dep hash rather than failing New.
+		return nil
+	default:
+		return nil
+	}
+}
+
 // newRetriever builds the retrieval index selected by [retrieval] retriever.
 // Unknown kinds fall back to bm25 (config.validate rejects them before New,
 // so this default is defensive only). dim seeds the HashEmbedder (<=0 → 256).
-func newRetriever(kind string, dim int) slice.Index {
+// emb is an optional real embedder (nil = hash default); model/edim name the
+// embedding space for the compatibility guard (Issue #275).
+func newRetriever(kind string, dim int, emb embed.Embedder, model string, edim int) slice.Index {
 	if dim <= 0 {
 		dim = defaultVectorDim
 	}
 	switch kind {
 	case "vector":
-		return newVectorIndex(dim)
+		return newVectorIndex(dim, emb, model, edim)
 	case "hybrid":
-		return &hybridIndex{bm: bm25.New(), vec: newVectorIndex(dim)}
+		return &hybridIndex{bm: bm25.New(), vec: newVectorIndex(dim, emb, model, edim)}
 	default:
 		return bm25.New()
 	}
@@ -45,22 +73,41 @@ func newRetriever(kind string, dim int) slice.Index {
 
 // vectorIndex adapts embed.VectorIndex to slice.Index: slices are embedded
 // on Insert, the query is embedded on Search, and hits are filtered by scope
-// then mapped back to slice.Hit. Cosine similarity is the score.
+// then mapped back to slice.Hit. Cosine similarity is the score. emb may be a
+// HashEmbedder (default/zero-dep) or a ModelEmbedder (Issue #275); compatibility
+// (model/dim) is guarded on Insert/Search so mixed spaces never collide.
 type vectorIndex struct {
-	emb  embed.HashEmbedder
+	emb  embed.Embedder
 	vec  *embed.VectorIndex
 	mu   sync.RWMutex
 	byID map[string]*slice.Slice
+	// model / dim record the embedder space this index embeds into, used to
+	// skip incompatible stored slices (i.e. a different model or dimension)
+	// during Search so mixed embedding spaces never collide.
+	model string
+	dim   int
 }
 
-func newVectorIndex(dim int) *vectorIndex {
+func newVectorIndex(dim int, emb embed.Embedder, model string, edim int) *vectorIndex {
 	if dim <= 0 {
 		dim = defaultVectorDim
 	}
+	if emb == nil {
+		emb = embed.HashEmbedder{Dim: dim}
+		model, edim = "hash", dim
+	}
+	if model == "" {
+		model = "hash"
+	}
+	if edim <= 0 {
+		edim = dim
+	}
 	return &vectorIndex{
-		emb:  embed.HashEmbedder{Dim: dim},
-		vec:  embed.NewVectorIndex(),
-		byID: map[string]*slice.Slice{},
+		emb:   emb,
+		vec:   embed.NewVectorIndex(),
+		byID:  map[string]*slice.Slice{},
+		model: model,
+		dim:   edim,
 	}
 }
 
@@ -100,6 +147,16 @@ func (v *vectorIndex) Search(query string, k int, scope slice.Scope) ([]slice.Hi
 	for _, h := range hits {
 		s := v.byID[h.ID]
 		if s == nil || s.Scope != scope {
+			continue
+		}
+		// Compatibility guard (Issue #275): skip stored slices whose embedding
+		// space differs from this index (different model or dimension) so mixed
+		// embedding spaces can never collide. A slice with no provenance and a
+		// matching dimension is treated as compatible (hash space).
+		if v.model != "hash" && s.Meta.EmbedModel != "" && s.Meta.EmbedModel != v.model {
+			continue
+		}
+		if v.dim > 0 && s.Meta.EmbedDim > 0 && s.Meta.EmbedDim != v.dim {
 			continue
 		}
 		// Pure-vector route: no fused BM25 contribution exists, so lexical
