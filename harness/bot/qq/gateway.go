@@ -324,7 +324,9 @@ func (a *adapter) connectGateway(ctx context.Context, token string) error {
 			<-heartbeatDone
 			return err
 		}
+		ws.mu.Lock()
 		ws.lastSeq = msg.S
+		ws.mu.Unlock()
 		a.seq = msg.S
 
 		switch msg.Op {
