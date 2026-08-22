@@ -44,7 +44,7 @@ func (s *fileStore) Put(e Entry) error {
 		return err
 	}
 	for _, old := range all {
-		if old.ContentVersion == e.ContentVersion && old.Query == e.Query {
+		if old.SourceSliceID == e.SourceSliceID && old.ContentVersion == e.ContentVersion && old.Query == e.Query {
 			return nil // duplicate
 		}
 	}
