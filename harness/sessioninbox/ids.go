@@ -68,6 +68,9 @@ func PreviewText(text string, maxRunes int) string {
 			prevSpace = true
 			count++
 			if count >= maxRunes {
+				if i < len(text) {
+					b.WriteString("…")
+				}
 				break
 			}
 			continue
