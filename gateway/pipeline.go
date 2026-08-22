@@ -325,11 +325,13 @@ func (g *Gateway) passthrough(w http.ResponseWriter, resp *http.Response, sessio
 		if isHopByHopHeader(k) {
 			continue
 		}
-		if vendor == "anthropic" && http.CanonicalHeaderKey(k) == "Content-Length" {
-			// Only the translated hop may differ from the upstream body
-			// length; net/http recomputes Content-Length, so a copied value
-			// would truncate or stall the reply. The OpenAI passthrough path
-			// relays verbatim and keeps the upstream framing byte-identical.
+		if http.CanonicalHeaderKey(k) == "Content-Length" {
+			// net/http recomputes Content-Length from the bytes actually
+			// written. A copied upstream value can be wrong even for the
+			// verbatim passthrough path: out is read through a LimitReader
+			// (maxBodyBytes), so an oversized upstream body is silently
+			// truncated and the original Content-Length would then promise
+			// more bytes than are written, stalling or truncating the reply.
 			continue
 		}
 		for _, v := range vs {
