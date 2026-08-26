@@ -1,0 +1,30 @@
+{
+  "submitted": 25,
+  "completed": 24,
+  "resolved": 22,
+  "resolved_ids": [
+    "astropy__astropy-14598",
+    "astropy__astropy-7336",
+    "django__django-11099",
+    "django__django-11451",
+    "django__django-12774",
+    "django__django-13033",
+    "django__django-13964",
+    "django__django-14580",
+    "django__django-14608",
+    "django__django-15731",
+    "django__django-16145",
+    "django__django-16255",
+    "django__django-16527",
+    "django__django-16569",
+    "django__django-16661",
+    "django__django-16662",
+    "django__django-16950",
+    "pydata__xarray-3151",
+    "pytest-dev__pytest-7236",
+    "scikit-learn__scikit-learn-11578",
+    "sphinx-doc__sphinx-10466",
+    "sympy__sympy-11618"
+  ],
+  "error_ids": []
+}

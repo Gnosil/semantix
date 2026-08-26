@@ -1,6 +1,23 @@
-# SWE-bench Verified × DeepSeek：semantix-agent 与主流 harness 对比（基建 + 现有公开数据）
+# SWE-bench Verified × DeepSeek：semantix-agent 与主流 harness 对比（基建 + 实测进行中 + 公开数据）
 
-> 日期：2026-08-24 · 状态：**实测管线已就绪并冒烟验证；真实模型轮次待环境解锁**（DeepSeek API key + 远程沙箱出网策略）。本文先汇总可信的公开数据，实测数字跑完后回填。
+> 日期：2026-08-24 · 更新：2026-08-26 · 状态：**semantix 臂前半（25/50）已完成并通过官方评测（§2.1）；其余臂待 DeepSeek 账户充值后续跑**（campaign 幂等可续，`scripts/swebench/`）。
+
+## 2.1 实测（进行中）：semantix-agent × deepseek-v4-flash，冻结 50 题子集之前 25 题
+
+单轮、`--preset balanced`、`--workers 4`、bash 沙箱 off（四臂统一最大权限约定）、谷时段为主。官方 `swebench.harness.run_evaluation`（Docker，Epoch ghcr 镜像）评测，0 个评测错误：
+
+| 指标 | 数值 |
+| --- | ---: |
+| **官方解决率** | **22 / 25（88%）** |
+| 缓存命中率（provider 上报聚合） | **98.4%** |
+| input tokens（合计 / 单实例均值） | 48.0M / 1.92M |
+| output tokens（合计） | 688K |
+| 墙钟（均值 / 中位） | 294s / 243s |
+| 成本（合计 / 单实例 / 每解决一题） | $0.96 / $0.038 / **$0.044** |
+
+未解决 3 题：`psf__requests-2317`、`django__django-13297`、`matplotlib__matplotlib-26208`（patch 非空但未过测试）。注意事项：n=25 为冻结子集的处理序前半（受余额中断，非独立抽样）、单轮次、无置信区间；与 §3 公开数字比较时须注意子集差异。原始数据：`scripts/swebench/results/c50-semantix/`（metrics.jsonl + 分批评测报告 + partial-eval-summary.json）。
+
+过程中发现并修复的两个方法学坑（详见 #400 与 `scripts/swebench/README.md`）：基准 prompt 的 "Do NOT modify existing test files" 被 semantix 任务策略的子串匹配放大为全局禁写；容器缺 bwrap 时 bash 工具被整体拒绝（其余三臂均无沙箱运行，故统一 `[sandbox] bash="off"`）。
 
 ## 1. 结论速览
 
