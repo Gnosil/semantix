@@ -2,20 +2,22 @@
 
 > 日期：2026-08-24 · 更新：2026-08-26 · 状态：**semantix 臂前半（25/50）已完成并通过官方评测（§2.1）；其余臂待 DeepSeek 账户充值后续跑**（campaign 幂等可续，`scripts/swebench/`）。
 
-## 2.1 实测（进行中）：semantix-agent × deepseek-v4-flash，冻结 50 题子集之前 25 题
+## 2.1 实测：semantix-agent vs dsh × deepseek-v4-flash，冻结 50 题子集全量
 
-单轮、`--preset balanced`、`--workers 4`、bash 沙箱 off（四臂统一最大权限约定）、谷时段为主。官方 `swebench.harness.run_evaluation`（Docker，Epoch ghcr 镜像）评测，0 个评测错误：
+单轮、统一 50 题（`subsets/verified-50-seed20260824.txt`）、`--workers 4`、两臂同模型同权限约定（semantix：`--preset balanced` + `[sandbox] bash="off"`）。官方 `swebench.harness.run_evaluation`（Docker）评测，两臂 50/50 全部落账（空 patch 按官方口径计未解决）：
 
-| 指标 | 数值 |
-| --- | ---: |
-| **官方解决率** | **22 / 25（88%）** |
-| 缓存命中率（provider 上报聚合） | **98.4%** |
-| input tokens（合计 / 单实例均值） | 48.0M / 1.92M |
-| output tokens（合计） | 688K |
-| 墙钟（均值 / 中位） | 294s / 243s |
-| 成本（合计 / 单实例 / 每解决一题） | $0.96 / $0.038 / **$0.044** |
+| 指标 | semantix-agent | dsh（官方 CLI 脚手架） |
+| --- | ---: | ---: |
+| **官方解决率** | **45 / 50（90%）** | 36 / 50（72%） |
+| 空 patch（自动判负） | 1 | **13（26%）** |
+| 缓存命中率（provider 上报） | 98.4% | 98.2% |
+| input tokens（单实例均值） | 1.89M | 1.18M |
+| 墙钟（中位） | 244s | 111s |
+| 成本（50 题合计 / 每解决一题） | $1.79 / $0.040 | $1.12 / $0.031 |
 
-未解决 3 题：`psf__requests-2317`、`django__django-13297`、`matplotlib__matplotlib-26208`（patch 非空但未过测试）。注意事项：n=25 为冻结子集的处理序前半（受余额中断，非独立抽样）、单轮次、无置信区间；与 §3 公开数字比较时须注意子集差异。原始数据：`scripts/swebench/results/c50-semantix/`（metrics.jsonl + 分批评测报告 + partial-eval-summary.json）。
+读法：同模型同题下 semantix 比 dsh 高 **18 个百分点**，主要差异源是 **dsh 的空 patch 率（13/50）**——dsh 会话在这些实例上未能产出任何补丁（多为提前放弃/上下文管理失败），而 semantix 仅 1 例。代价是 semantix 单实例多花约 60% tokens 与 2.2× 墙钟（更多轮探索与自验证）。两臂成本都在"每解决一题 4 美分"量级，缓存命中率几乎相同——语义层的收益体现在**成功率**而非命中率（DeepSeek 前缀缓存对两者同样有效）。
+
+注意事项：单轮次无置信区间；50 题为分层随机冻结子集（§2 方法学），与 §3 公开数字比较仍须注意子集与脚手架差异。claude-code / codex / 消融臂待补（余额中断，campaign 幂等可续）。原始数据与逐实例判定：`scripts/swebench/results-archive/`。
 
 过程中发现并修复的两个方法学坑（详见 #400 与 `scripts/swebench/README.md`）：基准 prompt 的 "Do NOT modify existing test files" 被 semantix 任务策略的子串匹配放大为全局禁写；容器缺 bwrap 时 bash 工具被整体拒绝（其余三臂均无沙箱运行，故统一 `[sandbox] bash="off"`）。
 
