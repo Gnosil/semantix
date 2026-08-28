@@ -105,6 +105,12 @@ func (s *HarnessSink) Emit(e event.Event) {
 		s.flushLocked()
 		s.turn = true
 		s.text, s.reason, s.tools = "", "", nil
+		// The harness sends the turn's user text on TurnStarted; without it
+		// the mirrored transcript has no user lines and the kernel extractor
+		// can never produce Prompt slices from these sessions.
+		if e.Text != "" {
+			s.first = e.Text
+		}
 	case event.Reasoning:
 		s.reason += e.Text
 	case event.Text:
@@ -173,6 +179,19 @@ func (s *HarnessSink) flushLocked() {
 	if s.err == nil {
 		s.err = s.file.Sync()
 	}
+}
+
+// EndTurn flushes the open turn and closes it. Synchronous controller runs
+// deliberately never emit TurnDone into the event stream (see stats.Recorder),
+// and a headless single-turn process can exit without reaching Close — so the
+// harness calls this at the end of each Run. Without it, `run -p` sessions
+// leave a permanently empty mirror and the kernel extractor has no input.
+func (s *HarnessSink) EndTurn() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.flushLocked()
+	s.turn = false
+	s.text, s.reason, s.tools = "", "", nil
 }
 
 // Close flushes and closes the underlying file.

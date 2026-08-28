@@ -964,6 +964,12 @@ type SemantixConfig struct {
 	// SessionsDir is where the session JSONL mirror is written; empty uses
 	// <controller session dir>/sessions.
 	SessionsDir string `toml:"sessions_dir"`
+	// ProjectDir is the kernel project directory the slice store and usage
+	// log resolve against (kernel CLI semantics: <dir>/.semantix/...). Empty
+	// uses the process working directory. Point several agent runs at one
+	// directory to share a slice library across workspaces (e.g. benchmark
+	// arms measuring cross-session reuse).
+	ProjectDir string `toml:"project_dir"`
 	// CostInputPriceUSD / CostCachePriceUSD override the usage cost model
 	// prices (USD per 1M tokens at cache miss / hit) used by the reuse panel
 	// savings delta. Zero keeps the kernel defaults — mirror semantix.toml

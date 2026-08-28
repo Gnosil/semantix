@@ -51,4 +51,8 @@ func (a *Agent) emitReuse(state *turnRuntime) {
 	if notice, ok := reuseNotice(state.reuse); ok {
 		a.svc.sink.Emit(notice)
 	}
+	// Seal the kernel session mirror's turn on every Run return path:
+	// synchronous runs never emit TurnDone, and headless processes can exit
+	// without reaching the bridge's deferred Close.
+	a.semantix.EndTurn()
 }

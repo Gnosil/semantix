@@ -62,8 +62,20 @@ python3 report.py --runs results/semantix.* results/dsh.* results/claude-code.* 
 python3 mock_provider.py --port 8139 &
 python3 run_bench.py --harness semantix --model deepseek-v4-flash \
   --dataset <smoke.jsonl> --run-id smoke --openai-base http://127.0.0.1:8139 \
-  --semantix-bin ../../bin/semantix-agent
+  --semantix-bin ../../bin/semantix-agent --semantix-kernel-bin ../../bin/semantix
 ```
+
+### semantix 记忆内核臂（`--semantix-memory`，默认 on）
+
+`--semantix-memory on`（默认）把记忆内核真正接入基准：config 写入 `[semantix]`
+enabled/inject；**每实例独立 `SEMANTIX_HOME`**（并发归属无竞态），所有实例的
+`project_dir` 指向**同一共享切片库**（`semantix-home/kernel/`）；每实例结束后
+runner 跑 `semantix extract` 把该会话蒸馏进库，后续实例即可检索注入（跨实例
+记忆闭环，需 `go build -o bin/semantix ./cmd/semantix`）。`off` 为消融孪生臂
+（内核关闭，等价旧行为）。记忆对照请用这对臂，**不要用 `--ablate`**（它只关
+harness 侧模块，不触碰内核）。判读字段（metrics `raw`）：
+`semantix_inject_turns` / `semantix_inject_bytes` / `semantix_reuse_hits` /
+`raw.extract`（每实例入库量）。设计与根因：`docs/specs/swebench-memory-arm.md`。
 
 ## 方法学要点（对比公平性）
 

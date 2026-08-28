@@ -557,6 +557,11 @@ const (
 	// (U33/H4a): Detail holds the JSON ReuseSummary (hits / savings_usd /
 	// sources), Text the one-line form for sinks without a panel.
 	NoticeCodeSemantixReuse = "semantix_reuse"
+	// NoticeCodeSemantixInject reports a non-empty [semantix-reuse] L2 block
+	// was assembled for a turn; Detail carries {"bytes": n}. Emitted at most
+	// once per user turn so metrics can count injection coverage without
+	// scraping the prompt.
+	NoticeCodeSemantixInject = "semantix_inject"
 )
 
 type Event struct {

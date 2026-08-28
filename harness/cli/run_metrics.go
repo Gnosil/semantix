@@ -116,6 +116,15 @@ type RunMetrics struct {
 	CapabilityRouterCompletionTok  int     `json:"capability_router_completion_tokens,omitempty"`
 	CapabilityRouterCost           float64 `json:"capability_router_cost,omitempty"`
 	CapabilityRouterLatencyMs      int64   `json:"capability_router_latency_ms,omitempty"`
+	// Semantix memory-kernel counters (zero when [semantix] is off): how many
+	// turns received a non-empty L2 [semantix-reuse] block, its total bytes,
+	// and the kernel-reported reuse hits / savings — so a benchmark can tell
+	// "memory arm actually injected" from "memory arm ran cold" without
+	// scraping transcripts.
+	SemantixInjectTurns     int     `json:"semantix_inject_turns,omitempty"`
+	SemantixInjectBytes     int     `json:"semantix_inject_bytes,omitempty"`
+	SemantixReuseHits       int     `json:"semantix_reuse_hits,omitempty"`
+	SemantixReuseSavingsUSD float64 `json:"semantix_reuse_savings_usd,omitempty"`
 
 	// Run accounting: what a benchmark needs to price one solved task and name
 	// the guard that ended a failed one.
@@ -335,6 +344,27 @@ func (s *metricsSink) record(e event.Event) {
 	}
 	if e.Kind == event.CompactionStarted {
 		s.m.Compactions++
+	}
+	if e.Kind == event.Notice {
+		switch e.Code {
+		case event.NoticeCodeSemantixInject:
+			s.m.SemantixInjectTurns++
+			var d struct {
+				Bytes int `json:"bytes"`
+			}
+			if json.Unmarshal([]byte(e.Detail), &d) == nil {
+				s.m.SemantixInjectBytes += d.Bytes
+			}
+		case event.NoticeCodeSemantixReuse:
+			var d struct {
+				Hits       int     `json:"hits"`
+				SavingsUSD float64 `json:"savings_usd"`
+			}
+			if json.Unmarshal([]byte(e.Detail), &d) == nil {
+				s.m.SemantixReuseHits += d.Hits
+				s.m.SemantixReuseSavingsUSD += d.SavingsUSD
+			}
+		}
 	}
 	if e.Kind == event.ToolResult {
 		s.recordToolResult(e.Tool)

@@ -27,6 +27,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 from common import (
@@ -129,21 +130,60 @@ class SemantixAdapter(Adapter):
     name = "semantix"
 
     def prepare(self) -> None:
-        # Shared across the run's instances on purpose: the memory kernel's
-        # cross-session slice library is part of what this benchmark measures.
+        # Memory-kernel arm wiring (issue: the original campaign wrote no
+        # [semantix] section, so SemantixConfig.Enabled defaulted to false and
+        # the whole kernel was off). With --semantix-memory on (the default)
+        # every instance gets its OWN home (so session mirrors are attributed
+        # race-free under --workers), while [semantix].project_dir points all
+        # of them at ONE shared slice library; after each instance the runner
+        # runs `semantix extract` so later instances can retrieve its slices.
         self.home = self.args.state_path / "semantix-home"
         self.home.mkdir(parents=True, exist_ok=True)
+        self.memory_on = self.args.semantix_memory == "on"
+        self.kernel_dir = self.home / "kernel"
+        self.extract_lock = threading.Lock()
+        if self.memory_on:
+            (self.kernel_dir / ".semantix").mkdir(parents=True, exist_ok=True)
+            self.kernel_bin = self.args.semantix_kernel_bin or shutil.which("semantix") or str(
+                HERE.parent.parent / "bin" / "semantix")
+            if not Path(self.kernel_bin).exists():
+                raise SystemExit(
+                    f"semantix kernel CLI not found ({self.kernel_bin}); build with "
+                    "`go build -o bin/semantix ./cmd/semantix` or pass --semantix-kernel-bin "
+                    "(or run with --semantix-memory off)")
+        self.binary = self.args.semantix_bin or shutil.which("semantix-agent") or str(
+            HERE.parent.parent / "bin" / "semantix-agent"
+        )
+        if not Path(self.binary).exists():
+            raise SystemExit(
+                f"semantix-agent binary not found ({self.binary}); build with "
+                "`go build -o bin/semantix-agent ./cmd/semantix-agent` or pass --semantix-bin"
+            )
+
+    def _write_home(self, home: Path, sessions_dir: Path) -> None:
+        home.mkdir(parents=True, exist_ok=True)
         # Provider keys resolve ONLY from Semantix's global .env (never the
         # process environment) — see ProviderEntry.APIKey in harness/config.
-        env_file = self.home / ".env"
+        env_file = home / ".env"
         env_file.write_text(
             f"DEEPSEEK_API_KEY={os.environ.get('DEEPSEEK_API_KEY', 'smoke')}\n")
         env_file.chmod(0o600)
         base = self.args.openai_base or DEEPSEEK_OPENAI_BASE
         effort = f'effort      = "{self.args.effort}"\n' if self.args.effort else ""
-        (self.home / "config.toml").write_text(
+        memory_section = ""
+        if self.memory_on:
+            sessions_dir.mkdir(parents=True, exist_ok=True)
+            memory_section = f'''
+[semantix]
+enabled      = true
+inject       = true
+budget       = 4096
+project_dir  = "{self.kernel_dir}"
+sessions_dir = "{sessions_dir}"
+'''
+        (home / "config.toml").write_text(
             f'''default_model = "deepseek"
-
+{memory_section}
 # Benchmark convention: every arm runs in its max-permission mode (codex
 # danger-full-access, claude --dangerously-skip-permissions, dsh
 # danger-full-access), so the bash OS-sandbox is off here too.
@@ -160,21 +200,16 @@ api_key_env = "DEEPSEEK_API_KEY"
 context_window = 128000
 {effort}'''
         )
-        self.binary = self.args.semantix_bin or shutil.which("semantix-agent") or str(
-            HERE.parent.parent / "bin" / "semantix-agent"
-        )
-        if not Path(self.binary).exists():
-            raise SystemExit(
-                f"semantix-agent binary not found ({self.binary}); build with "
-                "`go build -o bin/semantix-agent ./cmd/semantix-agent` or pass --semantix-bin"
-            )
 
     def run_instance(self, ws: Path, prompt: str, inst: dict):
         mfile = self.run_dir / "native" / f"{inst['instance_id']}.semantix.json"
         mfile.parent.mkdir(parents=True, exist_ok=True)
+        home = self.home / "inst" / inst["instance_id"]
+        sessions_dir = home / "kernel-sessions"
+        self._write_home(home, sessions_dir)
         env = clean_env()
         env.update({
-            "SEMANTIX_HOME": str(self.home),
+            "SEMANTIX_HOME": str(home),
             "SEMANTIX_NO_INTRO": "1",
             "SEMANTIX_LANG": "en",
         })
@@ -200,7 +235,35 @@ context_window = 128000
             if candidate.exists():
                 raw = json.loads(candidate.read_text())
                 break
+        if self.memory_on:
+            raw["extract"] = self._extract_slices(sessions_dir, inst["instance_id"])
         return exit_code, raw, err
+
+    def _extract_slices(self, sessions_dir: Path, instance_id: str) -> dict:
+        """Close the memory loop: distill this instance's session mirrors into
+        the shared slice library so later instances can retrieve them. The
+        agent never extracts on its own (extraction is `semantix extract` /
+        gateway-side by design), so the runner does it here. The sessions dir
+        is per-instance, so every mirror in it belongs to this instance; the
+        lock serializes store writes (the append journal is single-writer)."""
+        mirrors = sorted(sessions_dir.glob("*.jsonl"))
+        out = {"mirrors": len(mirrors), "runs": []}
+        db = self.kernel_dir / ".semantix" / "project.db"
+        for mirror in mirrors:
+            ecmd = [self.kernel_bin, "extract",
+                    "--input", str(mirror),
+                    "--scope", "project",
+                    "--project-db", str(db),
+                    "--session", instance_id,
+                    "--project", "swebench"]
+            try:
+                with self.extract_lock:
+                    ep = subprocess.run(ecmd, capture_output=True, text=True, timeout=120)
+                out["runs"].append({"mirror": mirror.name, "exit": ep.returncode,
+                                    "out": (ep.stdout or ep.stderr).strip()[-300:]})
+            except Exception as exc:  # extraction is best-effort, never fails the instance
+                out["runs"].append({"mirror": mirror.name, "error": str(exc)[:200]})
+        return out
 
     def fill_metrics(self, m: InstanceMetrics, raw: dict) -> None:
         m.input_tokens = raw.get("prompt_tokens", 0)
@@ -660,8 +723,14 @@ def main() -> None:
     ap.add_argument("--max-turns", type=int, default=120, help="claude-code turn cap")
     ap.add_argument("--preset", default="balanced", help="semantix preset")
     ap.add_argument("--effort", default="", help="semantix provider effort override")
-    ap.add_argument("--ablate", default="", help="semantix --ablate arm")
+    ap.add_argument("--ablate", default="", help="semantix --ablate arm (harness-side modules only; "
+                    "it does NOT toggle the memory kernel — use --semantix-memory for that)")
+    ap.add_argument("--semantix-memory", default="on", choices=("on", "off"),
+                    help="semantix memory-kernel arm: on = [semantix] enabled+inject, shared slice "
+                    "library across instances, per-instance extract; off = kernel disabled (ablation twin)")
     ap.add_argument("--semantix-bin", default="")
+    ap.add_argument("--semantix-kernel-bin", default="",
+                    help="path to the semantix kernel CLI (default: bin/semantix) used for slice extraction")
     ap.add_argument("--codex-bin", default="", help="codex binary override (chat wire needs ≤0.80.0)")
     ap.add_argument("--codex-wire-api", default="responses", choices=["responses", "chat"])
     ap.add_argument("--state-dir", default=os.path.expanduser("~/.cache/semantix-swebench"),

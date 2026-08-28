@@ -18,7 +18,7 @@
 | 墙钟（中位，已尝试实例） | 244s（约 50 步 × 4.8s） | 184s（约 34 步 × 3.9s） |
 | 每题成本（已尝试实例） | $0.036 | $0.030 |
 
-读法（以共同 37 题为准）：**dsh Minimal（仅 bash + file-replace 两工具）解决率高出 semantix 8.1pt，同时更快（中位 -33%）、更便宜（-17%）、步数更少（34 vs 50）**。semantix 账面 90% 的领先几乎全部来自"dsh 因余额没跑的 13 题中 semantix 解决了 12 题"——这是运行顺序的产物，不是能力差。该结果与 vals.ai 的独立发现一致（bash-only 极简 harness + V4 系 = 96.4%）：对这一代 DeepSeek 模型，**极简脚手架显著优于重脚手架**；semantix 的语义层在本基准上未表现出净收益（更多步探索反而引入更多出错面）。缓存命中率两臂几乎相同，语义层对命中率亦无增益。
+读法（以共同 37 题为准）：**dsh Minimal（仅 bash + file-replace 两工具）解决率高出 semantix 8.1pt，同时更快（中位 -33%）、更便宜（-17%）、步数更少（34 vs 50）**。semantix 账面 90% 的领先几乎全部来自"dsh 因余额没跑的 13 题中 semantix 解决了 12 题"——这是运行顺序的产物，不是能力差。该结果与 vals.ai 的独立发现一致（bash-only 极简 harness + V4 系 = 96.4%）：对这一代 DeepSeek 模型，**极简脚手架显著优于重脚手架**。另经复盘确认：本臂**记忆内核全程处于关闭态**（runner 未写 `[semantix]` 段；语义库零写入、无学习曲线、`semantix_lookup` 从未被调用——根因与修复见 `docs/specs/swebench-memory-arm.md`），因此上述差距全部来自 agent 策略层（更多步探索/验证），**不构成对语义层本身的评价**；语义层开启态的对照臂（`--semantix-memory on`）待补跑。缓存命中率两臂几乎相同（provider 前缀缓存自动生效，与语义层无关）。
 
 时间构成（对 wall 的回归分解，R²=0.86/0.92）：两臂单步都在 4–5s 与 3–4s 量级（网络往返 + 预填充 miss + 解码 + 本地工具执行），**时长差主要由步数驱动**；同题配对（33 题双解决）墙钟比中位 1.00×——semantix 慢在多 23% 的步数与更重的长尾（P90 507s vs 435s），不在单步速度。
 
@@ -91,7 +91,8 @@ Claude Opus 5：97.0（vals.ai，$1.29/题）；Claude Fable/Mythos 5：95–95.
 1. **子集**：`--sample 50 --seed 20260824` 冻结 50 题（全量 500 题四 harness ≈ 2000 次 agent 运行，先 50 题定量再决定是否扩全量）。
 2. **四轮生成**：semantix（`deepseek` preset balanced）、dsh（headless）、claude-code（anthropic 端点）、codex 0.80（chat + 计量代理），同 prompt 模板、同模型 `deepseek-v4-flash`、单实例 2400s 超时、`--workers 4`。
 3. **评测**：官方 `swebench.harness.run_evaluation`（Docker，Epoch ghcr 预构建镜像优先）。
-4. **汇总**：`report.py` 出四指标对比表；成本按谷时价折算并标注运行时段；semantix 另跑一条 `--ablate all` 对照臂隔离记忆内核的贡献。
+4. **汇总**：`report.py` 出四指标对比表；成本按谷时价折算并标注运行时段。
+   **勘误（记忆内核对照）**：原设想的「`--ablate all` 对照臂隔离记忆内核」不成立——`--ablate` 只关 harness 侧模块（planner/subagent/evidence/harness-memory/compaction），从不触碰 kernel 桥；且复盘确认已跑的 semantix 臂因 runner 未写 `[semantix]` 段而全程内核关闭（语义库零写入、无学习曲线，详见 `docs/specs/swebench-memory-arm.md` 的四项根因 R1–R4 与修复）。记忆对照臂改为 runner 的 **`--semantix-memory on|off`** 两臂：on = 内核开 + 共享切片库 + 逐实例 extract 闭环（默认），off = 消融孪生。已有 §2.1 semantix 数据等价于 off 臂。
 5. **发布口径**：区分「resolve rate（官方评测）」与「无空 patch 率」；缓存命中率一律为 provider 上报 cache token 之比，不用估算值。
 
 ### 待用户解锁的清单

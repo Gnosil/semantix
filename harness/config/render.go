@@ -513,6 +513,45 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	fmt.Fprintf(&b, "network = %v\n", c.Sandbox.Network)
 	b.WriteString("\n")
 
+	// [semantix] must round-trip: before this section was rendered, any config
+	// save (setup, migration, edits) silently DROPPED it — disabling the
+	// memory kernel that install.sh had enabled. Booleans always print;
+	// optional fields comment their defaults, house style.
+	b.WriteString("[semantix]\n")
+	b.WriteString("# Memory kernel: mirror sessions to the kernel JSONL sink (enabled) and\n")
+	b.WriteString("# inject the [semantix-reuse] block on similar tasks (inject).\n")
+	fmt.Fprintf(&b, "enabled = %v\n", c.Semantix.Enabled)
+	fmt.Fprintf(&b, "inject  = %v\n", c.Semantix.Inject)
+	if c.Semantix.Binary != "" {
+		fmt.Fprintf(&b, "binary  = %q\n", c.Semantix.Binary)
+	} else {
+		b.WriteString("# binary  = \"semantix\"   # kernel CLI on PATH (legacy lookup tool only)\n")
+	}
+	if c.Semantix.Budget != 0 {
+		fmt.Fprintf(&b, "budget  = %d\n", c.Semantix.Budget)
+	} else {
+		b.WriteString("# budget  = 4096          # L2 injection block byte cap\n")
+	}
+	if c.Semantix.SessionsDir != "" {
+		fmt.Fprintf(&b, "sessions_dir = %q\n", c.Semantix.SessionsDir)
+	}
+	if c.Semantix.ProjectDir != "" {
+		fmt.Fprintf(&b, "project_dir = %q   # shared slice library root (<dir>/.semantix/...)\n", c.Semantix.ProjectDir)
+	}
+	if c.Semantix.CostInputPriceUSD != 0 {
+		fmt.Fprintf(&b, "cost_input_price_usd = %s\n", formatFloat(c.Semantix.CostInputPriceUSD))
+	}
+	if c.Semantix.CostCachePriceUSD != 0 {
+		fmt.Fprintf(&b, "cost_cache_price_usd = %s\n", formatFloat(c.Semantix.CostCachePriceUSD))
+	}
+	if c.Semantix.LimitUSD != 0 {
+		fmt.Fprintf(&b, "limit_usd = %s\n", formatFloat(c.Semantix.LimitUSD))
+	}
+	if c.Semantix.Window != "" {
+		fmt.Fprintf(&b, "window = %q   # session|day\n", c.Semantix.Window)
+	}
+	b.WriteString("\n")
+
 	b.WriteString("[statusline]\n")
 	b.WriteString("# A custom status line: a command whose first stdout line replaces the built-in\n")
 	b.WriteString("# data row. It receives {\"model\",\"contextUsed\",\"contextWindow\",\"cwd\"} as JSON on stdin.\n")

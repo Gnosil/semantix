@@ -429,6 +429,18 @@ func (b *Bridge) sessionSink() *HarnessSink {
 	return hs
 }
 
+// EndTurn flushes and closes the mirror's open turn. The agent calls this on
+// every Run return path because synchronous runs never emit TurnDone and a
+// headless process can exit without running Close.
+func (b *Bridge) EndTurn() {
+	if b == nil || !b.Enabled() {
+		return
+	}
+	if hs := b.sessionSink(); hs != nil {
+		hs.EndTurn()
+	}
+}
+
 // Close flushes and closes the mirror sink, if created.
 func (b *Bridge) Close() error {
 	b.mu.Lock()

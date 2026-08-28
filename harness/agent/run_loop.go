@@ -225,7 +225,11 @@ func (a *Agent) beginRunTurn(ctx context.Context, input string) (rawInput string
 	// once; the user's raw text remains the classifier source above.
 	providerInput = withInterruptedRecovery(providerInput, a.pendingInterruptedRecovery())
 	a.task.prepareScope(scoped, scope.ID)
-	a.svc.sink.Emit(event.Event{Kind: event.TurnStarted})
+	// Carry the turn's user text on TurnStarted so downstream sinks that
+	// reconstruct transcripts (the semantix kernel session mirror) can write
+	// a user line — extraction needs it for Prompt slices. Sinks that ignore
+	// Text on lifecycle events are unaffected.
+	a.svc.sink.Emit(event.Event{Kind: event.TurnStarted, Text: providerInput})
 	a.emitTurnPhase(event.TurnPhaseWorking)
 	input = a.withTurnPreferences(providerInput)
 	// Persist the short execution-policy block in provider Content; keep the
@@ -266,18 +270,27 @@ func (a *Agent) beginRunTurn(ctx context.Context, input string) (rawInput string
 	// an empty block — the harness never blocks on the kernel.
 	if a.semantix != nil && a.semantix.Enabled() {
 		// Issue #270 step 2: the degrade_inject tier shrinks the injection
-	// (halved block budget) instead of dropping it, so tight budgets still
-	// get some reuse context. Any other action keeps the full injection.
-	if a.budgetCtrl != nil && a.budgetCtrl.Action() == sched.BudgetActionDegradeInject {
-		state.injectBlock = a.semantix.InjectDegraded(ctx, input)
-	} else {
-		state.injectBlock = a.semantix.InjectDetailed(ctx, input).Text
-	}
+		// (halved block budget) instead of dropping it, so tight budgets still
+		// get some reuse context. Any other action keeps the full injection.
+		if a.budgetCtrl != nil && a.budgetCtrl.Action() == sched.BudgetActionDegradeInject {
+			state.injectBlock = a.semantix.InjectDegraded(ctx, input)
+		} else {
+			state.injectBlock = a.semantix.InjectDetailed(ctx, input).Text
+		}
 		// U33/H4a reuse panel: capture the kernel's per-turn reuse summary
 		// (hit slices + incremental cost savings + top source sessions)
 		// alongside the injection block. Same soft-degrade contract: a zero
 		// summary hides the panel, never blocks the turn.
 		state.reuse = a.semantix.Reuse(ctx, input)
+		if blk := state.injectBlock; blk != "" {
+			detail, _ := json.Marshal(map[string]int{"bytes": len(blk)})
+			a.svc.sink.Emit(event.Event{
+				Kind: event.Notice, Level: event.LevelInfo,
+				Code:   event.NoticeCodeSemantixInject,
+				Text:   fmt.Sprintf("semantix inject: %d bytes", len(blk)),
+				Detail: string(detail),
+			})
+		}
 	}
 	return rawInput, state
 }
