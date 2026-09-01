@@ -3,7 +3,6 @@
    the context panel removes its grid track — it never overlays the center. */
 
 * { box-sizing: border-box; }
-[hidden] { display: none !important; }
 html, body { height: 100%; }
 
 body {
@@ -151,32 +150,11 @@ body.ws-right-collapsed .ws-context { display: none; }
 
 /* ---------- Live workflow timeline (GUI-5 #408) ---------- */
 
+.ws-demo.is-hidden { display: none; }
 .ws-timeline {
   display: flex; flex-direction: column; gap: 12px;
   min-width: 0;
 }
-.ws-empty {
-  margin: auto; max-width: 520px; padding: 48px 24px 64px;
-  text-align: center; color: var(--sx-text-2);
-}
-.ws-empty[hidden] { display: none; }
-.ws-empty__mark { display: block; margin-bottom: 18px; color: var(--sx-green-strong); font-size: 34px; }
-.ws-empty h1 { margin: 0 0 10px; color: var(--sx-text); font: 700 28px/1.2 var(--sx-font-sans); letter-spacing: -.025em; }
-.ws-empty p { margin: 0; font-size: 14px; line-height: 1.7; text-wrap: pretty; }
-.ws-empty__retry { margin-top: 16px; padding: 8px 13px; border: 1px solid var(--sx-border-strong); border-radius: 7px; background: var(--sx-surface-2); color: var(--sx-text); cursor: pointer; }
-.ws-setup { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 24px; background: color-mix(in oklab, var(--sx-bg-canvas) 88%, transparent); backdrop-filter: blur(12px); }
-.ws-setup[hidden] { display: none; }
-.ws-setup__card { width: min(520px, 100%); padding: 34px; border: 1px solid var(--sx-border-strong); border-radius: 14px; background: var(--sx-surface-1); box-shadow: 0 28px 80px rgb(0 0 0 / .32); }
-.ws-setup__step { color: var(--sx-green-strong); font: 650 11px/1.2 var(--sx-font-mono); letter-spacing: .08em; text-transform: uppercase; }
-.ws-setup__card h1 { margin: 12px 0 8px; font-size: 28px; letter-spacing: -.025em; }
-.ws-setup__card > p { color: var(--sx-text-3); line-height: 1.6; }
-.ws-setup__card label { display: grid; gap: 7px; margin-top: 18px; color: var(--sx-text-2); font-size: 12px; font-weight: 650; }
-.ws-setup__card select, .ws-setup__card input { width: 100%; padding: 11px 12px; border: 1px solid var(--sx-border-strong); border-radius: 7px; outline: none; background: var(--sx-bg-canvas); color: var(--sx-text); font: inherit; }
-.ws-setup__description { min-height: 20px; margin: 8px 0 -8px; font-size: 12px; }
-.ws-setup__status { min-height: 22px; margin: 16px 0 8px; font-size: 12px; }
-.ws-setup__status.is-error { color: #ef6a6a; }
-.ws-setup__submit { width: 100%; padding: 11px 14px; border: 0; border-radius: 7px; background: var(--sx-green-strong); color: #07140f; font-weight: 750; cursor: pointer; }
-.ws-setup__submit:disabled { opacity: .55; cursor: wait; }
 .ws-timeline:empty { display: none; }
 .ws-event {
   min-width: 0; background: var(--sx-surface);
@@ -359,7 +337,7 @@ body.ws-right-collapsed .ws-context { display: none; }
 .ws-statusbar .chev { margin-left: auto; color: var(--sx-text-3); }
 
 .composer {
-  grid-column: 1; grid-row: 2;
+  grid-column: 1 / -1; grid-row: 2;
   margin: 0 30px 16px; background: var(--sx-surface);
   border: 1px solid var(--sx-border-strong); border-radius: var(--sx-radius-l);
   padding: 14px 16px 12px; display: grid; gap: 12px; min-width: 0;
@@ -372,6 +350,8 @@ body.ws-right-collapsed .ws-context { display: none; }
 }
 .composer textarea::placeholder { color: var(--sx-text-3); }
 .composer-row { display: flex; align-items: center; gap: 10px; }
+.composer-attachments { display: inline-flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
+.composer-attachment { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 4px 7px; border: 1px solid var(--sx-border-strong); border-radius: 5px; color: var(--sx-text-3); font: 500 10.5px/1.2 var(--sx-font-mono); }
 .perm-chip {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 7px 12px; border-radius: 999px;
@@ -488,11 +468,11 @@ body.ws-right-collapsed .ws-context { display: none; }
 
 /* ---------- Responsive ---------- */
 
-@media (max-width: 1440px) {
+@media (max-width: 1180px) {
   body:not(.ws-right-pinned) .ws-body { grid-template-columns: minmax(0, 1fr); }
   body:not(.ws-right-pinned) .ws-context { display: none; }
 }
-@media (max-width: 900px) {
+@media (max-width: 860px) {
   body { grid-template-columns: minmax(0, 1fr); }
   .ws-side-toggle { display: inline-flex; }
   .ws-side { position: fixed; inset: 0 auto 0 0; z-index: 30; width: var(--sx-side-w); transform: translateX(-100%); transition: transform .18s ease; }
@@ -501,7 +481,3 @@ body.ws-right-collapsed .ws-context { display: none; }
   .ws-tree, .ws-center { padding-inline: 16px; }
   .composer { margin-inline: 16px; margin-bottom: 12px; }
 }
-
-button, input, select, textarea { transition: color .18s ease, background-color .18s ease, border-color .18s ease, transform .12s ease; }
-button:active:not(:disabled) { transform: translateY(1px); }
-:focus-visible { outline: 2px solid var(--sx-green); outline-offset: 2px; }
