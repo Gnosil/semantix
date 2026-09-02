@@ -233,6 +233,8 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 **Interfaces:**
 - Produces: 三份 `metrics.tsv`（instance/arm/elapsed/rc/turns/tokens/cost），Task 7 的输入。
 
+**臂语义（报告必须写明）：** ON-old 用 origin/main 二进制，**已含 #454 memory-matrix 的 strict 准入**（Context/Memory 白名单 + 五门槛），与产生用户口径 40→60 步膨胀的 W1 老代码不同代。三臂回答的是「main 现状还剩多少膨胀」+「四层蒸馏在其上再改善多少」。另：strict 的 MinSourceSessions=2 意味着 ON 臂前 2 题注入必然为空（冷启动保护），每 repo 实际带注入的是第 3-5 题。
+
 - [x] **Step 1: OFF 臂（新二进制，注入关）**
 
 ```bash

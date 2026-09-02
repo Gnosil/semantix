@@ -13,8 +13,10 @@
 # Usage: run_arm.sh <on|off> <out_dir>
 set -u
 ARM="$1"; OUT="$2"
-BIN=/tmp/semantix-agent
-KBIN=/tmp/semantix
+# Overridable so one script drives arms built from different revisions
+# (BIN=/tmp/semantix-agent-old for the pre-distill baseline arm).
+BIN="${BIN:-/tmp/semantix-agent}"
+KBIN="${KBIN:-/tmp/semantix}"
 PILOT="${PILOT_DIR:-/tmp/semantix-run/pilot}"
 REPOS=/tmp/semantix-run/repos
 MAX_STEPS="${MAX_STEPS:-40}"
@@ -66,7 +68,9 @@ EOF
         *) continue ;;
       esac
       [ "$prev_repo" = "$short_repo" ] || continue
-      $KBIN extract --input "$prev" --db "$rd/.semantix/project.db" --session "${pname%.jsonl}" > /dev/null 2>&1
+      # EXTRACT_FLAGS (e.g. "--distill --consolidate") selects the four-layer
+      # supply side for the ON-new arm; empty keeps the legacy transcript path.
+      $KBIN extract --input "$prev" --db "$rd/.semantix/project.db" --session "${pname%.jsonl}" ${EXTRACT_FLAGS:-} > /dev/null 2>&1
     done
   fi
 
@@ -94,6 +98,13 @@ PYEOF
   # the delta it produced.
   rm -f "$OUT/sessions"/*.jsonl 2>/dev/null
   ls "$OUT/sessions" 2>/dev/null | sort > "$OUT/.sessions.before"
+
+  # Agent-side session store snapshot: num_turns in the result JSON is a
+  # known dead counter (TurnDone never fires on this headless path — W1's
+  # 0/1 column was pure fallback), so real turns are counted from the new
+  # session JSONL the run writes under $SEMANTIX_HOME/projects/<slug>.
+  AHOME="${SEMANTIX_HOME:-$HOME/.semantix-agent}/projects/$(echo "$rd" | tr '/' '-')/sessions"
+  ls "$AHOME" 2>/dev/null | grep '\.jsonl$' | grep -v '\.events\.jsonl$' | sort > "$OUT/.ahome.before"
 
   start=$(date +%s)
   # Resume support: a completed run (parseable result JSON) is not redone —
@@ -127,14 +138,38 @@ PYEOF
     mv "$f" "$OUT/sessions/${short_repo}_${id}.jsonl"
   done
 
-  # Metrics summary from the agent's JSON result.
-  python3.12 - "$OUT/${id}.result.json" "$ARM" "$id" "$((end-start))" "$rc" <<'PYEOF' >> "$OUT/metrics.tsv"
+  # Real turn count: assistant lines in the session JSONL this run created.
+  real_turns=""
+  new_jsonl=$(ls "$AHOME" 2>/dev/null | grep '\.jsonl$' | grep -v '\.events\.jsonl$' | sort | comm -13 "$OUT/.ahome.before" - | tail -1)
+  if [ -n "$new_jsonl" ]; then
+    real_turns=$(python3.12 - "$AHOME/$new_jsonl" <<'PYEOF'
+import json, sys
+n = 0
+for line in open(sys.argv[1]):
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        d = json.loads(line)
+    except Exception:
+        continue
+    if d.get("role") == "assistant":
+        n += 1
+print(n)
+PYEOF
+)
+  fi
+
+  # Metrics summary: turns from the session JSONL (fallback ""), the rest
+  # from the agent's JSON result.
+  python3.12 - "$OUT/${id}.result.json" "$ARM" "$id" "$((end-start))" "$rc" "${real_turns:-}" <<'PYEOF' >> "$OUT/metrics.tsv"
 import json, sys
 try:
     d = json.load(open(sys.argv[1]))
     u = d.get("usage", {})
+    turns = sys.argv[6] if len(sys.argv) > 6 and sys.argv[6] != "" else d.get("num_turns")
     print("\t".join(map(str, [sys.argv[3], sys.argv[2], sys.argv[4], sys.argv[5],
-        d.get("num_turns"), u.get("input_tokens"), u.get("output_tokens"),
+        turns, u.get("input_tokens"), u.get("output_tokens"),
         u.get("cache_read_input_tokens"), u.get("cache_creation_input_tokens"),
         d.get("total_cost_usd")])))
 except Exception as e:
