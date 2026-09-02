@@ -1,0 +1,794 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
+import { Archive, Pencil, Search, Trash2, RotateCcw } from "lucide-react";
+import { app } from "../lib/bridge";
+import { t, useT } from "../lib/i18n";
+import { historySessionDisplayTitle, sessionActivityTime } from "../lib/session";
+import type { HistoryMessage, HistorySearchContextLine, HistorySearchHit, SessionMeta } from "../lib/types";
+import { historyMessagesToItems, type Item } from "../lib/useController";
+import { useHistoryCatalog } from "../lib/useHistoryCatalog";
+import { Transcript } from "./Transcript";
+import { ContextMenu, contextMenuPointFromEvent, type ContextMenuItem, type ContextMenuPoint } from "./ContextMenu";
+import { useDeferredClose } from "../lib/useMountTransition";
+import { ModalCloseButton } from "./ModalCloseButton";
+import { HistoryFilterSelect } from "./HistoryFilterSelect";
+
+type HistoryScopeFilter = "all" | "project" | "global";
+type HistoryStatusFilter = "all" | "current" | "open";
+type HistoryDateFilter = "all" | "today" | "yesterday" | "older";
+
+// HistoryPanel lists saved sessions newest-first. In the wide management modal,
+// a single click selects a read-only preview; explicit actions resume, restore,
+// rename, or delete the selected session.
+export function HistoryPanel({
+  kind = "history",
+  sessions: suppliedSessions,
+  running,
+  onResume,
+  onPreview,
+  onDelete,
+  onRename,
+  onRestore,
+  onPurge,
+  onPurgeAll,
+  onPurgeRecoveryCopies,
+  onDeleteMany,
+  onClose,
+}: {
+  kind?: "history" | "trash";
+  sessions: SessionMeta[];
+  running: boolean;
+  onResume: (session: SessionMeta) => void;
+  onPreview: (path: string) => Promise<HistoryMessage[]>;
+  onDelete: (path: string) => void;
+  onRename: (path: string, title: string) => void;
+  onRestore?: (path: string) => void;
+  onPurge?: (path: string) => void;
+  onPurgeAll?: (paths: string[]) => void;
+  onPurgeRecoveryCopies?: (paths: string[]) => void;
+  onDeleteMany?: (paths: string[]) => void;
+  onClose: () => void;
+}) {
+  const tr = useT();
+  const isTrash = kind === "trash";
+  // Play the modal exit animation, then let the parent unmount us.
+  const { status, requestClose } = useDeferredClose(onClose, 240);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [query, setQuery] = useState("");
+  const [scopeFilter, setScopeFilter] = useState<HistoryScopeFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>("all");
+  const [dateFilter, setDateFilter] = useState<HistoryDateFilter>("all");
+  const [searchContext, setSearchContext] = useState<{ hit: HistorySearchHit; lines: HistorySearchContextLine[]; loading: boolean } | null>(null);
+  const { sessions, nextCursor, partial: catalogPartial, progress: catalogProgress, searchHits, loadMore } = useHistoryCatalog({
+    isTrash, suppliedSessions, scope: scopeFilter, status: statusFilter, timeFilter: dateFilter, query,
+  });
+  const [menuSession, setMenuSession] = useState<SessionMeta | null>(null);
+  const [menuPoint, setMenuPoint] = useState<ContextMenuPoint | null>(null);
+  const [blankMenuPoint, setBlankMenuPoint] = useState<ContextMenuPoint | null>(null);
+  const [menuConfirmTarget, setMenuConfirmTarget] = useState<
+    { kind: "delete"; path: string } | { kind: "purge"; path: string } | { kind: "clear" } | { kind: "clearRecovery" } | null
+  >(null);
+  const [preview, setPreview] = useState<{
+    path: string;
+    title: string;
+    meta: string;
+    messages: HistoryMessage[];
+    loading: boolean;
+  } | null>(null);
+  const previewSeq = useRef(0);
+
+  const loadSearchContext = useCallback(async (hit: HistorySearchHit) => {
+    const seq = ++previewSeq.current;
+    setPreview(null);
+    setSearchContext({ hit, lines: [], loading: true });
+    const lines = await app.GetHistorySearchContext({ sessionPath: hit.sessionPath, messageIndex: hit.messageIndex, before: 2, after: 2 }).catch(() => []);
+    if (seq === previewSeq.current) setSearchContext({ hit, lines, loading: false });
+  }, []);
+
+  const startRename = (s: SessionMeta) => {
+    if (running) return;
+    setEditing(s.path);
+    setDraft(s.title || s.preview || "");
+  };
+  const commitRename = (path: string) => {
+    if (running) return;
+    onRename(path, draft.trim());
+    setEditing(null);
+  };
+  const loadPreview = useCallback(
+    async (s: SessionMeta) => {
+      const seq = ++previewSeq.current;
+      setSearchContext(null);
+      setEditing(null);
+      setPreview({
+        path: s.path,
+        title: historySessionDisplayTitle(s, tr("history.emptySession")),
+        meta: sessionMetaLine(s, tr, isTrash),
+        messages: [],
+        loading: true,
+      });
+      const messages = await onPreview(s.path);
+      if (seq === previewSeq.current) {
+        setPreview((cur) => (cur?.path === s.path ? { ...cur, messages, loading: false } : cur));
+      }
+    },
+    [isTrash, onPreview, tr],
+  );
+
+  const scopeCounts = useMemo(
+    () => ({
+      all: sessions.length,
+      project: sessions.filter((s) => sessionScope(s) === "project").length,
+      global: sessions.filter((s) => sessionScope(s) === "global").length,
+    }),
+    [sessions],
+  );
+  const statusCounts = useMemo(
+    () => ({
+      all: sessions.length,
+      current: sessions.filter((s) => s.current).length,
+      open: sessions.filter((s) => s.open && !s.current).length,
+    }),
+    [sessions],
+  );
+  const dateCounts = useMemo(() => {
+    const counts: Record<HistoryDateFilter, number> = { all: sessions.length, today: 0, yesterday: 0, older: 0 };
+    for (const s of sessions) counts[dateBucket(sessionTimeForGrouping(s, isTrash))]++;
+    return counts;
+  }, [isTrash, sessions]);
+
+  useEffect(() => {
+    if (!isTrash) return;
+    if (scopeFilter === "project" && scopeCounts.project === 0) setScopeFilter("all");
+    if (scopeFilter === "global" && scopeCounts.global === 0) setScopeFilter("all");
+  }, [isTrash, scopeCounts.global, scopeCounts.project, scopeFilter]);
+
+  useEffect(() => {
+    if (!isTrash) return;
+    if (statusFilter === "current" && statusCounts.current === 0) setStatusFilter("all");
+    if (statusFilter === "open" && statusCounts.open === 0) setStatusFilter("all");
+  }, [isTrash, statusCounts.current, statusCounts.open, statusFilter]);
+
+  useEffect(() => {
+    if (!isTrash) return;
+    if (dateFilter !== "all" && dateCounts[dateFilter] === 0) setDateFilter("all");
+  }, [dateCounts, dateFilter, isTrash]);
+
+  const filteredSessions = useMemo(() => {
+    const q = isTrash ? query.trim().toLowerCase() : "";
+    return sessions.filter((s) => {
+      if (scopeFilter !== "all" && sessionScope(s) !== scopeFilter) return false;
+      if (!isTrash && statusFilter === "current" && !s.current) return false;
+      if (!isTrash && statusFilter === "open" && (!s.open || s.current)) return false;
+      if (dateFilter !== "all" && dateBucket(sessionTimeForGrouping(s, isTrash)) !== dateFilter) return false;
+      if (!q) return true;
+      return [s.title, s.preview, s.path, s.topicTitle, s.workspaceRoot].some((part) => (part ?? "").toLowerCase().includes(q));
+    });
+  }, [dateFilter, isTrash, query, scopeFilter, sessions, statusFilter]);
+  // Only branches whose actual content is still the fork snapshot and remains
+  // covered by the parent are bulk-actionable. A unique recovery branch keeps
+  // `recovered` provenance for its badge, but is normal user history and must
+  // never enter copy cleanup. Counting from `sessions` (not the filtered list)
+  // keeps the sweep exhaustive even while a search or filter is active.
+  const recoveryCopyPaths = useMemo(
+    () => sessions.filter((s) => s.recoveryCopy && (isTrash || (!s.current && !s.open))).map((s) => s.path),
+    [isTrash, sessions],
+  );
+  const recoveryCopyCount = recoveryCopyPaths.length;
+  const displayedSessions = useMemo(
+    () =>
+      isTrash
+        ? filteredSessions
+        : [...filteredSessions.filter((s) => !s.recoveryCopy), ...filteredSessions.filter((s) => s.recoveryCopy)],
+    [filteredSessions, isTrash],
+  );
+
+  // Sessions arrive newest-first; bucket consecutive ones under a day heading
+  // (Today / Yesterday / a date) while preserving that order.
+  const groups: { label: string; items: SessionMeta[]; recoveryCopy: boolean }[] = [];
+  for (const s of displayedSessions) {
+    const recoveryCopy = !isTrash && Boolean(s.recoveryCopy);
+    const label = dayLabel(sessionTimeForGrouping(s, isTrash));
+    const last = groups[groups.length - 1];
+    if (last && last.label === label && last.recoveryCopy === recoveryCopy) last.items.push(s);
+    else groups.push({ label, items: [s], recoveryCopy });
+  }
+
+  useEffect(() => {
+    setMenuSession(null);
+    setMenuPoint(null);
+    setBlankMenuPoint(null);
+    setMenuConfirmTarget(null);
+  }, [isTrash]);
+
+  useEffect(() => {
+    if (isTrash) setStatusFilter("all");
+  }, [isTrash]);
+
+  useEffect(() => {
+    setEditing(null);
+    if (displayedSessions.length === 0) {
+      if (preview) setPreview(null);
+      return;
+    }
+    if (preview && displayedSessions.some((s) => s.path === preview.path)) return;
+    const first = displayedSessions.find((s) => !s.current) ?? displayedSessions[0];
+    void loadPreview(first);
+  }, [displayedSessions, loadPreview, preview]);
+
+  const previewItems = useMemo(() => previewMessagesToItems(preview?.messages ?? []), [preview?.messages]);
+  const selectedSession = useMemo(
+    () => (preview ? displayedSessions.find((s) => s.path === preview.path) ?? null : null),
+    [displayedSessions, preview],
+  );
+  const openSessionMenu = (event: ReactMouseEvent<HTMLElement>, s: SessionMeta) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setMenuConfirmTarget(null);
+    setBlankMenuPoint(null);
+    setMenuSession(s);
+    setMenuPoint(contextMenuPointFromEvent(event));
+  };
+  const openTrashBlankMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!isTrash || sessions.length === 0) return;
+    const target = event.target as HTMLElement | null;
+    if (target?.closest(".hist-item,.history-search,.history-preview,button,input,textarea,select")) return;
+    event.preventDefault();
+    setMenuConfirmTarget(null);
+    setMenuSession(null);
+    setMenuPoint(null);
+    setBlankMenuPoint(contextMenuPointFromEvent(event));
+  };
+  const armClearTrash = () => {
+    if (!isTrash || sessions.length === 0) return;
+    setMenuSession(null);
+    setMenuPoint(null);
+    setBlankMenuPoint(null);
+    setMenuConfirmTarget({ kind: "clear" });
+  };
+  const armClearRecoveryCopies = () => {
+    if (recoveryCopyCount === 0 || (!isTrash && running)) return;
+    setMenuSession(null);
+    setMenuPoint(null);
+    setBlankMenuPoint(null);
+    setMenuConfirmTarget({ kind: "clearRecovery" });
+  };
+  const closeHistoryMenus = () => {
+    setMenuSession(null);
+    setMenuPoint(null);
+    setBlankMenuPoint(null);
+    setMenuConfirmTarget(null);
+  };
+  const deleteHistorySession = (s: SessionMeta) => {
+    closeHistoryMenus();
+    onDelete(s.path);
+  };
+  const purgeTrashSession = (s: SessionMeta) => {
+    closeHistoryMenus();
+    onPurge?.(s.path);
+  };
+  const clearTrash = () => {
+    const paths = sessions.map((s) => s.path);
+    closeHistoryMenus();
+    onPurgeAll?.(paths);
+  };
+  const clearRecoveryCopies = () => {
+    const paths = recoveryCopyPaths;
+    closeHistoryMenus();
+    if (isTrash) onPurgeRecoveryCopies?.(paths);
+    else onDeleteMany?.(paths);
+  };
+  const sessionMenuItems: ContextMenuItem[] = menuSession
+    ? isTrash
+      ? [
+        {
+          key: "restore",
+          icon: <RotateCcw size={13} />,
+          label: tr("history.restoreSession"),
+          onSelect: () => {
+            onRestore?.(menuSession.path);
+            closeHistoryMenus();
+          },
+        },
+        { type: "separator", key: "trash-session-separator" },
+        {
+          key: "purge",
+          icon: <Trash2 size={13} />,
+          label:
+            menuConfirmTarget?.kind === "purge" && menuConfirmTarget.path === menuSession.path
+              ? tr("history.confirmPurge")
+              : tr("history.purgeSession"),
+          danger: true,
+          onSelect: () => {
+            if (menuConfirmTarget?.kind === "purge" && menuConfirmTarget.path === menuSession.path) {
+              purgeTrashSession(menuSession);
+            } else {
+              setMenuConfirmTarget({ kind: "purge", path: menuSession.path });
+            }
+          },
+        },
+      ]
+      : [
+          {
+            key: "rename",
+            icon: <Pencil size={13} />,
+            label: tr("history.rename"),
+            disabled: running,
+            onSelect: () => {
+              const target = menuSession;
+              closeHistoryMenus();
+              startRename(target);
+            },
+          },
+          ...(menuSession.current
+            ? []
+            : [
+                {
+                  key: "delete",
+                  icon: <Archive size={13} />,
+                  label:
+                    menuConfirmTarget?.kind === "delete" && menuConfirmTarget.path === menuSession.path
+                      ? tr("history.confirmMoveToTrash")
+                      : tr("history.moveToTrash"),
+                  disabled: running,
+                  danger: menuConfirmTarget?.kind === "delete" && menuConfirmTarget.path === menuSession.path,
+                  onSelect: () => {
+                    if (menuConfirmTarget?.kind === "delete" && menuConfirmTarget.path === menuSession.path) {
+                      deleteHistorySession(menuSession);
+                    } else {
+                      setMenuConfirmTarget({ kind: "delete", path: menuSession.path });
+                    }
+                  },
+                } as ContextMenuItem,
+              ]),
+        ]
+    : [];
+  const trashBlankMenuItems: ContextMenuItem[] =
+    menuConfirmTarget?.kind === "clearRecovery"
+      ? [
+          {
+            key: "clear-recovery-confirm",
+            icon: <Trash2 size={13} />,
+            label: tr("history.confirmClearRecoveryCopies"),
+            danger: true,
+            onSelect: clearRecoveryCopies,
+          },
+        ]
+      : menuConfirmTarget?.kind === "clear"
+        ? [
+            {
+              key: "clear-trash-confirm",
+              icon: <Trash2 size={13} />,
+              label: tr("history.confirmClearTrash"),
+              danger: true,
+              onSelect: clearTrash,
+            },
+          ]
+        : [
+            ...(recoveryCopyCount > 0
+              ? [
+                  {
+                    key: "clear-recovery",
+                    icon: <Trash2 size={13} />,
+                    label: tr("history.clearRecoveryCopiesMenu"),
+                    danger: true,
+                    onSelect: () => setMenuConfirmTarget({ kind: "clearRecovery" }),
+                  } as ContextMenuItem,
+                ]
+              : []),
+            {
+              key: "clear-trash",
+              icon: <Trash2 size={13} />,
+              label: tr("history.clearTrashMenu"),
+              danger: true,
+              onSelect: () => setMenuConfirmTarget({ kind: "clear" }),
+            },
+          ];
+  const actionConfirmDelete =
+    selectedSession && menuConfirmTarget?.kind === "delete" && menuConfirmTarget.path === selectedSession.path;
+  const actionConfirmPurge =
+    selectedSession && menuConfirmTarget?.kind === "purge" && menuConfirmTarget.path === selectedSession.path;
+  const actionConfirmClearTrash = isTrash && menuConfirmTarget?.kind === "clear";
+  const actionConfirmClearRecovery = menuConfirmTarget?.kind === "clearRecovery";
+
+  const openSelected = () => {
+    if (!selectedSession || running || isTrash) return;
+    onResume(selectedSession);
+  };
+  const renameSelected = () => {
+    if (!selectedSession || running || isTrash) return;
+    closeHistoryMenus();
+    startRename(selectedSession);
+  };
+  const moveSelectedToTrash = () => {
+    if (!selectedSession || running || isTrash || selectedSession.current) return;
+    if (actionConfirmDelete) deleteHistorySession(selectedSession);
+    else setMenuConfirmTarget({ kind: "delete", path: selectedSession.path });
+  };
+  const restoreSelected = () => {
+    if (!selectedSession || !isTrash) return;
+    closeHistoryMenus();
+    onRestore?.(selectedSession.path);
+  };
+  const purgeSelected = () => {
+    if (!selectedSession || !isTrash) return;
+    if (actionConfirmPurge) purgeTrashSession(selectedSession);
+    else setMenuConfirmTarget({ kind: "purge", path: selectedSession.path });
+  };
+
+  return (
+    <div className="management-modal-backdrop history-modal-backdrop" data-state={status} onMouseDown={(e) => { if (e.target === e.currentTarget) requestClose(); }}>
+      <section
+        className="management-modal history-modal"
+        data-state={status}
+        aria-label={tr(isTrash ? "history.trashTitle" : "history.title")}
+        onClick={(e) => e.stopPropagation()}
+      >
+      <header className="management-modal__head history-modal__head">
+        <div>
+          <div className="management-modal__title history-modal__title">{tr(isTrash ? "history.trashTitle" : "history.title")}</div>
+          {!isTrash && running && <div className="management-modal__summary history-modal__summary">{tr("history.readOnlyHint")}</div>}
+        </div>
+        <div className="management-modal__actions history-modal__actions">
+          {recoveryCopyCount > 0 && (
+            <button
+              className={`chip history-clear${actionConfirmClearRecovery ? " history-clear--confirm" : ""}`}
+              type="button"
+              disabled={!isTrash && running}
+              onClick={actionConfirmClearRecovery ? clearRecoveryCopies : armClearRecoveryCopies}
+            >
+              {isTrash
+                ? tr(actionConfirmClearRecovery ? "history.confirmClearRecoveryCopies" : "history.clearRecoveryCopies")
+                : tr(actionConfirmClearRecovery ? "history.confirmTrashRecoveryCopies" : "history.trashRecoveryCopies")}
+            </button>
+          )}
+          {isTrash && sessions.length > 0 && (
+            <button
+              className={`chip history-clear${actionConfirmClearTrash ? " history-clear--confirm" : ""}`}
+              type="button"
+              onClick={actionConfirmClearTrash ? clearTrash : armClearTrash}
+            >
+              {tr(actionConfirmClearTrash ? "history.confirmClearTrash" : "history.clearTrash")}
+            </button>
+          )}
+          <ModalCloseButton label={tr("common.close")} onClick={requestClose} />
+        </div>
+      </header>
+
+      <div
+        className="history-manager"
+        onContextMenu={openTrashBlankMenu}
+      >
+        <div className="history-toolbar" aria-label={tr("history.filters")}>
+          {/* Keep search available for body-only hits (metadata sessions may be empty). */}
+          {!isTrash && (
+            <label className="mem-search history-search">
+              <Search size={13} />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tr("history.searchPlaceholder")} />
+            </label>
+          )}
+          {isTrash && sessions.length > 0 && (
+            <label className="mem-search history-search">
+              <Search size={13} />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tr("history.searchPlaceholder")} />
+            </label>
+          )}
+          <HistoryFilterSelect
+            label={tr("history.filterScope")}
+            options={[
+              { id: "all", label: tr("history.filterAll"), count: scopeCounts.all },
+              { id: "project", label: tr("history.filterProject"), count: scopeCounts.project },
+              { id: "global", label: tr("history.filterGlobal"), count: scopeCounts.global },
+            ]}
+            value={scopeFilter}
+            onChange={(next) => setScopeFilter(next as HistoryScopeFilter)}
+          />
+          {!isTrash && (
+            <HistoryFilterSelect
+              label={tr("history.filterStatus")}
+              options={[
+                { id: "all", label: tr("history.filterAll"), count: statusCounts.all },
+                { id: "current", label: tr("history.filterCurrent"), count: statusCounts.current },
+                { id: "open", label: tr("history.filterOpen"), count: statusCounts.open },
+              ]}
+              value={statusFilter}
+              onChange={(next) => setStatusFilter(next as HistoryStatusFilter)}
+            />
+          )}
+          <HistoryFilterSelect
+            label={tr(isTrash ? "history.filterDeletedAt" : "history.filterActivity")}
+            options={[
+              { id: "all", label: tr("history.filterAll"), count: dateCounts.all },
+              { id: "today", label: tr("history.today"), count: dateCounts.today },
+              { id: "yesterday", label: tr("history.yesterday"), count: dateCounts.yesterday },
+              { id: "older", label: tr("history.older"), count: dateCounts.older },
+            ]}
+            value={dateFilter}
+            onChange={(next) => setDateFilter(next as HistoryDateFilter)}
+          />
+        </div>
+        {!isTrash && catalogPartial && (
+          <div className="management-modal__summary history-modal__summary" role="status">
+            History index is still building ({catalogProgress.indexed}/{catalogProgress.total}); results may be incomplete.
+          </div>
+        )}
+
+        <div className="history-content">
+          <div className={`history-list${isTrash ? " history-list--trash" : ""}`}>
+            {(() => {
+              const hasBodyHits = !isTrash && searchHits.length > 0;
+              if (sessions.length === 0 && !hasBodyHits) {
+                return (
+                  <div className={`mem-empty${isTrash ? " mem-empty--trash" : ""}`}>
+                    {isTrash && <Trash2 size={22} />}
+                    <span>{tr(isTrash ? "history.trashEmpty" : "history.empty")}</span>
+                  </div>
+                );
+              }
+              if (filteredSessions.length === 0 && !hasBodyHits) {
+                return <div className="mem-empty">{tr("history.noResults")}</div>;
+              }
+              return (
+              <>
+              {hasBodyHits && (
+                <section className="mem-section history-search-results">
+                  <div className="mem-section__title hist-group__title">
+                    <span>Content matches</span>
+                    <span className="hist-group__count">{searchHits.length}</span>
+                  </div>
+                  {searchHits.map((hit) => (
+                    <div className="hist-item" key={`${hit.sessionPath}:${hit.messageIndex}:${hit.kind}:${hit.toolName ?? ""}`}>
+                      <button className="hist-item__main" type="button" onClick={() => void loadSearchContext(hit)}>
+                        <div className="hist-item__preview">{hit.sessionTitle || hit.topicTitle || hit.sessionPath}</div>
+                        <div className="hist-item__meta">
+                          <span className="hist-item__badge">{hit.role} · {hit.kind}</span>
+                          {hit.toolName && <span className="hist-item__scope">{hit.toolName}</span>}
+                        </div>
+                        <div className="hist-item__meta">{hit.snippet}</div>
+                      </button>
+                    </div>
+                  ))}
+                </section>
+              )}
+              {groups.map((g) => (
+                <section className="mem-section" key={`${g.recoveryCopy ? "recovery-copy" : "normal"}-${g.label}`}>
+                  <div className="mem-section__title hist-group__title">
+                    <span>{g.recoveryCopy ? `${tr("history.recoveryCopiesGroup")} · ${g.label}` : g.label}</span>
+                    <span className="hist-group__count">{g.items.length}</span>
+                  </div>
+                  {g.items.map((s) => {
+                    const selected = preview?.path === s.path;
+                    return (
+                      <div
+                        className={`hist-item${s.current ? " hist-item--current" : ""}${selected ? " hist-item--selected" : ""}`}
+                        key={s.path}
+                        onContextMenu={(event) => openSessionMenu(event, s)}
+                      >
+                        {editing === s.path ? (
+                          <input
+                            className="hist-item__rename"
+                            autoFocus
+                            value={draft}
+                            onChange={(e) => setDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") commitRename(s.path);
+                              if (e.key === "Escape") setEditing(null);
+                            }}
+                            onBlur={() => commitRename(s.path)}
+                            placeholder={tr("history.namePlaceholder")}
+                          />
+                        ) : (
+                          <button
+                            className="hist-item__main"
+                            aria-pressed={selected}
+                            onClick={() => {
+                              setMenuConfirmTarget(null);
+                              void loadPreview(s);
+                            }}
+                            onDoubleClick={() => {
+                              if (!isTrash && !running) onResume(s);
+                            }}
+                          >
+                            <div className="hist-item__preview">{historySessionDisplayTitle(s, tr("history.emptySession"))}</div>
+                            <div className="hist-item__meta">
+                              {!isTrash && isChannelSession(s) && <span className="hist-item__badge hist-item__badge--open">{tr("history.channel")}</span>}
+                              {!isTrash && s.current && <span className="hist-item__badge hist-item__badge--current">{tr("history.current")}</span>}
+                              {!isTrash && !s.current && s.open && <span className="hist-item__badge hist-item__badge--open">{tr("history.open")}</span>}
+                              {isTrash && <span className="hist-item__badge hist-item__badge--deleted">{tr("history.deleted")}</span>}
+                              {s.recovered && <span className="hist-item__badge">{tr("recovery.badge")}</span>}
+                              {sessionLocation(s, tr) && <span className="hist-item__scope">{sessionLocation(s, tr)}</span>}
+                              <span className="hist-item__metaspacer" />
+                              <span className="hist-item__stat">
+                                {s.turnsState === "unknown"
+                                  ? tr("history.indexing")
+                                  : tr(s.turns === 1 ? "history.turnOne" : "history.turnOther", { n: s.turns })}
+                              </span>
+                              <span className="hist-item__dot">·</span>
+                              <span className="hist-item__stat">{timeLabel(isTrash ? s.deletedAt || sessionActivityTime(s) : sessionActivityTime(s))}</span>
+                              {!isTrash && running && (
+                                <>
+                                  <span className="hist-item__dot">·</span>
+                                  <span className="hist-item__stat">{tr("history.preview")}</span>
+                                </>
+                              )}
+                            </div>
+                          </button>
+                        )}
+
+                      </div>
+                    );
+                  })}
+                </section>
+              ))}
+              {!isTrash && nextCursor && (
+                <button
+                  className="btn btn--small"
+                  type="button"
+                  onClick={loadMore}
+                >
+                  Load more
+                </button>
+              )}
+              </>
+              );
+            })()}
+          </div>
+
+          <section className={`history-preview${!preview && !searchContext ? " history-preview--empty" : ""}`}>
+            {searchContext ? (
+              <>
+                <div className="history-preview__head">
+                  <div className="history-preview__copy">
+                    <div className="history-preview__title">{searchContext.hit.sessionTitle || searchContext.hit.topicTitle || searchContext.hit.sessionPath}</div>
+                    <div className="history-preview__meta">{searchContext.hit.role} · {searchContext.hit.kind}</div>
+                  </div>
+                </div>
+                <div className="history-preview__body">
+                  {searchContext.loading ? (
+                    <div className="mem-empty">{tr("common.loading")}</div>
+                  ) : searchContext.lines.length === 0 ? (
+                    <div className="mem-empty">{tr("history.previewEmpty")}</div>
+                  ) : (
+                    searchContext.lines.map((line) => (
+                      <div className="hist-item" key={line.index}>
+                        <div className="hist-item__meta"><span className="hist-item__badge">{line.role}</span></div>
+                        <div className="hist-item__preview">{line.text}</div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            ) : preview ? (
+              <>
+              <div className="history-preview__head">
+                <div className="history-preview__copy">
+                  <div className="history-preview__title">{preview.title}</div>
+                  <div className="history-preview__meta">{preview.meta}</div>
+                </div>
+                <div className="history-preview__actions">
+                  {isTrash ? (
+                    <>
+                      <button className="btn btn--primary btn--small" type="button" disabled={!selectedSession} onClick={restoreSelected}>
+                        {tr("history.restore")}
+                      </button>
+                      <button className="btn btn--small btn--danger" type="button" disabled={!selectedSession} onClick={purgeSelected}>
+                        {actionConfirmPurge ? tr("history.confirmPurge") : tr("history.purge")}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button className="btn btn--primary btn--small" type="button" disabled={!selectedSession || running} onClick={openSelected}>
+                        {tr("history.openSession")}
+                      </button>
+                      <button className="btn btn--small" type="button" disabled={!selectedSession || running} onClick={renameSelected}>
+                        {tr("history.rename")}
+                      </button>
+                      <button
+                        className="btn btn--small btn--danger"
+                        type="button"
+                        disabled={!selectedSession || running || selectedSession.current}
+                        onClick={moveSelectedToTrash}
+                      >
+                        {actionConfirmDelete ? tr("history.confirmMoveToTrash") : tr("history.moveToTrash")}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="history-preview__body">
+                {preview.loading ? (
+                  <div className="mem-empty">{tr("common.loading")}</div>
+                ) : previewItems.length === 0 ? (
+                  <div className="mem-empty">{tr("history.previewEmpty")}</div>
+                ) : (
+                  <Transcript items={previewItems} onPrompt={() => {}} questionNavigator={false} />
+                )}
+              </div>
+              </>
+            ) : (
+              <div className="history-preview__empty">{tr("history.selectSession")}</div>
+            )}
+          </section>
+            </div>
+        <ContextMenu
+          open={Boolean(menuSession)}
+          point={menuPoint}
+          items={sessionMenuItems}
+          minWidth={220}
+          ariaLabel={isTrash ? tr("history.trashSessionActions") : tr("history.historySessionActions")}
+          onClose={closeHistoryMenus}
+        />
+        <ContextMenu
+          open={Boolean(blankMenuPoint)}
+          point={blankMenuPoint}
+          items={trashBlankMenuItems}
+          minWidth={220}
+          ariaLabel={tr("history.trashActions")}
+          onClose={closeHistoryMenus}
+        />
+      </div>
+      </section>
+    </div>
+  );
+}
+
+// dayLabel buckets a timestamp into "Today", "Yesterday", or a locale date. It's
+// module-level (not a component), so it uses the non-reactive translator; the
+// panel re-renders on a locale switch via its parent, picking up the new strings.
+function dayLabel(ms: number): string {
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((startOfDay(new Date()) - startOfDay(new Date(ms))) / 86_400_000);
+  if (days <= 0) return t("history.today");
+  if (days === 1) return t("history.yesterday");
+  return new Date(ms).toLocaleDateString();
+}
+
+function timeLabel(ms: number): string {
+  return new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function dateBucket(ms: number): Exclude<HistoryDateFilter, "all"> {
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((startOfDay(new Date()) - startOfDay(new Date(ms))) / 86_400_000);
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  return "older";
+}
+
+function sessionTimeForGrouping(s: SessionMeta, isTrash: boolean): number {
+  return isTrash ? s.deletedAt || sessionActivityTime(s) : sessionActivityTime(s);
+}
+
+function sessionScope(s: SessionMeta): "project" | "global" {
+  return s.scope === "project" ? "project" : "global";
+}
+
+function isChannelSession(s: SessionMeta): boolean {
+  return s.kind === "channel" || s.sessionSource === "auto";
+}
+
+function sessionLocation(s: SessionMeta, tr: ReturnType<typeof useT>): string {
+  if (isChannelSession(s)) {
+    return [s.channelLabel || s.channel || tr("history.channel"), s.remoteId].filter(Boolean).join(" · ");
+  }
+  if (s.workspaceRoot) {
+    const parts = s.workspaceRoot.split(/[\\/]/).filter(Boolean);
+    return parts[parts.length - 1] || s.workspaceRoot;
+  }
+  return sessionScope(s) === "project" ? tr("history.filterProject") : tr("history.filterGlobal");
+}
+
+function sessionMetaLine(s: SessionMeta, tr: ReturnType<typeof useT>, isTrash = false): string {
+  const time = timeLabel(isTrash ? s.deletedAt || sessionActivityTime(s) : sessionActivityTime(s));
+  const suffix = isTrash && s.deletedAt ? ` · ${tr("history.deleted")}` : "";
+  const prefix = isChannelSession(s) ? `${tr("history.channelReadOnly")} · ` : "";
+  const turns = s.turnsState === "unknown"
+    ? tr("history.indexing")
+    : tr(s.turns === 1 ? "history.turnOne" : "history.turnOther", { n: s.turns });
+  return `${prefix}${turns} · ${time}${suffix}`;
+}
+
+function previewMessagesToItems(messages: HistoryMessage[]): Item[] {
+  return historyMessagesToItems(messages, "hp").items;
+}

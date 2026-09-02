@@ -11,16 +11,9 @@
   // ── #404 chrome: collapse + side drawer ──
   var collapseBtn = document.querySelector("[data-ws-collapse]");
   if (collapseBtn) {
-    var contextNarrow = window.matchMedia("(max-width: 1440px)");
-    if (contextNarrow.matches) {
-      document.body.classList.add("ws-right-collapsed");
-      collapseBtn.setAttribute("aria-expanded", "false");
-    }
     collapseBtn.addEventListener("click", function () {
-      var opening = document.body.classList.contains("ws-right-collapsed") || (contextNarrow.matches && !document.body.classList.contains("ws-right-pinned"));
-      document.body.classList.toggle("ws-right-collapsed", !opening);
-      document.body.classList.toggle("ws-right-pinned", opening && contextNarrow.matches);
-      collapseBtn.setAttribute("aria-expanded", String(opening));
+      var collapsed = document.body.classList.toggle("ws-right-collapsed");
+      collapseBtn.setAttribute("aria-expanded", String(!collapsed));
     });
   }
 
@@ -82,23 +75,6 @@
     });
   }
 
-  function postJSONResult(url, body) {
-    return authReady.then(function () {
-      return nativeFetch(url, {
-        method: "POST",
-        headers: { "content-type": "application/json", accept: "application/json" },
-        body: JSON.stringify(body || {})
-      });
-    }).then(function (r) {
-      return r.text().then(function (value) {
-        var payload = {};
-        try { payload = value ? JSON.parse(value) : {}; } catch (_) { payload = { message: value }; }
-        if (!r.ok) throw new Error(payload.message || value || "HTTP " + r.status);
-        return payload;
-      });
-    });
-  }
-
   // ── #405 selector elements ──
   var el = {
     project: document.querySelector("[data-ws-project]"),
@@ -120,10 +96,8 @@
     sessionSearch: document.querySelector("[data-ws-session-search]"),
     sessionProject: document.querySelector("[data-ws-session-project]"),
     sessionStatus: document.querySelector("[data-ws-session-status]"),
-    empty: document.querySelector("[data-ws-empty]"),
-    emptyTitle: document.querySelector("[data-ws-empty-title]"),
-    emptyCopy: document.querySelector("[data-ws-empty-copy]"),
-    historyRetry: document.querySelector("[data-ws-history-retry]"),
+    demo: document.querySelector("[data-ws-demo]"),
+    fileHead: document.querySelector("[data-ws-file-head]"),
     contextDiff: document.querySelector("[data-ws-context-diff], .ws-diff"),
     tabs: document.querySelectorAll("[data-ws-tab]"),
     panels: document.querySelectorAll("[data-ws-panel]"),
@@ -134,23 +108,20 @@
     input: document.querySelector("[data-ws-input]"),
     send: document.querySelector("[data-ws-send]"),
     cancel: document.querySelector("[data-ws-cancel]"),
+    attach: document.querySelector("[data-ws-attach]"),
+    attachmentInput: document.querySelector("[data-ws-attachment-input]"),
+    attachments: document.querySelector("[data-ws-attachments]"),
     permission: document.querySelector("[data-ws-permission]"),
     permissionLabel: document.querySelector("[data-ws-permission-label]"),
     cacheStatus: document.querySelector("[data-ws-cache-status]"),
-    cacheStatusText: document.querySelector("[data-ws-cache-status-text]"),
-    setup: document.querySelector("[data-ws-setup]"),
-    setupProvider: document.querySelector("[data-ws-setup-provider]"),
-    setupDescription: document.querySelector("[data-ws-setup-description]"),
-    setupModel: document.querySelector("[data-ws-setup-model]"),
-    setupKey: document.querySelector("[data-ws-setup-key]"),
-    setupStatus: document.querySelector("[data-ws-setup-status]"),
-    setupSubmit: document.querySelector("[data-ws-setup-submit]")
+    cacheStatusText: document.querySelector("[data-ws-cache-status-text]")
   };
 
   // Sidebar/project shared state (GUI-3): whether the CURRENT session is
   // running drives the 运行中 pill for the highlighted task row.
   var sessionRunning = false;
   var composerBusy = false;
+  var composerAttachments = [];
   var EFFORT_LABELS = { low: "低", medium: "中", high: "高", max: "max" };
   var EFFORT_LEVELS = ["low", "medium", "high"];
   var TASK_PILLS = {
@@ -173,16 +144,14 @@
 
   function renderCacheBar() {
     if (!el.cacheStatusText) return;
-    var observed = cacheView.l1Hit !== null || cacheView.l2Hits !== null || cacheView.l3Observed !== null;
-    if (el.cacheStatus) el.cacheStatus.hidden = !observed;
-    if (!observed) return;
     var parts = [];
-    if (cacheView.l1Hit !== null) parts.push("L1 prefix：命中 " + cacheView.l1Hit + " · 未命中 " + cacheView.l1Miss);
-    if (cacheView.l2Hits !== null) parts.push("L2 语义切片：复用 " + cacheView.l2Hits + " slices");
-    if (cacheView.l3Observed !== null) parts.push("L3 安全复用：" + (cacheView.l3Observed ? "已观测" : "未命中"));
+    parts.push("L1 prefix：" + (cacheView.l1Hit === null ? "暂无数据" : "命中 " + cacheView.l1Hit + " · 未命中 " + cacheView.l1Miss));
+    parts.push("L2 语义切片：" + (cacheView.l2Hits === null ? "暂无数据" : "复用 " + cacheView.l2Hits + " slices"));
+    parts.push("L3 安全复用：" + (cacheView.l3Observed === null ? "暂无数据" : (cacheView.l3Observed ? "已观测" : "未命中")));
     if (cacheView.reason) parts.push("原因：" + cleanVisibleText(cacheView.reason));
     el.cacheStatusText.textContent = parts.join("  ·  ");
     if (el.cacheStatus) {
+      var observed = cacheView.l1Hit !== null || cacheView.l2Hits !== null || cacheView.l3Observed !== null;
       var dot = el.cacheStatus.querySelector(".ws-dot");
       if (dot) dot.classList.toggle("is-on", observed);
     }
@@ -230,9 +199,6 @@
   var workspaceEvents = null;
   var lastEventSeq = 0;
   var eventTaskID = "";
-  var historyHydrating = false;
-  var bufferedWorkspaceEvents = [];
-  var historyRecoveryPending = false;
   var canonicalEventTypes = {
     user_message: true,
     assistant_message: true,
@@ -271,7 +237,7 @@
   function activateWorkflow() {
     if (workflow.active) return;
     workflow.active = true;
-    if (el.empty) el.empty.hidden = true;
+    if (el.demo) el.demo.classList.add("is-hidden");
   }
 
   function resetWorkflow() {
@@ -283,13 +249,8 @@
     workflow.asks = Object.create(null);
     workflow.localUser = null;
     workflow.active = false;
-    cacheView = { l1Hit: null, l1Miss: null, l2Hits: null, l3Observed: null, reason: "" };
-    renderCacheBar();
     clearNode(el.timeline);
-    if (el.empty) el.empty.hidden = false;
-    if (el.emptyTitle) el.emptyTitle.textContent = "开始一个真实任务";
-    if (el.emptyCopy) el.emptyCopy.textContent = "描述你希望在当前项目中完成的工作。Semantix 会保留会话、展示工具执行，并在修改前遵循权限策略。";
-    if (el.historyRetry) el.historyRetry.hidden = true;
+    if (el.demo) el.demo.classList.remove("is-hidden");
     renderDiffList();
     renderTerminalList();
     renderReviewList();
@@ -565,8 +526,18 @@
 
   function renderContextDiff(fileDiff) {
     if (!el.contextDiff || !fileDiff) return;
+    if (el.fileHead) {
+      clearNode(el.fileHead);
+      var path = document.createElement("span");
+      path.textContent = String(fileDiff.path || "未命名文件");
+      var status = document.createElement("span");
+      status.className = "modified ws-filehead__status";
+      status.textContent = diffStatusLabels[fileDiff.status] || "变更";
+      el.fileHead.appendChild(path);
+      el.fileHead.appendChild(status);
+    }
     clearNode(el.contextDiff);
-    renderDiff(el.contextDiff, fileDiff, { context: true });
+    renderDiff(el.contextDiff, fileDiff, { context: true, hideHeader: true });
   }
 
   function syncTreeSelection(path) {
@@ -1136,6 +1107,18 @@
     updateComposerControls();
   }
 
+  function renderComposerAttachments() {
+    if (!el.attachments) return;
+    clearNode(el.attachments);
+    composerAttachments.forEach(function (name) {
+      var item = document.createElement("span");
+      item.className = "composer-attachment";
+      item.textContent = name;
+      item.title = name + "（仅记录文件名，当前服务端不上传附件内容）";
+      el.attachments.appendChild(item);
+    });
+  }
+
   function addOptimisticUserMessage(text) {
     var card = makeEvent("user", "用户", "›");
     if (!card) return;
@@ -1153,10 +1136,16 @@
       showNotice("当前任务正在运行，请等待完成或先中止。", "warn");
       return;
     }
+    var submitted = text;
+    if (composerAttachments.length) {
+      submitted += "\n\n附件文件名（内容未上传）： " + composerAttachments.join(", ");
+    }
     addOptimisticUserMessage(text);
     setComposerRunning(true);
-    postJSON("/submit", { input: text }).then(function () {
+    postJSON("/submit", { input: submitted }).then(function () {
       el.input.value = "";
+      composerAttachments = [];
+      renderComposerAttachments();
       refreshTasks();
     }).catch(function (err) {
       setComposerRunning(false);
@@ -1203,17 +1192,24 @@
         cancelComposer();
       }
     });
+    if (el.attach && el.attachmentInput) {
+      el.attach.addEventListener("click", function () { el.attachmentInput.click(); });
+      el.attachmentInput.addEventListener("change", function () {
+        Array.prototype.forEach.call(el.attachmentInput.files || [], function (file) {
+          if (file && file.name && composerAttachments.indexOf(file.name) === -1) composerAttachments.push(file.name);
+        });
+        renderComposerAttachments();
+        el.attachmentInput.value = "";
+      });
+    }
     if (el.permission) el.permission.addEventListener("click", function () {
       showNotice("权限由服务端策略控制；高风险操作会单独请求确认。", "warn");
     });
+    renderComposerAttachments();
     setComposerRunning(false);
   }
 
   function handleWorkspaceEvent(message) {
-    if (historyHydrating) {
-      bufferedWorkspaceEvents.push({ data: message.data });
-      return;
-    }
     var payload;
     try {
       payload = JSON.parse(message.data || "");
@@ -1225,9 +1221,10 @@
     if (!eventTaskID && typeof payload.task_id === "string") eventTaskID = payload.task_id;
     if (payload.seq <= lastEventSeq) return;
     if (lastEventSeq && payload.seq > lastEventSeq + 1) {
-      showNotice("事件流存在缺口，正在恢复会话。", "warn");
-      recoverWorkspace();
-      return;
+      // A dropped frame or expired replay window is a signal to refresh
+      // derived state, never a reason to terminate the EventSource.
+      refreshTasks();
+      showNotice("事件流存在缺口，已刷新任务状态。", "warn");
     }
     lastEventSeq = payload.seq;
     if (!canonicalEventTypes[payload.type]) return;
@@ -1330,93 +1327,16 @@
     }
   }
 
-  function renderHistory(messages) {
-    resetWorkflow();
-    if (!Array.isArray(messages)) throw new Error("历史记录格式无效");
-    messages.forEach(function (message, index) {
-      var role = String(message && message.role || "");
-      if (role === "user") {
-        var user = makeEvent("user", "用户", "›");
-        if (user) { user.body.textContent = cleanVisibleText(message.content || ""); setStatus(user, "已发送", "done"); }
-        return;
-      }
-      if (role === "assistant") {
-        workflow.assistant = null;
-        if (message.content || message.reasoning) renderAssistant({ kind: "message", text: message.content, reasoning: message.reasoning });
-        (message.toolCalls || []).forEach(function (tool, toolIndex) {
-          renderToolEvent("tool_start", { id: tool.id, name: tool.name, args: tool.arguments }, "history-" + index + "-" + toolIndex);
-        });
-        workflow.assistant = null;
-        return;
-      }
-      if (role === "tool") {
-        renderToolEvent("tool_result", { id: message.toolCallId, name: message.toolName, output: message.content }, "history-" + index);
-        return;
-      }
-      if (role === "notice") {
-        var notice = makeEvent("status", "会话记录", "↪");
-        if (notice) { notice.body.textContent = cleanVisibleText(message.content || ""); setStatus(notice, "已记录", "done"); }
-      }
-    });
-  }
-
-  function showHistoryError(err) {
-    resetWorkflow();
-    if (el.emptyTitle) el.emptyTitle.textContent = "无法加载会话";
-    if (el.emptyCopy) el.emptyCopy.textContent = cleanVisibleText(err && err.message || "请检查服务状态后重试。");
-    if (el.historyRetry) el.historyRetry.hidden = false;
-  }
-
-  function hydrateHistory() {
-    historyHydrating = true;
-    bufferedWorkspaceEvents = [];
-    return getJSON("/history").then(renderHistory).then(function () {
-      historyHydrating = false;
-      var pending = bufferedWorkspaceEvents.splice(0);
-      pending.forEach(handleWorkspaceEvent);
-    }).catch(function (err) {
-      historyHydrating = false;
-      bufferedWorkspaceEvents = [];
-      showHistoryError(err);
-    });
-  }
-
   function connectWorkspaceEvents() {
+    if (!window.EventSource) return;
     if (workspaceEvents) workspaceEvents.close();
     resetWorkflow();
     eventTaskID = "";
     lastEventSeq = 0;
-    historyHydrating = true;
-    bufferedWorkspaceEvents = [];
-    if (!window.EventSource) {
-      hydrateHistory();
-      return;
-    }
-    var hydrated = false;
-    workspaceEvents = new EventSource("/workspace/events?live=1");
+    workspaceEvents = new EventSource("/workspace/events");
     Object.keys(canonicalEventTypes).forEach(function (type) {
       workspaceEvents.addEventListener(type, handleWorkspaceEvent);
     });
-    workspaceEvents.addEventListener("open", function () {
-      if (hydrated) return;
-      hydrated = true;
-      hydrateHistory();
-    });
-    workspaceEvents.addEventListener("error", function () {
-      if (!hydrated) hydrateHistory();
-      recoverWorkspace();
-    });
-  }
-
-  function recoverWorkspace() {
-    if (historyRecoveryPending) return;
-    historyRecoveryPending = true;
-    if (workspaceEvents) workspaceEvents.close();
-    refreshTasks();
-    setTimeout(function () {
-      historyRecoveryPending = false;
-      connectWorkspaceEvents();
-    }, 750);
   }
 
   function closeMenus() {
@@ -1552,9 +1472,9 @@
   }
 
   function switchTask(s) {
-    postJSON("/resume", { path: s.path }).then(refreshTasks).then(connectWorkspaceEvents).catch(function (err) {
+    postJSON("/resume", { path: s.path }).then(refreshTasks).catch(function (err) {
       showNotice("切换任务失败：" + err.message, "error");
-    });
+    }).then(connectWorkspaceEvents);
   }
 
   function loadBranches() {
@@ -1659,9 +1579,6 @@
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k" && el.sessionSearch) {
         event.preventDefault(); el.sessionSearch.focus();
       }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "n" && el.newTask) {
-        event.preventDefault(); el.newTask.click();
-      }
     });
   }
 
@@ -1714,88 +1631,6 @@
     });
   }
 
-  var setupPresets = [];
-
-  function selectedSetupPreset() {
-    var id = String(el.setupProvider && el.setupProvider.value || "");
-    return setupPresets.find(function (preset) { return preset.id === id; });
-  }
-
-  function renderSetupModels() {
-    var preset = selectedSetupPreset();
-    clearNode(el.setupModel);
-    if (!preset) return;
-    (preset.models || []).forEach(function (model) {
-      var option = document.createElement("option");
-      option.value = model;
-      option.textContent = model;
-      option.selected = model === preset.defaultModel;
-      el.setupModel.appendChild(option);
-    });
-    if (el.setupDescription) el.setupDescription.textContent = preset.description || "";
-  }
-
-  function setSetupStatus(message, failed) {
-    if (!el.setupStatus) return;
-    el.setupStatus.textContent = message || "";
-    el.setupStatus.classList.toggle("is-error", !!failed);
-  }
-
-  function submitProviderSetup() {
-    var preset = selectedSetupPreset();
-    if (!preset || !el.setupModel || !el.setupKey) return;
-    var request = {
-      presetId: preset.id,
-      defaultModel: el.setupModel.value,
-      apiKey: el.setupKey.value
-    };
-    el.setupSubmit.disabled = true;
-    setSetupStatus("正在保存并激活 Provider…", false);
-    postJSON("/setup/providers", request).then(function () {
-      el.setupKey.value = "";
-      setSetupStatus("正在测试连接…", false);
-      return postJSONResult("/setup/providers/test", { presetId: request.presetId, defaultModel: request.defaultModel });
-    }).then(function (result) {
-      setSetupStatus(result.message || "连接成功", false);
-      setTimeout(function () {
-        el.setup.hidden = true;
-        refreshTasks();
-        loadModels();
-      }, 450);
-    }).catch(function (err) {
-      el.setupKey.value = "";
-      setSetupStatus(cleanVisibleText(err.message || "保存或连接失败，请重试。"), true);
-    }).finally(function () {
-      el.setupSubmit.disabled = false;
-    });
-  }
-
-  function initProviderSetup() {
-    if (!el.setup || !el.setupProvider || !el.setupModel || !el.setupSubmit) return;
-    getJSON("/setup/providers").then(function (data) {
-      setupPresets = Array.isArray(data.presets) ? data.presets : [];
-      var providers = Array.isArray(data.providers) ? data.providers : [];
-      var activeName = String(data.activeModel || data.defaultModel || "").split("/")[0];
-      var active = providers.find(function (provider) { return provider.name === activeName; });
-      if (active && active.keyConfigured) return;
-      clearNode(el.setupProvider);
-      setupPresets.forEach(function (preset) {
-        var option = document.createElement("option");
-        option.value = preset.id;
-        option.textContent = preset.label;
-        el.setupProvider.appendChild(option);
-      });
-      if (!setupPresets.length) return;
-      renderSetupModels();
-      el.setup.hidden = false;
-      el.setupProvider.addEventListener("change", renderSetupModels);
-      el.setupSubmit.addEventListener("click", submitProviderSetup);
-      el.setupKey.focus();
-    }).catch(function () {
-      // The setup surface is intentionally unavailable on non-loopback serve.
-    });
-  }
-
   function initSelectors() {
     if (!el.project || !el.model) return;
     el.model.addEventListener("click", function () { toggleMenu(el.modelMenu, el.model); });
@@ -1809,10 +1644,11 @@
       // 创建任务后自动进入新会话：/new 在服务端完成会话切换，这里只负责刷新侧栏 (#406).
       el.newTask.addEventListener("click", function () {
         setState(el.newTask, "loading");
-        postJSON("/new").then(refreshTasks).then(connectWorkspaceEvents).catch(function (err) {
+        postJSON("/new").then(refreshTasks).catch(function (err) {
           showNotice("创建任务失败：" + err.message, "error");
         }).finally(function () {
           setState(el.newTask, "ok");
+          connectWorkspaceEvents();
         });
       });
     }
@@ -1825,8 +1661,6 @@
   initComposer();
   initSessionFilters();
   initSelectors();
-  initProviderSetup();
-  if (el.historyRetry) el.historyRetry.addEventListener("click", connectWorkspaceEvents);
   connectWorkspaceEvents();
 
   // ── #404 side drawer (narrow viewports only) ──
@@ -1836,7 +1670,7 @@
   if (!sideToggle || !side) return;
 
   function isNarrow() {
-    return window.matchMedia("(max-width: 900px)").matches;
+    return window.matchMedia("(max-width: 860px)").matches;
   }
 
   function setSideOpen(open) {
