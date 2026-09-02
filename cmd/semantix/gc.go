@@ -37,6 +37,7 @@ func runGC(args []string, stdout, stderr io.Writer, deps dependencies) error {
 	dryRun := flags.Bool("dry-run", false, "report the plan without persisting")
 	consolidateCtx := flags.Bool("consolidate-context", false, "merge near-duplicate Context slices into union cards (runs with GC; library-maintenance-time only)")
 	consolidateThreshold := flags.Float64("consolidate-threshold", 0.6, "token-set Jaccard above which Context slices are near-duplicates")
+	scoreParamsPath := flags.String("score-params", "", "load the full ScoreParams from a JSON snapshot (offline fitter write-back; overrides [score] config keys)")
 	dbOverride := flags.String("db", cfgString(deps.resolved, "store.db", ""), "database path override")
 	jsonOutput := flags.Bool("json", false, "write JSON envelope output")
 	if err := flags.Parse(args); err != nil {
@@ -59,6 +60,20 @@ func runGC(args []string, stdout, stderr io.Writer, deps dependencies) error {
 		return usageErrf("gc: --max-slices must be >= 0 (got %d)", *maxSlices)
 	}
 
+	params := slice.ScoreParams{
+		HalfLifeDays: cfgFloat(deps.resolved, "score.half_life_days", 30),
+		GraceDays:    cfgFloat(deps.resolved, "score.grace_days", 7),
+	}
+	if *scoreParamsPath != "" {
+		p, perr := loadScoreParams(*scoreParamsPath)
+		if perr != nil {
+			// A broken trainer snapshot must fail loudly, not silently fall
+			// back to defaults (the fitter's gate depends on this).
+			return usageErrf("gc: --score-params: %v", perr)
+		}
+		params = p
+	}
+
 	db := storePath(*dbOverride, "project")
 	store, err := deps.openStore(db)
 	if err != nil {
@@ -79,11 +94,8 @@ func runGC(args []string, stdout, stderr io.Writer, deps dependencies) error {
 		DryRun:        *dryRun,
 		MaxSlices:     *maxSlices,
 		Rescore:       !*noRescore,
-		Params: slice.ScoreParams{
-			HalfLifeDays: cfgFloat(deps.resolved, "score.half_life_days", 30),
-			GraceDays:    cfgFloat(deps.resolved, "score.grace_days", 7),
-		},
-		ArchivePath: archivePath,
+		Params:        params,
+		ArchivePath:   archivePath,
 	})
 	if err != nil {
 		if *jsonOutput {

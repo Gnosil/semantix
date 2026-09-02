@@ -105,6 +105,7 @@ func (g *Gateway) handleChat(w http.ResponseWriter, r *http.Request, body []byte
 	if ierr != nil {
 		log.Printf("gateway: inject: %v", ierr) // never blocks the main path
 	}
+	g.recordRetrieval(sessionID, query, inj, g.now())
 	if inj != nil {
 		injectedTokens = int64(inj.Bytes / 4)
 		sliceHits = len(inj.Slices)

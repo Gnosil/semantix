@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -177,6 +178,25 @@ type RetrievalConfig struct {
 	// set, everything else inherits the effective global thresholds when
 	// assembled into zone.Zones.ByType. Unknown type names fail startup.
 	ByType map[string]zoneOverride `toml:"by_type"`
+	// EventsLog, when non-empty, appends one JSONL event per L2 retrieval
+	// carrying the query and the full per-candidate admission trace
+	// (inject.Injection.Decisions) — the offline training corpus for the
+	// local retrieval model (docs/specs/local-retrieval-model.md §3 G1).
+	// Strictly opt-in: the empty default writes nothing. The log carries
+	// query plaintext, so production configs must leave it off; it exists
+	// for the retrieval-lab arms.
+	EventsLog string `toml:"events_log"`
+	// RerankBaseURL, when non-empty, decorates the retriever with the local
+	// reranker (spec §3 B): candidates are over-fetched to RerankTopN and
+	// POSTed to {base}/rerank; the reply's order and bounded [0,1] scores
+	// replace the route scores. Fail-soft: any error returns the inner
+	// results untouched. The protocol is unauthenticated plaintext HTTP, so
+	// validation restricts the host to loopback (spec §8).
+	RerankBaseURL string `toml:"rerank_base_url"`
+	// RerankTopN is the over-fetch depth handed to the reranker (0 → 20).
+	RerankTopN int `toml:"rerank_top_n"`
+	// RerankTimeoutMs bounds one rerank call (0 → 300).
+	RerankTimeoutMs int `toml:"rerank_timeout_ms"`
 }
 
 // zoneOverride is the partial per-type override syntax for [retrieval]
@@ -505,6 +525,20 @@ func (c *Config) validate() error {
 	if c.Retrieval.Fusion != "" && c.Retrieval.Fusion != "weighted" && c.Retrieval.Fusion != "rrf" {
 		return fmt.Errorf("gateway config: [retrieval] fusion %q must be weighted or rrf", c.Retrieval.Fusion)
 	}
+	if c.Retrieval.RerankBaseURL != "" {
+		if err := validateLoopbackURL(c.Retrieval.RerankBaseURL); err != nil {
+			// The rerank protocol is unauthenticated plaintext HTTP
+			// (spec §8): anything beyond loopback would ship query text and
+			// slice content across the network in the clear.
+			return fmt.Errorf("gateway config: [retrieval] rerank_base_url: %w", err)
+		}
+	}
+	if c.Retrieval.RerankTopN < 0 {
+		return fmt.Errorf("gateway config: [retrieval] rerank_top_n must be >= 0 (0 = default)")
+	}
+	if c.Retrieval.RerankTimeoutMs < 0 {
+		return fmt.Errorf("gateway config: [retrieval] rerank_timeout_ms must be >= 0 (0 = default)")
+	}
 	if c.Retrieval.RrfK < 0 {
 		return fmt.Errorf("gateway config: [retrieval] rrf_k must be >= 0 (0 = fuse default)")
 	}
@@ -678,6 +712,24 @@ func validScope(s string) bool {
 		return true
 	}
 	return false
+}
+
+// validateLoopbackURL accepts only http URLs whose host resolves textually
+// to loopback (127.0.0.1, ::1, or localhost). Used for the rerank sidecar,
+// whose wire protocol has no authentication.
+func validateLoopbackURL(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("invalid URL %q: %w", raw, err)
+	}
+	if u.Scheme != "http" {
+		return fmt.Errorf("%q must use plain http on loopback (got scheme %q)", raw, u.Scheme)
+	}
+	host := u.Hostname()
+	if host != "127.0.0.1" && host != "::1" && host != "localhost" {
+		return fmt.Errorf("host %q must be loopback (127.0.0.1, ::1, or localhost)", host)
+	}
+	return nil
 }
 
 func validRetriever(s string) bool {
