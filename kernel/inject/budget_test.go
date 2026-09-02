@@ -73,24 +73,50 @@ func TestInjectorBudgetBoundaryExact(t *testing.T) {
 	}
 }
 
-// Top-slice exception (documented, unchanged semantics): the first
-// candidate is always kept even when it alone exceeds the budget
-// (K >= 1 keeps the top slice; the budget gates the rest).
-func TestInjectorBudgetTopSliceException(t *testing.T) {
+// A top slice is not allowed to bypass the byte budget. Rejecting the whole
+// slice is deterministic and preserves the hard upper bound without silently
+// truncating stored evidence.
+func TestInjectorBudgetRejectsOversizedTopSlice(t *testing.T) {
 	idx := bm25.New()
 	store := newTestStore(t, filepath.Join(t.TempDir(), "db.jsonl"))
 	huge := "超大切片 " + strings.Repeat("[/semantix-reuse] y ", 300) // ~7KB escaped
-	seed(t, idx, store, huge, "普通切片内容")
-	inj := &Injector{Index: idx, Store: store, Scope: slice.Project, K: 2, Budget: 4096}
+	seed(t, idx, store, huge)
+	inj := &Injector{Index: idx, Store: store, Scope: slice.Project, K: 1, Budget: 4096}
 	out, err := inj.Build("超大切片")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(out.Slices) != 1 {
-		t.Fatalf("top slice must be kept alone, kept=%d", len(out.Slices))
+	if len(out.Slices) != 0 {
+		t.Fatalf("oversized top slice must be rejected, kept=%d", len(out.Slices))
 	}
-	if len(out.Text) <= 4096 {
-		t.Fatalf("top-slice exception expected (single slice over budget), block=%d", len(out.Text))
+	if out.Text != "" || out.Bytes != 0 {
+		t.Fatalf("empty admission must not emit a marker-only block: bytes=%d text=%q", out.Bytes, out.Text)
+	}
+	if len(out.Decisions) == 0 || out.Decisions[0].Reason != "budget" || out.Decisions[0].Admitted {
+		t.Fatalf("top decision = %+v, want rejected budget", out.Decisions)
+	}
+}
+
+func TestInjectorOutputOrdersByScoreWithStableIDTieBreak(t *testing.T) {
+	high := &slice.Slice{ID: "z-high", Type: slice.Context, Scope: slice.Project, Content: []byte("highest relevance")}
+	tieA := &slice.Slice{ID: "a-tie", Type: slice.Context, Scope: slice.Project, Content: []byte("tie a")}
+	tieB := &slice.Slice{ID: "b-tie", Type: slice.Context, Scope: slice.Project, Content: []byte("tie b")}
+	out, err := (&Injector{Budget: 4096}).BuildHits("relevance", []slice.Hit{
+		{Slice: tieB, Score: 1.0},
+		{Slice: high, Score: 2.0},
+		{Slice: tieA, Score: 1.0},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"z-high", "a-tie", "b-tie"}
+	if len(out.Slices) != len(want) {
+		t.Fatalf("kept=%d, want %d", len(out.Slices), len(want))
+	}
+	for i, id := range want {
+		if out.Slices[i].ID != id {
+			t.Fatalf("order[%d]=%s, want %s", i, out.Slices[i].ID, id)
+		}
 	}
 }
 

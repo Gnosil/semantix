@@ -300,6 +300,7 @@ func build(ctx context.Context, opts Options) (*BuildResult, error) {
 		Enabled:     cfg.Semantix.Enabled && !opts.Ablation.Off(ablation.Kernel),
 		Binary:      cfg.Semantix.Binary,
 		Inject:      cfg.Semantix.Inject,
+		Mode:        cfg.Semantix.Mode,
 		Budget:      cfg.Semantix.Budget,
 		SessionsDir: cfg.Semantix.SessionsDir,
 		ProjectDir:  cfg.Semantix.ProjectDir,

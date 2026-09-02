@@ -55,10 +55,9 @@ func TestServeWorkspaceShellRenders(t *testing.T) {
 		`data-ws-collapse`,          // collapse control
 		`aria-expanded="true"`,      // expanded by default at desktop widths
 		`提出后续修改要求`,                  // composer placeholder
-		`实现高缓存命中率`,                  // demo task title from the GUI-1 mockup
-		`src/cache/prefix_cache.go`, // file tree + diff headers
-		`data-ws-cache-status`,       // GUI-9 cache observability hook
-		`缓存状态：暂无数据`,                // no fabricated cache numbers before telemetry
+		`开始一个真实任务`,                  // empty-session start state
+		`data-ws-context-diff`,      // real event-backed context surface
+		`data-ws-cache-status`,      // GUI-9 cache observability hook
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("workspace shell missing %q", want)
@@ -73,7 +72,7 @@ func TestServeWorkspaceCacheStatusContract(t *testing.T) {
 		`data-ws-cache-status-text`, `aria-live="polite"`,
 		`function renderCacheBar`, `function updateCacheView`,
 		`kernelCache`, `cacheDiagnostics`, `semantix_reuse`,
-		`L1 prefix`, `L2 语义切片`, `L3 安全复用`, `暂无数据`,
+		`L1 prefix`, `L2 语义切片`, `L3 安全复用`,
 	} {
 		if !strings.Contains(html, want) && !strings.Contains(js, want) {
 			t.Errorf("workspace cache status missing %q", want)
@@ -81,6 +80,9 @@ func TestServeWorkspaceCacheStatusContract(t *testing.T) {
 	}
 	if strings.Contains(html, "L2 4 slices") || strings.Contains(html, "本轮缓存已复用") {
 		t.Error("workspace cache status must not ship fabricated demo metrics")
+	}
+	if !strings.Contains(html, `data-ws-cache-status aria-live="polite" hidden`) {
+		t.Error("workspace cache status must stay hidden until telemetry is observed")
 	}
 }
 
@@ -101,7 +103,7 @@ func TestServeWorkspaceSideDrawerContract(t *testing.T) {
 
 	for asset, wants := range map[string][]string{
 		string(workspaceShellJS):   {"ws-side-open", "data-ws-side-toggle", "Escape", "aria-hidden"},
-		string(workspaceLayoutCSS): {"@media (max-width: 860px)", "body.ws-side-open .ws-side", "ws-side-scrim"},
+		string(workspaceLayoutCSS): {"@media (max-width: 900px)", "body.ws-side-open .ws-side", "ws-side-scrim"},
 	} {
 		for _, want := range wants {
 			if !strings.Contains(asset, want) {
@@ -135,31 +137,31 @@ func TestServeWorkspaceSelectorContract(t *testing.T) {
 		`URLSearchParams(window.location.hash.slice(1))`, // fragment-token bootstrap,
 		`/auth/token`, // same house contract as index.html
 		`window.history.replaceState`,
-		`"/status"`,           // project name from real backend state
-		`"/branches"`,         // branch display from real backend state
-		`"/models"`,           // model list + current + effort
-		`"/submit"`,           // switches reuse the CLI command surface
-		`"/model "`,           //   .../model <ref>
-		`"/effort "`,          //   .../effort <level>
-		`"/sessions"`,         // task list = live sessions, no second data model (#406)
-		`"/resume"`,           // task switching keeps session content server-side
-		`"/new"`,              // creating a task enters a fresh session
-		`"/workspace/events"`, // GUI-4 versioned SSE transport
+		`"/status"`,                  // project name from real backend state
+		`"/branches"`,                // branch display from real backend state
+		`"/models"`,                  // model list + current + effort
+		`"/submit"`,                  // switches reuse the CLI command surface
+		`"/model "`,                  //   .../model <ref>
+		`"/effort "`,                 //   .../effort <level>
+		`"/sessions"`,                // task list = live sessions, no second data model (#406)
+		`"/resume"`,                  // task switching keeps session content server-side
+		`"/new"`,                     // creating a task enters a fresh session
+		`"/workspace/events?live=1"`, // GUI-4 versioned SSE transport
+		`"/history"`,                 // durable session hydration before live projection
 		`data-ws-session-search`,
 		`data-ws-session-project`,
 		`data-ws-session-status`,
 		`function filterSessions`,
 		`function initSessionFilters`,
-		`模型不可用`,               // explicit unavailable-model signal (#405 acceptance)
+		`模型不可用`, // explicit unavailable-model signal (#405 acceptance)
 	} {
 		if !strings.Contains(js, want) {
 			t.Errorf("workspace shell.js missing %q", want)
 		}
 	}
 
-	// Guard rails: the shell talks only to the whitelisted endpoints above —
-	// it must not use the legacy raw stream or invent a second history model.
-	for _, forbidden := range []string{`"/events"`, `/history`} {
+	// Guard rail: the shell must not use the legacy raw stream.
+	for _, forbidden := range []string{`"/events"`} {
 		if strings.Contains(js, forbidden) {
 			t.Errorf("workspace shell.js dials out-of-contract endpoint %s", forbidden)
 		}
@@ -172,7 +174,7 @@ func TestServeWorkspaceSelectorContract(t *testing.T) {
 func TestServeWorkspaceWorkflowContract(t *testing.T) {
 	html := string(workspaceHTML)
 	for _, want := range []string{
-		`data-ws-timeline`, `data-ws-demo`, `aria-label="Agent 工作流时间线"`,
+		`data-ws-timeline`, `data-ws-empty`, `aria-label="Agent 工作流时间线"`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("workspace page missing workflow hook %q", want)
@@ -202,8 +204,8 @@ func TestServeWorkspaceWorkflowContract(t *testing.T) {
 	if strings.Contains(js, `innerHTML`) {
 		t.Error("workflow renderer must not inject event content through innerHTML")
 	}
-	if !strings.Contains(js, `data-ws-demo`) || !strings.Contains(js, `workflow.active`) {
-		t.Error("workflow renderer must preserve the static preview until real work begins")
+	if !strings.Contains(js, `el.empty.hidden = true`) || !strings.Contains(js, `workflow.active`) {
+		t.Error("workflow renderer must replace the empty state only when real work begins")
 	}
 }
 
@@ -212,7 +214,7 @@ func TestServeWorkspaceWorkflowContract(t *testing.T) {
 // unified diff string, without rebuilding status, counts, or line numbers.
 func TestServeWorkspaceDiffContract(t *testing.T) {
 	html := string(workspaceHTML)
-	for _, want := range []string{`data-ws-file-head`, `class="ws-diff"`} {
+	for _, want := range []string{`data-ws-context-diff`, `data-ws-diff-list`} {
 		if !strings.Contains(html, want) {
 			t.Errorf("workspace page missing diff hook %q", want)
 		}
@@ -315,7 +317,7 @@ func TestServeWorkspaceComposerContract(t *testing.T) {
 	html := string(workspaceHTML)
 	for _, want := range []string{
 		`data-ws-composer`, `data-ws-input`, `data-ws-send`, `data-ws-cancel`,
-		`data-ws-attach`, `data-ws-attachment-input`, `data-ws-permission`,
+		`data-ws-permission`,
 		`type="submit"`, `hidden`,
 	} {
 		if !strings.Contains(html, want) {
@@ -326,7 +328,7 @@ func TestServeWorkspaceComposerContract(t *testing.T) {
 	for _, want := range []string{
 		`function sendComposer`, `function cancelComposer`, `function initComposer`,
 		`postJSON("/submit"`, `postJSON("/cancel"`, `data-ws-permission-label`,
-		`当前任务正在运行，请等待完成或先中止`, `内容未上传`, `已取消`, `cancelled`,
+		`当前任务正在运行，请等待完成或先中止`, `已取消`, `cancelled`,
 	} {
 		if !strings.Contains(js, want) {
 			t.Errorf("workspace composer behavior missing %q", want)
@@ -441,7 +443,7 @@ func TestServeWorkspaceAssets(t *testing.T) {
 func TestServeWorkspaceDesignTokens(t *testing.T) {
 	var needs = map[string][]string{
 		string(workspaceTokensCSS): {"--sx-green: oklch(0.608 0.14 165)", "--sx-orange:", "--sx-bg-canvas:"},
-		string(workspaceLayoutCSS): {`@media (max-width: 1180px)`, `@media (max-width: 860px)`},
+		string(workspaceLayoutCSS): {`@media (max-width: 1440px)`, `@media (max-width: 900px)`},
 	}
 	for asset, wants := range needs {
 		for _, want := range wants {
@@ -457,7 +459,7 @@ func TestServeWorkspaceDesignTokens(t *testing.T) {
 		}
 	}
 	layout := string(workspaceLayoutCSS)
-	for _, want := range []string{"grid-template-rows: minmax(0, 1fr) auto", "grid-column: 1 / -1", "data-ws-state=\"empty\""} {
+	for _, want := range []string{"grid-template-rows: minmax(0, 1fr) auto", "grid-column: 1", "data-ws-state=\"empty\""} {
 		if !strings.Contains(layout, want) {
 			t.Errorf("workspace layout contract missing %q", want)
 		}

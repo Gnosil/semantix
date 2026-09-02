@@ -69,20 +69,99 @@ python3 run_bench.py --harness semantix --model deepseek-v4-flash \
 
 `--semantix-memory on`（默认）把记忆内核真正接入基准：config 写入 `[semantix]`
 enabled/inject；**每实例独立 `SEMANTIX_HOME`**（并发归属无竞态），所有实例的
-`project_dir` 指向**同一共享切片库**（`semantix-home/kernel/`）；每实例结束后
-runner 跑 `semantix extract` 把该会话蒸馏进库，后续实例即可检索注入（跨实例
+`project_dir` 指向**真实 repo 独立切片库**
+（`semantix-home/kernel/<owner>__<repo>/`）；每实例结束后 runner 跑
+`semantix extract` 把该会话蒸馏进库，后续同 repo 实例即可检索注入（跨实例
 记忆闭环，需 `go build -o bin/semantix ./cmd/semantix`）。`off` 为消融孪生臂
 （内核关闭，等价旧行为）。记忆对照请用这对臂，**不要用 `--ablate`**（它只关
 harness 侧模块，不触碰内核）。判读字段（metrics `raw`）：
 `semantix_inject_turns` / `semantix_inject_bytes` / `semantix_reuse_hits` /
 `raw.extract`（每实例入库量）。设计与根因：`docs/specs/swebench-memory-arm.md`。
 
+#### 调用来源归因字段
+
+Semantix 的 `steps` 是所有已计费模型调用总数，不等同于 executor 主循环轮数。
+runner 会把原生 `usage_by_source` 规范化进每实例 `metrics.jsonl`：
+
+| 字段 | 含义 |
+|---|---|
+| `steps` | 所有来源的已计费模型调用总数 |
+| `model_calls_by_source` | 原生完整来源表；未知的新来源原样保留 |
+| `executor_calls` / `planner_calls` / `subagent_calls` / `compaction_calls` | 四个主要来源的稳定便捷计数 |
+| `other_model_calls` | classifier、title、capability-router、recovery-reviewer、goal-evaluator 及未来来源之和 |
+| `source_call_total` | `model_calls_by_source` 的调用数总和 |
+| `source_call_delta` | `steps - source_call_total`；当前完整 metrics 预期为 0，旧记录可能非 0 |
+| `provider_retries` | provider 传输重试事件数；没有 Usage 事件时不计入 `steps` |
+| `compactions` | compaction 尝试次数；与实际产生 Usage 的 `compaction_calls` 不同 |
+| `tool_calls_by_name` | 已完成工具调用按 canonical tool name 汇总 |
+| `repeated_tool_calls` | 同一 provider-visible 工具名 + canonical JSON 参数在首次完成后的重复次数 |
+| `repeated_tool_calls_by_name` | 上述重复按工具名拆分；只保留参数摘要，不写原始参数 |
+
+`report.py` 的 Markdown 表用 `calls E/P/S/C/O` 显示
+executor/planner/subagent/compaction/other；JSON 输出保留完整来源表和工具表。
+
+#### Shadow retrieval 实验臂
+
+`--semantix-retrieval-mode off|shadow|strict`（默认 `strict`）控制开启内核后的
+L2 路径。`shadow` 会检索、执行相同的 zone/清洗/预算判定并记录 `kernel_cache`
+诊断，但不向 provider 消息添加复用块；因此可作为 A/B 臂 B，与
+`--semantix-memory off` 做请求字节不变量检查，再用其分数分布标定后续门禁。
+
+#### Repo 隔离与调度
+
+memory-on 时 runner 按数据集 `repo=owner/repo` 分组。同 repo 实例严格保持冻结
+子集中的选中顺序并在同一 worker 内串行；不同 repo 才使用 `--workers` 并行。
+非法或缺失 repo 标识会在调度前失败，不会落入共享的 unknown 库。每实例
+`raw.semantix_repo` / `raw.semantix_project_dir` 记录实际归属，便于审计。
+
+#### Issue #447 A-D 配对矩阵
+
+`memory_matrix.py` 固定按 repetition 内 A→B→C→D 串行执行，避免跨臂的
+provider/CPU 竞争；每个 repetition/arm 使用独立 state/work 目录，同时复用同一
+`--ids` 顺序：
+
+| 臂 | 配置 | agent binary |
+|---|---|---|
+| A | `memory=off`, `retrieval=off` | 当前版本 |
+| B | `memory=on`, `retrieval=shadow` | 当前版本 |
+| C | `memory=on`, `retrieval=strict` | 当前版本（P0 门禁） |
+| D | `memory=on`, `retrieval=strict` | P0.4 前的 legacy all-type 版本 |
+
+```bash
+python3 memory_matrix.py \
+  --dataset data/swebench_verified.jsonl \
+  --ids subsets/verified-50-s20260824.txt \
+  --model deepseek-v4-flash --repetitions 3 --workers 4 \
+  --semantix-bin ../../bin/semantix-agent \
+  --legacy-semantix-bin ../../bin/semantix-agent-issue447-legacy \
+  --semantix-kernel-bin ../../bin/semantix
+
+# 对生成的每个 run 完成官方 evaluate.py 后：
+python3 memory_matrix_report.py \
+  --manifest results/issue447-memory.matrix.json \
+  --format md --out results/issue447-memory.report.md
+```
+
+首次单实例端到端预跑及其因果边界见
+[`docs/reports/issue-447-memory-matrix-pilot.md`](../../docs/reports/issue-447-memory-matrix-pilot.md)。
+
+legacy binary 应固定构建自 `cb5e9cc`（repo 隔离已合并、strict 仍为旧全类型
+策略），不能用 harness `--ablate all` 代替。矩阵 manifest 保存每个 run 的完整
+命令、state/work/run 路径；重复执行会沿用 `run_bench.py` 的按实例续跑能力。
+
+报告严格按 `(repetition, instance_id)` 与 A 配对；任一臂缺实例立即报错。输出
+resolved、executor calls、steps、input tokens、工具总数和 read/search/test 工具族、
+wall、cost、retry、注入次数/字节的 absolute 与相对 A 的 median/P75/P90。接入
+`repeated_tool_calls` 后，Markdown 额外显示 `Δ repeats median/P75/P90`，JSON 同时
+保留重复 read/search/test 工具族。旧 metrics 缺少重复字段时维持 unattributed，
+不会把“未采集”伪装成 0；重复信号用于归因，不单独作为有害循环或熔断依据。
+
 ## 方法学要点（对比公平性）
 
 - **同一 prompt 模板**（`common.PROMPT_TEMPLATE`）喂给所有 harness；system prompt 保持各 harness 原生（那正是 harness 差异的一部分）。
 - **同一冻结子集**（`--sample N --seed S` 或 `--ids` 文件），同一模型、同一时段（DeepSeek 2026-08-16 起分峰谷计价，跨时段跑会引入成本噪声；成本按 off-peak 表折算，峰时 ×2）。
 - patch 提取统一为 `git add -A && git diff --cached`（工作区全部改动，含新文件）。
-- 切片库（`project_dir`）在 run 内跨实例共享——跨实例记忆/缓存正是被测对象；如需无记忆对照，用 `--semantix-memory off`，或换 `--run-id` 清空 state。
+- 切片库（`project_dir`）仅在同 repo 实例间共享；repo 之间物理隔离。如需无记忆对照，用 `--semantix-memory off`，或换 `--run-id` 清空 state。
 - 单实例 exit code 不作成败信号（semantix 有已知的非零退出怪癖），以 diff 非空 + 官方评测为准。
 - 每实例默认 2400s 超时；超时/崩溃记为 error，patch 照常提取（可能为空）。
 

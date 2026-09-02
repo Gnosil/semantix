@@ -16,7 +16,7 @@ func TestTokenModeAllowsOnlyBootstrapShellWithoutAuth(t *testing.T) {
 	})))
 	defer ts.Close()
 
-	for _, path := range []string{"/", "/assets/logo-wordmark.svg", "/sessions/session-123"} {
+	for _, path := range []string{"/", "/assets/logo-wordmark.svg", "/sessions/session-123", "/workspace", "/workspace/tokens.css", "/workspace/layout.css", "/workspace/shell.js"} {
 		resp, err := http.Get(ts.URL + path)
 		if err != nil {
 			t.Fatal(err)
@@ -43,7 +43,7 @@ func TestTokenModeDoesNotPublishNestedSessionLikePaths(t *testing.T) {
 	})))
 	defer ts.Close()
 
-	for _, path := range []string{"/sessions/", "/sessions/a/status", "/sessions"} {
+	for _, path := range []string{"/sessions/", "/sessions/a/status", "/sessions", "/workspace/events"} {
 		resp, err := http.Get(ts.URL + path)
 		if err != nil {
 			t.Fatal(err)

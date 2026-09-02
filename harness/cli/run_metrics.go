@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"maps"
 	"os"
@@ -143,6 +144,16 @@ type RunMetrics struct {
 	Retries            int                    `json:"retries"`
 	ToolCallsByName    map[string]int         `json:"tool_calls_by_name,omitempty"`
 	ToolFailuresByName map[string]int         `json:"tool_failures_by_name,omitempty"`
+	// RepeatedToolCalls counts completed calls after the first occurrence of
+	// the same provider-visible tool name + canonical JSON arguments. Only a
+	// digest is retained; raw arguments never enter metrics.
+	RepeatedToolCalls       int            `json:"repeated_tool_calls"`
+	RepeatedToolCallsByName map[string]int `json:"repeated_tool_calls_by_name,omitempty"`
+}
+
+type pendingToolCall struct {
+	signature string
+	name      string
 }
 
 // metricsSink forwards every event to the real sink and accumulates the per-call
@@ -159,6 +170,10 @@ type metricsSink struct {
 	// childMutations counts how many distinct children mutated each path, so
 	// two children racing on one file is measurable rather than anecdotal.
 	childMutations map[string]int
+	// pendingTools joins full dispatch arguments to the later result by ID;
+	// seenToolSignatures counts completed calls only.
+	pendingTools       map[string]pendingToolCall
+	seenToolSignatures map[string]int
 
 	// partialPath receives throttled in-flight snapshots, so a run killed by a
 	// timeout still leaves accounting behind instead of nothing. Empty disables
@@ -189,6 +204,7 @@ func (m RunMetrics) clone() RunMetrics {
 	out.UsageBySource = cloneSourceUsage(m.UsageBySource)
 	out.ToolCallsByName = cloneCounts(m.ToolCallsByName)
 	out.ToolFailuresByName = cloneCounts(m.ToolFailuresByName)
+	out.RepeatedToolCallsByName = cloneCounts(m.RepeatedToolCallsByName)
 	out.OriginalCosts = cloneFloatMap(m.OriginalCosts)
 	out.OriginalTotals = append([]billing.Money(nil), m.OriginalTotals...)
 	if len(m.CostQuotes) > 0 {
@@ -367,11 +383,64 @@ func (s *metricsSink) record(e event.Event) {
 		}
 	}
 	if e.Kind == event.ToolResult {
+		s.recordToolRepeat(e.Tool)
 		s.recordToolResult(e.Tool)
+	}
+	if e.Kind == event.ToolDispatch && !e.Tool.Partial {
+		s.recordToolDispatch(e.Tool)
 	}
 	if e.Kind == event.Retrying {
 		s.m.Retries++
 	}
+}
+
+func (s *metricsSink) recordToolDispatch(t event.Tool) {
+	if strings.TrimSpace(t.ID) == "" {
+		return
+	}
+	name := strings.TrimSpace(t.Name)
+	if name == "" {
+		name = "unknown"
+	}
+	if s.pendingTools == nil {
+		s.pendingTools = make(map[string]pendingToolCall)
+	}
+	s.pendingTools[t.ID] = pendingToolCall{signature: toolCallSignature(name, t.Args), name: name}
+}
+
+func (s *metricsSink) recordToolRepeat(t event.Tool) {
+	call, ok := s.pendingTools[t.ID]
+	if !ok {
+		return
+	}
+	delete(s.pendingTools, t.ID)
+	if s.seenToolSignatures == nil {
+		s.seenToolSignatures = make(map[string]int)
+	}
+	if s.seenToolSignatures[call.signature] > 0 {
+		s.m.RepeatedToolCalls++
+		if s.m.RepeatedToolCallsByName == nil {
+			s.m.RepeatedToolCallsByName = make(map[string]int)
+		}
+		s.m.RepeatedToolCallsByName[call.name]++
+	}
+	s.seenToolSignatures[call.signature]++
+}
+
+func toolCallSignature(name, args string) string {
+	normalized := []byte(strings.TrimSpace(args))
+	var decoded any
+	if json.Unmarshal(normalized, &decoded) == nil {
+		if canonical, err := json.Marshal(decoded); err == nil {
+			normalized = canonical
+		}
+	}
+	payload := make([]byte, 0, len(name)+1+len(normalized))
+	payload = append(payload, name...)
+	payload = append(payload, 0)
+	payload = append(payload, normalized...)
+	sum := sha256.Sum256(payload)
+	return string(sum[:])
 }
 
 func originalTotalsFromFloatMap(totals map[string]float64) []billing.Money {

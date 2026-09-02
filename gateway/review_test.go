@@ -25,6 +25,20 @@ func TestToolCallMessagesPreservedThroughInjection(t *testing.T) {
 		ID: "l2-tools", Type: slice.Prompt, Scope: slice.Project,
 		Content: []byte("prior widgets knowledge to inject"),
 	})
+	// Keep the target's BM25 score above the absolute L2 hit threshold. Before
+	// empty admissions stopped emitting marker-only blocks, this single-item
+	// corpus made the test pass without injecting the seeded slice at all.
+	for _, distractor := range []struct{ id, content string }{
+		{"l2-tools-alpha", "alpha"},
+		{"l2-tools-bravo", "bravo"},
+		{"l2-tools-charlie", "charlie"},
+		{"l2-tools-delta", "delta"},
+	} {
+		seed(t, g, &slice.Slice{
+			ID: distractor.id, Type: slice.Prompt, Scope: slice.Project,
+			Content: []byte(distractor.content),
+		})
+	}
 
 	body := `{"model":"deepseek-chat","messages":[
 		{"role":"user","content":"widgets please"},

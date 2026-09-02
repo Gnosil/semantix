@@ -81,6 +81,8 @@ func TestToWireContextMaintenanceJSON(t *testing.T) {
 func TestToWireKernelCacheJSON(t *testing.T) {
 	w := ToWire(event.Event{Kind: event.KernelCache, KernelCache: &event.KernelCachePayload{
 		Op: "degraded", Layer: "L2", SliceIDs: []string{"b", "a"}, Bytes: 128, Reason: "budget",
+		Retrieval: &event.RetrievalDiagnostics{Mode: "shadow", LibrarySize: 3, TopMargin: 1.25,
+			Candidates: []event.RetrievalCandidate{{ID: "b", Type: "context", Score: 2.5, Coverage: 0.75, Zone: "hit", Admitted: true, Reason: "admitted"}}},
 	}})
 	if w.Kind != "kernel_cache" || w.KernelCache == nil {
 		t.Fatalf("kernel cache wire = %+v", w)
@@ -89,7 +91,7 @@ func TestToWireKernelCacheJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{`"kind":"kernel_cache"`, `"op":"degraded"`, `"layer":"L2"`, `"sliceIds":["b","a"]`, `"reason":"budget"`} {
+	for _, want := range []string{`"kind":"kernel_cache"`, `"op":"degraded"`, `"layer":"L2"`, `"sliceIds":["b","a"]`, `"reason":"budget"`, `"mode":"shadow"`, `"librarySize":3`, `"coverage":0.75`, `"reason":"admitted"`} {
 		if !strings.Contains(string(b), want) {
 			t.Fatalf("kernel cache JSON = %s, missing %s", b, want)
 		}

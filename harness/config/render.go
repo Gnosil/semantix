@@ -522,6 +522,11 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	b.WriteString("# inject the [semantix-reuse] block on similar tasks (inject).\n")
 	fmt.Fprintf(&b, "enabled = %v\n", c.Semantix.Enabled)
 	fmt.Fprintf(&b, "inject  = %v\n", c.Semantix.Inject)
+	if c.Semantix.Mode != "" {
+		fmt.Fprintf(&b, "mode    = %q   # off | shadow | strict\n", c.Semantix.Mode)
+	} else {
+		b.WriteString("# mode    = \"shadow\"   # observe retrieval without provider injection\n")
+	}
 	if c.Semantix.Binary != "" {
 		fmt.Fprintf(&b, "binary  = %q\n", c.Semantix.Binary)
 	} else {

@@ -27,7 +27,6 @@ import re
 import shutil
 import subprocess
 import sys
-import threading
 from pathlib import Path
 
 from common import (
@@ -47,6 +46,30 @@ from common import (
 
 DEEPSEEK_OPENAI_BASE = "https://api.deepseek.com"
 DEEPSEEK_ANTHROPIC_BASE = "https://api.deepseek.com/anthropic"
+
+REPO_OWNER = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$")
+REPO_NAME = re.compile(r"^[A-Za-z0-9._-]+$")
+
+
+def repo_identity(inst: dict) -> str:
+    """Return the canonical owner/repo identity or fail closed.
+
+    A shared fallback would recreate the contamination this guard prevents, so
+    malformed dataset rows stop scheduling instead of entering an unknown db.
+    """
+    raw = inst.get("repo")
+    if not isinstance(raw, str):
+        raise ValueError(f"instance {inst.get('instance_id', '<unknown>')} has no repo identity")
+    parts = raw.split("/")
+    if (len(parts) != 2 or parts[1] in {"", ".", ".."}
+            or not REPO_OWNER.fullmatch(parts[0] or "")
+            or not REPO_NAME.fullmatch(parts[1] or "")):
+        raise ValueError(f"invalid SWE-bench repo identity: {raw!r}")
+    return f"{parts[0].lower()}/{parts[1].lower()}"
+
+
+def repo_store_key(inst: dict) -> str:
+    return repo_identity(inst).replace("/", "__", 1)
 
 
 class CountProxy:
@@ -95,6 +118,35 @@ def sum_ledger(rows: list[dict]) -> dict:
     return total
 
 
+def normalize_call_counts(value: object) -> dict[str, int]:
+    """Return valid non-negative call counts from a usage-by-source object."""
+    if not isinstance(value, dict):
+        return {}
+    out = {}
+    for source, bucket in value.items():
+        if not isinstance(source, str) or not isinstance(bucket, dict):
+            continue
+        calls = bucket.get("calls")
+        if isinstance(calls, bool) or not isinstance(calls, int) or calls < 0:
+            continue
+        out[source] = calls
+    return out
+
+
+def normalize_count_map(value: object) -> dict[str, int]:
+    """Return valid non-negative counters from a flat string-to-int object."""
+    if not isinstance(value, dict):
+        return {}
+    return {
+        name: count
+        for name, count in value.items()
+        if isinstance(name, str)
+        and isinstance(count, int)
+        and not isinstance(count, bool)
+        and count >= 0
+    }
+
+
 def clean_env(*, drop_prefixes=(), drop=()) -> dict:
     env = {}
     for k, v in os.environ.items():
@@ -114,6 +166,14 @@ class Adapter:
     def prepare(self) -> None:  # once per run
         pass
 
+    def execution_batches(self, instances: list[dict]) -> list[list[dict]]:
+        """Independent batches that may run concurrently.
+
+        The default keeps historical per-instance parallelism. Stateful
+        adapters override this to serialize instances that share state.
+        """
+        return [[inst] for inst in instances]
+
     def run_instance(self, ws: Path, prompt: str, inst: dict) -> tuple[int | None, dict, str]:
         """Return (exit_code, raw_metrics, error_string)."""
         raise NotImplementedError
@@ -127,6 +187,10 @@ class Adapter:
 # semantix-agent
 # ---------------------------------------------------------------------------
 
+def semantix_bench_provider(model: str) -> str:
+    return "deepseek-pro" if model.endswith("-pro") else "deepseek-flash"
+
+
 class SemantixAdapter(Adapter):
     name = "semantix"
 
@@ -135,16 +199,15 @@ class SemantixAdapter(Adapter):
         # [semantix] section, so SemantixConfig.Enabled defaulted to false and
         # the whole kernel was off). With --semantix-memory on (the default)
         # every instance gets its OWN home (so session mirrors are attributed
-        # race-free under --workers), while [semantix].project_dir points all
-        # of them at ONE shared slice library; after each instance the runner
-        # runs `semantix extract` so later instances can retrieve its slices.
+        # race-free under --workers), while each real repo gets its OWN Project
+        # store. Same-repo instances are scheduled as one ordered batch; repos
+        # remain parallel.
         self.home = self.args.state_path / "semantix-home"
         self.home.mkdir(parents=True, exist_ok=True)
         self.memory_on = self.args.semantix_memory == "on"
-        self.kernel_dir = self.home / "kernel"
-        self.extract_lock = threading.Lock()
+        self.kernel_root = self.home / "kernel"
         if self.memory_on:
-            (self.kernel_dir / ".semantix").mkdir(parents=True, exist_ok=True)
+            self.kernel_root.mkdir(parents=True, exist_ok=True)
             self.kernel_bin = self.args.semantix_kernel_bin or shutil.which("semantix") or str(
                 HERE.parent.parent / "bin" / "semantix")
             if not Path(self.kernel_bin).exists():
@@ -161,7 +224,18 @@ class SemantixAdapter(Adapter):
                 "`go build -o bin/semantix-agent ./cmd/semantix-agent` or pass --semantix-bin"
             )
 
-    def _write_home(self, home: Path, sessions_dir: Path) -> None:
+    def execution_batches(self, instances: list[dict]) -> list[list[dict]]:
+        if not self.memory_on:
+            return super().execution_batches(instances)
+        by_repo: dict[str, list[dict]] = {}
+        for inst in instances:
+            by_repo.setdefault(repo_identity(inst), []).append(inst)
+        return list(by_repo.values())
+
+    def kernel_dir_for(self, inst: dict) -> Path:
+        return self.kernel_root / repo_store_key(inst)
+
+    def _write_home(self, home: Path, sessions_dir: Path, kernel_dir: Path | None) -> None:
         home.mkdir(parents=True, exist_ok=True)
         # Provider keys resolve ONLY from Semantix's global .env (never the
         # process environment) — see ProviderEntry.APIKey in harness/config.
@@ -170,20 +244,25 @@ class SemantixAdapter(Adapter):
             f"DEEPSEEK_API_KEY={os.environ.get('DEEPSEEK_API_KEY', 'smoke')}\n")
         env_file.chmod(0o600)
         base = self.args.openai_base or DEEPSEEK_OPENAI_BASE
+        provider_selector = semantix_bench_provider(self.args.model)
         effort = f'effort      = "{self.args.effort}"\n' if self.args.effort else ""
         memory_section = ""
         if self.memory_on:
+            if kernel_dir is None:
+                raise ValueError("memory-on instance requires a repo-specific kernel directory")
+            (kernel_dir / ".semantix").mkdir(parents=True, exist_ok=True)
             sessions_dir.mkdir(parents=True, exist_ok=True)
             memory_section = f'''
 [semantix]
 enabled      = true
 inject       = true
+mode         = "{self.args.semantix_retrieval_mode}"
 budget       = 4096
-project_dir  = "{self.kernel_dir}"
+project_dir  = "{kernel_dir}"
 sessions_dir = "{sessions_dir}"
 '''
         (home / "config.toml").write_text(
-            f'''default_model = "deepseek"
+            f'''default_model = "{provider_selector}"
 {memory_section}
 # Benchmark convention: every arm runs in its max-permission mode (codex
 # danger-full-access, claude --dangerously-skip-permissions, dsh
@@ -192,7 +271,7 @@ sessions_dir = "{sessions_dir}"
 bash = "off"
 
 [[providers]]
-name        = "deepseek"
+name        = "{provider_selector}"
 kind        = "openai"
 base_url    = "{base}"
 models      = ["{self.args.model}"]
@@ -209,7 +288,9 @@ context_window = 128000
         mfile.parent.mkdir(parents=True, exist_ok=True)
         home = self.home / "inst" / inst["instance_id"]
         sessions_dir = home / "kernel-sessions"
-        self._write_home(home, sessions_dir)
+        repo = repo_identity(inst) if self.memory_on else ""
+        kernel_dir = self.kernel_dir_for(inst) if self.memory_on else None
+        self._write_home(home, sessions_dir, kernel_dir)
         env = clean_env()
         env.update({
             "SEMANTIX_HOME": str(home),
@@ -223,45 +304,65 @@ context_window = 128000
             "--permission-mode", "auto",
             "--preset", self.args.preset,
             "--metrics", str(mfile),
-            "--model", "deepseek",
+            "--model", semantix_bench_provider(self.args.model),
         ]
         if self.args.ablate:
             cmd += ["--ablate", self.args.ablate]
+        stdout_text = ""
+        stderr_text = ""
         try:
             proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
                                   env=env, timeout=self.args.timeout)
             exit_code, err = proc.returncode, ""
-        except subprocess.TimeoutExpired:
+            stdout_text = proc.stdout or ""
+            stderr_text = proc.stderr or ""
+        except subprocess.TimeoutExpired as exc:
             exit_code, err = None, f"timeout after {self.args.timeout}s"
+            stdout_text = exc.stdout or ""
+            stderr_text = exc.stderr or ""
+        if isinstance(stdout_text, bytes):
+            stdout_text = stdout_text.decode("utf-8", errors="replace")
+        if isinstance(stderr_text, bytes):
+            stderr_text = stderr_text.decode("utf-8", errors="replace")
+        # Preserve adapter-local diagnostics beside native metrics. Without
+        # these files, an early CLI failure produces only zero counters and
+        # discards the actual provider/configuration error.
+        stem = mfile.with_suffix("")
+        Path(str(stem) + ".stdout.txt").write_text(stdout_text, encoding="utf-8")
+        Path(str(stem) + ".stderr.txt").write_text(stderr_text, encoding="utf-8")
         raw = {}
         for candidate in (mfile, Path(str(mfile) + ".partial")):
             if candidate.exists():
                 raw = json.loads(candidate.read_text())
                 break
         if self.memory_on:
-            raw["extract"] = self._extract_slices(sessions_dir, inst["instance_id"])
+            raw["semantix_repo"] = repo
+            raw["semantix_project_dir"] = str(kernel_dir)
+            raw["extract"] = self._extract_slices(
+                sessions_dir, inst["instance_id"], kernel_dir, repo)
         return exit_code, raw, err
 
-    def _extract_slices(self, sessions_dir: Path, instance_id: str) -> dict:
+    def _extract_slices(self, sessions_dir: Path, instance_id: str,
+                        kernel_dir: Path, repo: str) -> dict:
         """Close the memory loop: distill this instance's session mirrors into
-        the shared slice library so later instances can retrieve them. The
+        the repo-isolated slice library so later same-repo instances can retrieve them. The
         agent never extracts on its own (extraction is `semantix extract` /
         gateway-side by design), so the runner does it here. The sessions dir
         is per-instance, so every mirror in it belongs to this instance; the
-        lock serializes store writes (the append journal is single-writer)."""
+        scheduler serializes every same-repo batch, so each append journal has
+        exactly one writer while different repo stores remain parallel."""
         mirrors = sorted(sessions_dir.glob("*.jsonl"))
         out = {"mirrors": len(mirrors), "runs": []}
-        db = self.kernel_dir / ".semantix" / "project.db"
+        db = kernel_dir / ".semantix" / "project.db"
         for mirror in mirrors:
             ecmd = [self.kernel_bin, "extract",
                     "--input", str(mirror),
                     "--scope", "project",
                     "--project-db", str(db),
                     "--session", instance_id,
-                    "--project", "swebench"]
+                    "--project", repo]
             try:
-                with self.extract_lock:
-                    ep = subprocess.run(ecmd, capture_output=True, text=True, timeout=120)
+                ep = subprocess.run(ecmd, capture_output=True, text=True, timeout=120)
                 out["runs"].append({"mirror": mirror.name, "exit": ep.returncode,
                                     "out": (ep.stdout or ep.stderr).strip()[-300:]})
             except Exception as exc:  # extraction is best-effort, never fails the instance
@@ -275,6 +376,29 @@ context_window = 128000
         m.cache_miss_tokens = raw.get("cache_miss_tokens", 0)
         m.steps = raw.get("steps", 0)
         m.tool_calls = raw.get("tool_calls", 0)
+        m.model_calls_by_source = normalize_call_counts(raw.get("usage_by_source"))
+        m.executor_calls = m.model_calls_by_source.get("executor", 0)
+        m.planner_calls = m.model_calls_by_source.get("planner", 0)
+        m.subagent_calls = m.model_calls_by_source.get("subagent", 0)
+        m.compaction_calls = m.model_calls_by_source.get("compaction", 0)
+        named_sources = {"executor", "planner", "subagent", "compaction"}
+        m.other_model_calls = sum(
+            calls for source, calls in m.model_calls_by_source.items()
+            if source not in named_sources
+        )
+        m.source_call_total = sum(m.model_calls_by_source.values())
+        m.source_call_delta = m.steps - m.source_call_total
+        m.provider_retries = raw.get("retries", 0)
+        m.compactions = raw.get("compactions", 0)
+        m.subagent_runs = raw.get("subagent_runs", 0)
+        m.tool_failures = raw.get("tool_failures", 0)
+        m.tool_calls_by_name = normalize_count_map(raw.get("tool_calls_by_name"))
+        if "repeated_tool_calls" in raw:
+            m.repeated_tool_calls = raw.get("repeated_tool_calls")
+        if "repeated_tool_calls_by_name" in raw:
+            m.repeated_tool_calls_by_name = normalize_count_map(
+                raw.get("repeated_tool_calls_by_name")
+            )
         m.cost_native = raw.get("cost")
         m.cost_native_currency = raw.get("currency", "")
 
@@ -708,6 +832,13 @@ def process_instance(adapter: Adapter, args, run_dir: Path, prices: dict, inst: 
         shutil.rmtree(ws, ignore_errors=True)
 
 
+def process_batch(adapter: Adapter, args, run_dir: Path, prices: dict,
+                  batch: list[dict]) -> None:
+    """Run one state-sharing batch sequentially inside a worker."""
+    for inst in batch:
+        process_instance(adapter, args, run_dir, prices, inst)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -721,7 +852,9 @@ def main() -> None:
     ap.add_argument("--run-id", default=None)
     ap.add_argument("--results-dir", default=str(HERE / "results"))
     ap.add_argument("--work-dir", default=str(HERE / "work"))
-    ap.add_argument("--workers", type=int, default=1)
+    ap.add_argument("--workers", type=int, default=1,
+                    help="parallel workers; semantix memory-on parallelizes repos while "
+                    "serializing the selected order within each repo")
     ap.add_argument("--timeout", type=int, default=2400, help="per-instance seconds")
     ap.add_argument("--max-turns", type=int, default=120, help="claude-code turn cap")
     ap.add_argument("--preset", default="balanced", help="semantix preset")
@@ -731,6 +864,10 @@ def main() -> None:
     ap.add_argument("--semantix-memory", default="on", choices=("on", "off"),
                     help="semantix memory-kernel arm: on = [semantix] enabled+inject, shared slice "
                     "library across instances, per-instance extract; off = kernel disabled (ablation twin)")
+    ap.add_argument("--semantix-retrieval-mode", default="strict",
+                    choices=("off", "shadow", "strict"),
+                    help="L2 retrieval mode when --semantix-memory=on; shadow records the same "
+                    "candidates and admission decisions as strict but leaves provider messages unchanged")
     ap.add_argument("--semantix-bin", default="")
     ap.add_argument("--semantix-kernel-bin", default="",
                     help="path to the semantix kernel CLI (default: bin/semantix) used for slice extraction")
@@ -767,17 +904,18 @@ def main() -> None:
 
     adapter = ADAPTERS[args.harness](args, run_dir)
     adapter.prepare()
+    batches = adapter.execution_batches(todo)
     prices = load_prices(args.prices or None)
 
     (run_dir / "run_config.json").write_text(json.dumps(vars(args), indent=2, default=str))
 
     if args.workers <= 1:
-        for inst in todo:
-            process_instance(adapter, args, run_dir, prices, inst)
+        for batch in batches:
+            process_batch(adapter, args, run_dir, prices, batch)
     else:
         with cf.ThreadPoolExecutor(max_workers=args.workers) as pool:
-            futs = [pool.submit(process_instance, adapter, args, run_dir, prices, inst)
-                    for inst in todo]
+            futs = [pool.submit(process_batch, adapter, args, run_dir, prices, batch)
+                    for batch in batches]
             for fut in cf.as_completed(futs):
                 exc = fut.exception()
                 if exc:

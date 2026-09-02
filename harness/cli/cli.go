@@ -41,6 +41,7 @@ import (
 	"semantix/harness/serve"
 	"semantix/harness/sessiontemp"
 	"semantix/harness/telemetry"
+	"semantix/harness/webapp"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/pflag"
@@ -968,8 +969,11 @@ func runServeWithOptions(args []string, opts serveRunOptions) int {
 		return 1
 	}
 
-	srv := serve.New(ctrl, bc, serveCfg)
-	_ = srv.SetSessionLeases(leases) // same live keeper was bound above
+	srv, err := webapp.Assemble(ctrl, bc, serveCfg, leases, *addr)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, i18n.M.ErrorPrefix, err)
+		return 1
+	}
 	return runServeFrontend(ctrl, srv, serveCfg, serveFrontendOptions{
 		command: opts.command, address: *addr,
 		portFile: *portFile, tokenFile: *tokenFile, pidFile: *pidFile,

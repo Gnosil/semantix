@@ -264,6 +264,24 @@ func (b *Broadcaster) SubscribeWebSince(lastSeq uint64, taskID string) (<-chan w
 	}
 }
 
+// SubscribeWebLive registers a workspace subscriber without replaying retained
+// frames. The workspace uses this while it hydrates the durable /history
+// snapshot, buffering any events that arrive during that request.
+func (b *Broadcaster) SubscribeWebLive(taskID string) (<-chan webDelivery, func()) {
+	sub := &webSubscriber{ch: make(chan webDelivery, 64), taskID: taskID}
+	b.mu.Lock()
+	b.webSubs[sub] = struct{}{}
+	b.mu.Unlock()
+	return sub.ch, func() {
+		b.mu.Lock()
+		if _, ok := b.webSubs[sub]; ok {
+			delete(b.webSubs, sub)
+			close(sub.ch)
+		}
+		b.mu.Unlock()
+	}
+}
+
 // Subscribers reports the current connection count (for diagnostics/tests).
 func (b *Broadcaster) Subscribers() int {
 	b.mu.Lock()

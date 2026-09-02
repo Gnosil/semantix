@@ -87,7 +87,12 @@ func TestWarmPopulatesCacheInBackground(t *testing.T) {
 		t.Fatal("expected error while inner failing")
 	}
 	fail.Store(false)
-	deadline := time.Now().Add(2 * time.Second)
+	// The warm goroutine only needs one scheduling slot, but CI runs the
+	// whole suite under -race, where 2s of wall clock proved not to be a
+	// safe margin (flaked on #444). Wait generously, then tell apart
+	// "goroutine never ran" (scheduling) from "ran but cached nothing"
+	// (a real warm-path bug).
+	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
 		// Primary-rubric warm lands under the "p" namespace.
 		if confirm, ok := cj.Cache.Get("p" + VerdictKey("q", "s")); ok {
@@ -97,6 +102,9 @@ func TestWarmPopulatesCacheInBackground(t *testing.T) {
 			return
 		}
 		time.Sleep(10 * time.Millisecond)
+	}
+	if inner.callCount() < 2 {
+		t.Fatal("background warm goroutine never ran")
 	}
 	t.Fatal("background warm did not populate the cache in time")
 }

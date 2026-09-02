@@ -532,11 +532,59 @@ type CacheDiagnostics struct {
 // "degraded"; Layer is "L2" or "L3". It carries observations only, never
 // unmeasured cost or performance claims.
 type KernelCachePayload struct {
-	Op       string   `json:"op,omitempty"`
-	Layer    string   `json:"layer,omitempty"`
-	SliceIDs []string `json:"sliceIds,omitempty"`
-	Bytes    int      `json:"bytes,omitempty"`
-	Reason   string   `json:"reason,omitempty"`
+	Op        string                `json:"op,omitempty"`
+	Layer     string                `json:"layer,omitempty"`
+	SliceIDs  []string              `json:"sliceIds,omitempty"`
+	Bytes     int                   `json:"bytes,omitempty"`
+	Reason    string                `json:"reason,omitempty"`
+	Retrieval *RetrievalDiagnostics `json:"retrieval,omitempty"`
+}
+
+// QuerySummary identifies retrieval input without copying user text into the
+// telemetry stream. SHA256 plus byte/token counts is sufficient to correlate
+// the before/after cleaning stages and detect whether cleaning changed bytes.
+type QuerySummary struct {
+	SHA256 string `json:"sha256,omitempty"`
+	Bytes  int    `json:"bytes,omitempty"`
+	Tokens int    `json:"tokens,omitempty"`
+}
+
+// RetrievalCandidate records one score-ordered top-k result and the exact
+// production admission outcome. Verified is "unknown" until slice metadata
+// gains a distinct successful-evaluation marker; provenance must not be
+// misreported as verification.
+type RetrievalCandidate struct {
+	ID            string  `json:"id,omitempty"`
+	Type          string  `json:"type,omitempty"`
+	SourceSession string  `json:"sourceSession,omitempty"`
+	Project       string  `json:"project,omitempty"`
+	Origin        string  `json:"origin,omitempty"`
+	Verified      string  `json:"verified,omitempty"`
+	Score         float64 `json:"score,omitempty"`
+	Coverage      float64 `json:"coverage,omitempty"`
+	Zone          string  `json:"zone,omitempty"`
+	Admitted      bool    `json:"admitted,omitempty"`
+	Reason        string  `json:"reason,omitempty"`
+}
+
+// RetrievalDiagnostics is the replayable per-turn L2 retrieval record. In
+// shadow mode Candidates and the counterfactual FinalOrder are populated but
+// Injected/Bytes/MessageRole remain zero because provider input is untouched.
+type RetrievalDiagnostics struct {
+	Mode           string               `json:"mode,omitempty"`
+	LibrarySize    int                  `json:"librarySize,omitempty"`
+	Repo           string               `json:"repo,omitempty"`
+	BaseCommit     string               `json:"baseCommit,omitempty"`
+	QueryBefore    QuerySummary         `json:"queryBefore,omitempty"`
+	QueryAfter     QuerySummary         `json:"queryAfter,omitempty"`
+	TopMargin      float64              `json:"topMargin,omitempty"`
+	Candidates     []RetrievalCandidate `json:"candidates,omitempty"`
+	Injected       bool                 `json:"injected,omitempty"`
+	Bytes          int                  `json:"bytes,omitempty"`
+	MessageRole    string               `json:"messageRole,omitempty"`
+	FinalOrder     []string             `json:"finalOrder,omitempty"`
+	Decision       string               `json:"decision,omitempty"`
+	DecisionReason string               `json:"decisionReason,omitempty"`
 }
 
 // FinalReadiness carries machine-readable recovery requirements on TurnDone.

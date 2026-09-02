@@ -959,6 +959,9 @@ type SemantixConfig struct {
 	Binary string `toml:"binary"`
 	// Inject appends the [semantix-reuse] block to the system prompt region.
 	Inject bool `toml:"inject"`
+	// Mode controls L2 retrieval: off | shadow | strict. Empty preserves the
+	// legacy Inject boolean; an explicit value takes precedence.
+	Mode string `toml:"mode"`
 	// Budget caps the L2 injection block size in bytes (default 4096).
 	Budget int `toml:"budget"`
 	// SessionsDir is where the session JSONL mirror is written; empty uses

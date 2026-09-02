@@ -21,6 +21,24 @@ import (
 
 const providerSetupTestKeyEnv = "SEMANTIX_REMOTE_SETUP_TEST_KEY"
 
+func TestSetupProvidersNeverReturnsAPIKey(t *testing.T) {
+	s, secret := newProviderSetupTestServer(t)
+	if _, err := config.SetCredential(providerSetupTestKeyEnv, secret); err != nil {
+		t.Fatal(err)
+	}
+	s.EnableProviderSetupForListener("127.0.0.1:8787")
+	httpServer := httptest.NewServer(s.Handler())
+	defer httpServer.Close()
+
+	body := getProviderSetupBody(t, httpServer.URL+"/setup/providers")
+	if strings.Contains(body, secret) || strings.Contains(strings.ToLower(body), `"apikey"`) {
+		t.Fatal("Provider setup API exposed credential material")
+	}
+	if !strings.Contains(body, `"keyConfigured":true`) {
+		t.Fatal("Provider setup API did not report the redacted credential state")
+	}
+}
+
 func TestProviderSetupStoresRemoteCredentialAndRebuildsController(t *testing.T) {
 	s, secret := newProviderSetupTestServer(t)
 	if !s.EnableProviderSetupForListener("127.0.0.1:8787") {

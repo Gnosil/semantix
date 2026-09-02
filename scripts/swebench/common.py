@@ -15,8 +15,10 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 
@@ -68,6 +70,23 @@ class InstanceMetrics:
     cache_miss_tokens: int = 0
     steps: int = 0                   # model calls
     tool_calls: int = 0
+    model_calls_by_source: dict[str, int] = field(default_factory=dict)
+    executor_calls: int = 0
+    planner_calls: int = 0
+    subagent_calls: int = 0
+    compaction_calls: int = 0
+    other_model_calls: int = 0
+    source_call_total: int = 0
+    source_call_delta: int = 0
+    provider_retries: int = 0
+    compactions: int = 0
+    subagent_runs: int = 0
+    tool_failures: int = 0
+    tool_calls_by_name: dict[str, int] = field(default_factory=dict)
+    # None means the selected harness/binary predates repeat attribution;
+    # zero means attribution ran and observed no repeated signature.
+    repeated_tool_calls: int | None = None
+    repeated_tool_calls_by_name: dict[str, int] | None = None
     cost_usd: float | None = None    # computed from DeepSeek prices when possible
     cost_native: float | None = None # what the harness itself reported
     cost_native_currency: str = ""
@@ -145,6 +164,40 @@ def _run(cmd: list[str], cwd: Path | None = None, check: bool = True, env: dict 
                           capture_output=True, text=True)
 
 
+@contextmanager
+def exclusive_file_lock(path: Path):
+    """Hold a one-byte advisory lock on POSIX and Windows."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a+b") as lock:
+        if os.name == "nt":
+            import msvcrt
+
+            lock.seek(0, os.SEEK_END)
+            if lock.tell() == 0:
+                lock.write(b"\0")
+                lock.flush()
+            while True:
+                lock.seek(0)
+                try:
+                    msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError:
+                    time.sleep(0.05)
+            try:
+                yield
+            finally:
+                lock.seek(0)
+                msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lock, fcntl.LOCK_UN)
+
+
 def ensure_repo_cache(work_dir: Path, repo: str) -> Path:
     cache = work_dir / "repos" / (repo.replace("/", "__") + ".git")
     if cache.exists():
@@ -152,13 +205,11 @@ def ensure_repo_cache(work_dir: Path, repo: str) -> Path:
     cache.parent.mkdir(parents=True, exist_ok=True)
     # Serialize concurrent clones (workers race on first use of a repo);
     # clone to a temp path so a killed clone never leaves a half-built cache.
-    import fcntl
-
-    with open(cache.with_suffix(".lock"), "w") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+    with exclusive_file_lock(cache.with_suffix(".lock")):
         if not cache.exists():
             tmp = cache.with_suffix(".tmp")
-            subprocess.run(["rm", "-rf", str(tmp)], check=True)
+            if tmp.exists():
+                shutil.rmtree(tmp)
             _run(["git", "clone", "--bare", f"https://github.com/{repo}.git", str(tmp)])
             tmp.rename(cache)
     return cache
@@ -167,7 +218,7 @@ def ensure_repo_cache(work_dir: Path, repo: str) -> Path:
 def prepare_workspace(work_dir: Path, run_id: str, inst: dict) -> Path:
     ws = work_dir / "ws" / run_id / inst["instance_id"]
     if ws.exists():
-        subprocess.run(["rm", "-rf", str(ws)], check=True)
+        shutil.rmtree(ws)
     cache = ensure_repo_cache(work_dir, inst["repo"])
     # --shared is safe: workspaces are throwaway and never gc'd independently.
     _run(["git", "clone", "--shared", "--no-checkout", str(cache), str(ws)])

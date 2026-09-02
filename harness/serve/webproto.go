@@ -178,7 +178,15 @@ func (s *Server) workspaceEvents(w http.ResponseWriter, r *http.Request) {
 		taskID = "current"
 	}
 	lastSeq := parseLastEventID(r.Header.Get("Last-Event-ID"))
-	ch, replay, gap, unsubscribe := s.bc.SubscribeWebSince(lastSeq, taskID)
+	var ch <-chan webDelivery
+	var replay []webDelivery
+	var gap bool
+	var unsubscribe func()
+	if lastSeq == 0 && r.URL.Query().Get("live") == "1" {
+		ch, unsubscribe = s.bc.SubscribeWebLive(taskID)
+	} else {
+		ch, replay, gap, unsubscribe = s.bc.SubscribeWebSince(lastSeq, taskID)
+	}
 	defer unsubscribe()
 	if gap {
 		w.Header().Set("X-Semantix-Replay", "gap")

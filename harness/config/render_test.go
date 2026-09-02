@@ -210,6 +210,7 @@ func TestRenderTOMLRoundTrips(t *testing.T) {
 	orig.Desktop.CheckUpdates = boolPtr(false)
 	orig.Desktop.UpdateChannel = "preview"
 	orig.Desktop.Telemetry = boolPtr(false)
+	orig.Semantix.Mode = "shadow"
 	orig.Notifications.Enabled = true
 	orig.Notifications.TurnDone = true
 	orig.Notifications.ApprovalRequest = true
@@ -328,6 +329,9 @@ func TestRenderTOMLRoundTrips(t *testing.T) {
 	}
 	if got.ConfigVersion != Default().ConfigVersion {
 		t.Errorf("config_version = %d, want %d", got.ConfigVersion, Default().ConfigVersion)
+	}
+	if got.Semantix.Mode != "shadow" {
+		t.Errorf("semantix.mode = %q, want shadow", got.Semantix.Mode)
 	}
 	if got.Language != "zh" {
 		t.Errorf("language = %q, want zh", got.Language)

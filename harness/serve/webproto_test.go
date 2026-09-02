@@ -289,6 +289,27 @@ func TestBroadcasterWebReplayAndGap(t *testing.T) {
 	}
 }
 
+func TestBroadcasterLiveSubscriptionBridgesHistoryWithoutDuplicates(t *testing.T) {
+	bc := NewBroadcaster()
+	bc.Emit(event.Event{Kind: event.Message, Text: "already in /history"})
+	ch, unsubscribe := bc.SubscribeWebLive("task-1")
+	defer unsubscribe()
+	select {
+	case delivery := <-ch:
+		t.Fatalf("live hydration replayed retained frame %d", delivery.frame.seq)
+	default:
+	}
+	bc.Emit(event.Event{Kind: event.Message, Text: "arrived during hydration"})
+	select {
+	case delivery := <-ch:
+		if delivery.frame.seq != 2 {
+			t.Fatalf("buffered live seq = %d, want 2", delivery.frame.seq)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("live hydration lost an event")
+	}
+}
+
 func TestBroadcasterResetSessionDropsWorkspaceHistory(t *testing.T) {
 	bc := NewBroadcaster()
 	bc.Emit(event.Event{Kind: event.Message, Text: "old task"})

@@ -4,11 +4,10 @@
 // block for the harness compose step.
 //
 // Design invariants (see Agent-Infra-架构设计.md §4.2):
-//   - canonical order: injection slices are sorted by ID so identical
-//     retrievals produce byte-identical blocks (DeepSeek prefix-cache
-//     friendly); never sorted by score.
-//   - budget: only whole slices are dropped, in score order, until the block
-//     fits the budget; the top slice is always kept when k >= 1.
+//   - canonical order: injection slices are score-descending with an ID
+//     tie-break so relevance order and byte stability agree.
+//   - budget: only whole slices are dropped; no candidate, including top-1,
+//     may make the final block exceed the configured hard byte limit.
 //   - low-authority: the block is wrapped in markers so the harness can place
 //     it after the system prefix / before the user message, and strip it on
 //     user edit/rollback (SliceReject).
@@ -21,6 +20,7 @@ import (
 	"strings"
 	"unicode"
 
+	"semantix/kernel/bm25"
 	"semantix/kernel/sanitize"
 	"semantix/kernel/slice"
 	"semantix/kernel/zone"
@@ -81,6 +81,22 @@ type Injector struct {
 	Budget int
 	// MinScore drops slices below this BM25 score (0 disables).
 	MinScore float64
+	// AllowedTypes, when non-nil, is a fail-closed injection allowlist. Search
+	// results outside it remain in Decisions for shadow analysis.
+	AllowedTypes map[slice.SliceType]bool
+	// LibrarySize and MinLibrarySize gate immature Project libraries.
+	LibrarySize    int
+	MinLibrarySize int
+	// SourceSessionsByType counts distinct non-empty source sessions in the
+	// library. MinSourceSessions prevents one session from self-confirming.
+	SourceSessionsByType map[slice.SliceType]int
+	MinSourceSessions    int
+	// MinCoverage is the cleaned-query token coverage floor.
+	MinCoverage float64
+	// MinTopMargin is the absolute score gap between the two best candidates
+	// that pass AllowedTypes. RequireRunnerUp rejects a singleton eligible set.
+	MinTopMargin    float64
+	RequireRunnerUp bool
 	// Zones, when non-nil, applies the grey-zone classifier: only clearly
 	// reusable slices (zone.Hit) enter the block; grey/miss candidates are
 	// skipped (Krites §3.1 — the grey zone must be verified, not injected).
@@ -112,7 +128,7 @@ type Injector struct {
 
 // Injection is the assembled, deterministic reuse block.
 type Injection struct {
-	Slices  []*slice.Slice // canonical (ID-sorted) order
+	Slices  []*slice.Slice // score-descending; ID tie-break
 	Text    string         // marker-wrapped block to place in the compose step
 	Bytes   int
 	Dropped int // slices dropped by zone filter or budget (whole-slice truncation)
@@ -120,6 +136,27 @@ type Injection struct {
 	// mode). Zero in the default drop mode; a persistent non-zero value is
 	// the signal to recalibrate zone thresholds (W3 of the efficiency plan).
 	GreyIncluded int
+	// Decisions preserves the score-order admission trace for every retrieved
+	// candidate. It is observation-only: replaying Admitted from Reason must
+	// yield the same slice set that produced Text.
+	Decisions []CandidateDecision
+	// TopMargin is top1-top2 over type-eligible candidates. Zero means fewer
+	// than two eligible candidates or equal scores.
+	TopMargin float64
+}
+
+// CandidateDecision is the replayable admission outcome for one retrieved
+// slice. Reason is a stable enum: admitted, below_min_score, zone_grey,
+// zone_miss, sanitized_empty, origin_below_floor, budget, nil_slice,
+// type_not_allowed, library_too_small, type_sources_too_few,
+// runner_up_missing, top_margin_low, or coverage_low.
+type CandidateDecision struct {
+	ID       string
+	Score    float64
+	Coverage float64
+	Zone     string
+	Admitted bool
+	Reason   string
 }
 
 const (
@@ -134,36 +171,39 @@ func (in *Injector) Build(query string) (*Injection, error) {
 	if k <= 0 {
 		k = 5
 	}
-	budget := in.Budget
-	if budget <= 0 {
-		budget = DefaultBudget
-	}
-
 	hits, err := in.Index.Search(query, k, in.Scope)
 	if err != nil {
 		return nil, fmt.Errorf("inject: search: %w", err)
 	}
-	// The relative-confidence denominator is the best ELIGIBLE candidate,
-	// not the raw best hit: a candidate whose type can never inject (per-type
-	// zone override) or that the task gate rejects must not depress every
-	// other candidate's score/top1 ratio. Otherwise one lexically strong
-	// tool_pattern slice empties the whole block — the exact denominator
-	// artifact the W6 ablation measured on cold libraries.
-	top1 := 0.0
+	return in.BuildHits(query, hits)
+}
+
+// BuildHits applies the exact production admission and assembly path to an
+// already-retrieved score-ordered hit list. It lets callers record the same
+// candidates that produced the block without running retrieval twice.
+func (in *Injector) BuildHits(query string, hits []slice.Hit) (*Injection, error) {
+	budget := in.Budget
+	if budget <= 0 {
+		budget = DefaultBudget
+	}
+	// Eligibility feeds the relative-confidence denominator (top1) and the
+	// runner-up margin: a candidate the type allowlist or the task gate
+	// rejects must not depress every other candidate's score/top1 ratio —
+	// the exact denominator artifact the W6 ablation measured on cold
+	// libraries (one lexically strong ineligible slice emptying the block).
+	eligibleScores := make([]float64, 0, len(hits))
 	for _, h := range hits {
-		if h.Slice == nil || !in.taskAdmits(h.Slice) {
-			continue
+		if h.Slice != nil && in.typeAllowed(h.Slice.Type) && in.taskAdmits(h.Slice) {
+			eligibleScores = append(eligibleScores, h.Score)
 		}
-		if in.Zones != nil {
-			z := in.Zones.ForType(h.Slice.Type.String())
-			// Miss even as its own denominator → ineligible at any rank.
-			if z.Classify(h.Score, h.Score) == zone.Miss {
-				continue
-			}
-		}
-		if h.Score > top1 {
-			top1 = h.Score
-		}
+	}
+	top1 := 0.0
+	topMargin := 0.0
+	if len(eligibleScores) > 0 {
+		top1 = eligibleScores[0]
+	}
+	if len(eligibleScores) > 1 {
+		topMargin = eligibleScores[0] - eligibleScores[1]
 	}
 
 	var kept []*slice.Slice
@@ -175,42 +215,99 @@ func (in *Injector) Build(query string) (*Injection, error) {
 	// redundant pre-escape budget check from the #279 merge plus a dead
 	// "(score=%.2f)" header that never reached the output.)
 	type candidate struct {
-		sl      *slice.Slice
-		content string // sanitized + marker-escaped, == the bytes written
-		grey    bool   // audit-mode admission under the unverified header
+		sl    *slice.Slice
+		item  string // exact header + provenance + sanitized content bytes written
+		grey  bool   // audit-mode admission under the unverified header
+		score float64
 	}
 	var cands []candidate
+	decisions := make([]CandidateDecision, 0, len(hits))
 	size := len(blockOpen)
 	for _, h := range hits {
+		d := CandidateDecision{Score: h.Score, Zone: zone.Miss.String(), Reason: "nil_slice"}
+		if h.Slice == nil {
+			decisions = append(decisions, d)
+			dropped++
+			continue
+		}
+		d.ID = h.Slice.ID
+		d.Coverage = bm25.QueryCoverage(query, string(h.Slice.Content))
+		if !in.typeAllowed(h.Slice.Type) {
+			d.Reason = "type_not_allowed"
+			decisions = append(decisions, d)
+			dropped++
+			continue
+		}
+		if in.MinLibrarySize > 0 && in.LibrarySize < in.MinLibrarySize {
+			d.Reason = "library_too_small"
+			decisions = append(decisions, d)
+			dropped++
+			continue
+		}
+		if in.MinSourceSessions > 0 && in.SourceSessionsByType[h.Slice.Type] < in.MinSourceSessions {
+			d.Reason = "type_sources_too_few"
+			decisions = append(decisions, d)
+			dropped++
+			continue
+		}
+		if in.RequireRunnerUp && len(eligibleScores) < 2 {
+			d.Reason = "runner_up_missing"
+			decisions = append(decisions, d)
+			dropped++
+			continue
+		}
+		if in.MinTopMargin > 0 && topMargin < in.MinTopMargin {
+			d.Reason = "top_margin_low"
+			decisions = append(decisions, d)
+			dropped++
+			continue
+		}
 		if in.MinScore > 0 && h.Score < in.MinScore {
+			d.Reason = "below_min_score"
+			decisions = append(decisions, d)
+			dropped++
+			continue
+		}
+		if in.MinCoverage > 0 && d.Coverage < in.MinCoverage {
+			d.Reason = "coverage_low"
+			decisions = append(decisions, d)
+			dropped++
 			continue
 		}
 		// Task-type admission for tagged Memory cards (see the TaskType
 		// field doc): a card distilled from a different task type is
 		// dropped before zone classification even sees it.
-		if h.Slice != nil && !in.taskAdmits(h.Slice) {
+		if !in.taskAdmits(h.Slice) {
+			d.Reason = "task_type_mismatch"
+			decisions = append(decisions, d)
 			dropped++
 			continue
 		}
 		isGrey := false
 		if in.Zones != nil {
 			z := *in.Zones
-			if h.Slice != nil {
-				z = z.ForType(h.Slice.Type.String()) // Issue #259 阶段 2
-			}
-			switch z.Classify(h.Score, top1) {
+			z = z.ForType(h.Slice.Type.String()) // Issue #259 阶段 2
+			classified := z.Classify(h.Score, top1)
+			d.Zone = classified.String()
+			switch classified {
 			case zone.Hit:
 				// verified: admitted below
 			case zone.Grey:
 				if !in.AllowGrey {
+					d.Reason = "zone_grey"
+					decisions = append(decisions, d)
 					dropped++
 					continue
 				}
 				isGrey = true // admitted below under the unverified header
 			default: // miss
+				d.Reason = "zone_miss"
+				decisions = append(decisions, d)
 				dropped++
 				continue
 			}
+		} else {
+			d.Zone = "unclassified"
 		}
 		// Inject-side sanitization (Issue #278, Security §3.1): the block
 		// carries the deterministically cleaned content — escape stripping,
@@ -221,6 +318,8 @@ func (in *Injector) Build(query string) (*Injection, error) {
 		// dropped entirely (nothing useful to inject).
 		content := sanitize.Sanitize(string(h.Slice.Content))
 		if content == "" {
+			d.Reason = "sanitized_empty"
+			decisions = append(decisions, d)
 			dropped++
 			continue
 		}
@@ -229,31 +328,42 @@ func (in *Injector) Build(query string) (*Injection, error) {
 		// (import and legacy are level 1; session-auto/prefetch 2;
 		// user-curated 3).
 		if h.Slice != nil && in.MinOrigin.Level() > h.Slice.Meta.Origin.Level() {
+			d.Reason = "origin_below_floor"
+			decisions = append(decisions, d)
 			dropped++
 			continue
 		}
 		content = escapeMarker(content)
-		// Budget judged on the EXACT bytes that will be written (escaped
-		// content, canonical header — including the grey audit variant) —
-		// never on a pre-escape length.
-		header := "--- slice %s ---\n%s\n"
-		if isGrey {
-			header = "--- slice %s (grey, unverified) ---\n%s\n"
-		}
-		item := len(fmt.Sprintf(header, h.Slice.ID, content))
-		if size+item+len(blockClose)+64 > budget && len(cands) > 0 {
+		// Budget is judged on the exact bytes that will be written, including
+		// provenance, escaped content, and the grey audit variant.
+		item := formatSliceItem(h.Slice, h.Score, content, isGrey)
+		if size+len(item)+len(blockClose) > budget {
+			d.Reason = "budget"
+			decisions = append(decisions, d)
 			dropped++
 			continue
 		}
-		size += item
-		cands = append(cands, candidate{sl: h.Slice, content: content, grey: isGrey})
+		size += len(item)
+		d.Admitted = true
+		d.Reason = "admitted"
+		decisions = append(decisions, d)
+		cands = append(cands, candidate{sl: h.Slice, item: item, grey: isGrey, score: h.Score})
 	}
 
-	// Canonical order: verified candidates first, then audit-mode grey,
-	// each ID-sorted for byte-stable output (never score order).
+	if len(cands) == 0 {
+		return &Injection{Dropped: dropped, Decisions: decisions}, nil
+	}
+
+	// Canonical order: verified candidates first, then audit-mode grey;
+	// relevance is score-descending and equal scores use ID as the stable
+	// tie-break. This preserves prefix determinism without hiding the best
+	// evidence behind an arbitrary identifier.
 	sort.Slice(cands, func(i, j int) bool {
 		if cands[i].grey != cands[j].grey {
 			return !cands[i].grey
+		}
+		if cands[i].score != cands[j].score {
+			return cands[i].score > cands[j].score
 		}
 		return cands[i].sl.ID < cands[j].sl.ID
 	})
@@ -263,12 +373,10 @@ func (in *Injector) Build(query string) (*Injection, error) {
 	buf.WriteString(blockOpen)
 	greyIncluded := 0
 	for _, c := range cands {
-		header := "--- slice %s ---\n%s\n"
 		if c.grey {
-			header = "--- slice %s (grey, unverified) ---\n%s\n"
 			greyIncluded++
 		}
-		fmt.Fprintf(&buf, header, c.sl.ID, c.content)
+		buf.WriteString(c.item)
 		kept = append(kept, c.sl)
 	}
 	buf.WriteString(blockClose)
@@ -279,6 +387,8 @@ func (in *Injector) Build(query string) (*Injection, error) {
 		Bytes:        buf.Len(),
 		Dropped:      dropped,
 		GreyIncluded: greyIncluded,
+		Decisions:    decisions,
+		TopMargin:    topMargin,
 	}, nil
 }
 
@@ -313,4 +423,20 @@ func taskTagOf(content string) string {
 		return rest
 	}
 	return rest[:end]
+}
+
+func formatSliceItem(sl *slice.Slice, score float64, content string, grey bool) string {
+	header := fmt.Sprintf("--- slice %s ---\n", sl.ID)
+	if grey {
+		header = fmt.Sprintf("--- slice %s (grey, unverified) ---\n", sl.ID)
+	}
+	provenance := fmt.Sprintf(
+		"type=%s project=%q source=%q origin=%s verified=unknown score=%.4f created_at=%d\n",
+		sl.Type.String(), sl.Meta.ProjectSlug, sl.Meta.SourceSession, sl.Meta.Origin, score, sl.CreatedAt,
+	)
+	return header + provenance + content + "\n"
+}
+
+func (in *Injector) typeAllowed(t slice.SliceType) bool {
+	return in.AllowedTypes == nil || in.AllowedTypes[t]
 }

@@ -242,7 +242,8 @@ func tokenBootstrapPublicPath(r *http.Request) bool {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		return false
 	}
-	if r.URL.Path == "/" || r.URL.Path == "/assets/logo-wordmark.svg" {
+	if r.URL.Path == "/" || r.URL.Path == "/workspace" || r.URL.Path == "/assets/logo-wordmark.svg" ||
+		r.URL.Path == "/workspace/tokens.css" || r.URL.Path == "/workspace/layout.css" || r.URL.Path == "/workspace/shell.js" {
 		return true
 	}
 	// Only one non-empty session segment is an inert shell entry point; this
