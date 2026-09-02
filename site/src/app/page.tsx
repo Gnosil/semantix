@@ -4,7 +4,7 @@ import Features from "@/components/Features";
 import Components from "@/components/Components";
 import Community from "@/components/Community";
 import Install from "@/components/Install";
-import Footer from "@/components/Footer";
+import BloomCurtain from "@/components/BloomCurtain";
 import BrandIntroOverlay from "@/components/BrandIntroOverlay";
 import { siteIdentity } from "@/lib/site-identity";
 
@@ -34,8 +34,8 @@ export default function Home() {
         <Components />
         <Community />
         <Install />
+        <BloomCurtain />
       </main>
-      <Footer />
     </>
   );
 }
