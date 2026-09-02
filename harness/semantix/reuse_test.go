@@ -108,7 +108,14 @@ func TestFormatUSD(t *testing.T) {
 // Returns the project dir (pass as Config.ProjectDir).
 func writeKernelDir(t *testing.T, slicesIn []*slice.Slice, usageLines []string) string {
 	t.Helper()
+	const fixtureCommit = "1111111111111111111111111111111111111111"
 	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".git", "HEAD"), []byte(fixtureCommit+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	kernelDir := filepath.Join(dir, ".semantix")
 	if err := os.MkdirAll(kernelDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -118,6 +125,9 @@ func writeKernelDir(t *testing.T, slicesIn []*slice.Slice, usageLines []string) 
 		t.Fatal(err)
 	}
 	for _, s := range slicesIn {
+		if s.Meta.BaseCommit == "" {
+			s.Meta.BaseCommit = fixtureCommit
+		}
 		if err := store.Put(s); err != nil {
 			t.Fatal(err)
 		}
@@ -303,8 +313,42 @@ func TestBridgeRecordInjectionRejectUpdatesSlicesAndEmitsEvents(t *testing.T) {
 	}
 	defer closeSliceStore(store)
 	got, err := store.Get("ctx-strong")
-	if err != nil || got.Stats.Rejected != 1 {
+	if err != nil || got.Stats.Rejected != 1 || got.Stats.Harmful != 1 {
 		t.Fatalf("slice after reject = %+v, %v", got, err)
+	}
+}
+
+func TestBridgeRecordInjectionOutcomeAttributesUsefulAndNeutral(t *testing.T) {
+	dir := writeKernelDir(t, admissionFixtureSlices(), nil)
+	b := NewBridge(Config{Enabled: true, Mode: "strict", ProjectDir: dir})
+	defer b.Close()
+	var outcomes []kernelevent.SliceOutcomePayload
+	unsub := b.Events().Subscribe(func(e kernelevent.Event) {
+		if e.Kind == kernelevent.SliceOutcome {
+			var payload kernelevent.SliceOutcomePayload
+			if json.Unmarshal(e.Data, &payload) == nil {
+				outcomes = append(outcomes, payload)
+			}
+		}
+	})
+	defer unsub()
+
+	b.RecordInjectionOutcome([]string{"ctx-strong", "ctx-strong"}, "useful", "resolved_fewer_steps")
+	b.RecordInjectionOutcome([]string{"ctx-runner"}, "neutral", "no_measurable_delta")
+	b.RecordInjectionOutcome([]string{"ctx-runner"}, "unsupported", "ignored")
+
+	store, err := slice.NewFileStore(filepath.Join(dir, ".semantix", "project.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closeSliceStore(store)
+	useful, _ := store.Get("ctx-strong")
+	neutral, _ := store.Get("ctx-runner")
+	if useful.Stats.Useful != 1 || neutral.Stats.Neutral != 1 {
+		t.Fatalf("outcome stats useful=%+v neutral=%+v", useful.Stats, neutral.Stats)
+	}
+	if len(outcomes) != 2 || outcomes[0].Outcome != "useful" || outcomes[0].Reason != "resolved_fewer_steps" {
+		t.Fatalf("outcome events = %+v", outcomes)
 	}
 }
 

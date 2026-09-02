@@ -84,6 +84,7 @@ type RetrievalCandidate struct {
 	Type          string  `json:"type,omitempty"`
 	SourceSession string  `json:"sourceSession,omitempty"`
 	Project       string  `json:"project,omitempty"`
+	BaseCommit    string  `json:"baseCommit,omitempty"`
 	Origin        string  `json:"origin,omitempty"`
 	Verified      string  `json:"verified,omitempty"`
 	Score         float64 `json:"score,omitempty"`
@@ -323,7 +324,7 @@ func toWireRetrieval(in *event.RetrievalDiagnostics) *RetrievalDiagnostics {
 	}
 	for _, c := range in.Candidates {
 		out.Candidates = append(out.Candidates, RetrievalCandidate{
-			ID: c.ID, Type: c.Type, SourceSession: c.SourceSession, Project: c.Project,
+			ID: c.ID, Type: c.Type, SourceSession: c.SourceSession, Project: c.Project, BaseCommit: c.BaseCommit,
 			Origin: c.Origin, Verified: c.Verified, Score: c.Score, Coverage: c.Coverage,
 			Zone: c.Zone, Admitted: c.Admitted, Reason: c.Reason,
 		})

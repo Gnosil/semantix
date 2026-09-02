@@ -72,6 +72,50 @@ def repo_store_key(inst: dict) -> str:
     return repo_identity(inst).replace("/", "__", 1)
 
 
+def mirror_fingerprint_paths(mirror: Path, workspace: Path) -> list[str]:
+    """Return existing regular workspace files named by tool-call arguments."""
+    workspace = workspace.resolve()
+    found: set[str] = set()
+
+    def visit(value, key: str = "") -> None:
+        if isinstance(value, dict):
+            for child_key, child in value.items():
+                visit(child, str(child_key).lower())
+            return
+        if isinstance(value, list):
+            for child in value:
+                visit(child, key)
+            return
+        if isinstance(value, str) and key in {"args", "arguments"}:
+            try:
+                visit(json.loads(value))
+            except json.JSONDecodeError:
+                pass
+            return
+        if not isinstance(value, str) or key not in {
+                "path", "paths", "file", "files", "file_path", "filepath", "filename"}:
+            return
+        candidate = Path(value)
+        if not candidate.is_absolute():
+            candidate = workspace / candidate
+        try:
+            if candidate.is_symlink():
+                return
+            resolved = candidate.resolve(strict=True)
+            relative = resolved.relative_to(workspace)
+        except (OSError, ValueError):
+            return
+        if resolved.is_file():
+            found.add(relative.as_posix())
+
+    for line in mirror.read_text(encoding="utf-8", errors="replace").splitlines():
+        try:
+            visit(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return sorted(found)
+
+
 class CountProxy:
     """Per-instance metering proxy (count_proxy.py) for harnesses whose own
     telemetry is unreliable. Records provider-reported usage to a ledger."""
@@ -283,8 +327,10 @@ class SemantixAdapter(Adapter):
     def kernel_dir_for(self, inst: dict) -> Path:
         return self.kernel_root / repo_store_key(inst)
 
-    def _write_home(self, home: Path, sessions_dir: Path, kernel_dir: Path | None) -> None:
+    def _write_home(self, home: Path, sessions_dir: Path, kernel_dir: Path | None,
+                    workspace_dir: Path | None = None) -> None:
         home.mkdir(parents=True, exist_ok=True)
+        workspace_dir = workspace_dir or Path.cwd()
         # Provider keys resolve ONLY from Semantix's global .env (never the
         # process environment) — see ProviderEntry.APIKey in harness/config.
         env_file = home / ".env"
@@ -307,6 +353,7 @@ inject       = true
 mode         = "{self.args.semantix_retrieval_mode}"
 budget       = 4096
 project_dir  = "{kernel_dir}"
+workspace_dir = "{workspace_dir}"
 sessions_dir = "{sessions_dir}"
 '''
         (home / "config.toml").write_text(
@@ -338,7 +385,7 @@ context_window = 128000
         sessions_dir = home / "kernel-sessions"
         repo = repo_identity(inst) if self.memory_on else ""
         kernel_dir = self.kernel_dir_for(inst) if self.memory_on else None
-        self._write_home(home, sessions_dir, kernel_dir)
+        self._write_home(home, sessions_dir, kernel_dir, ws)
         env = clean_env()
         env.update({
             "SEMANTIX_HOME": str(home),
@@ -387,11 +434,13 @@ context_window = 128000
             raw["semantix_repo"] = repo
             raw["semantix_project_dir"] = str(kernel_dir)
             raw["extract"] = self._extract_slices(
-                sessions_dir, inst["instance_id"], kernel_dir, repo)
+                sessions_dir, inst["instance_id"], kernel_dir, repo, ws,
+                inst.get("base_commit", ""))
         return exit_code, raw, err
 
     def _extract_slices(self, sessions_dir: Path, instance_id: str,
-                        kernel_dir: Path, repo: str) -> dict:
+                        kernel_dir: Path, repo: str, workspace: Path,
+                        base_commit: str) -> dict:
         """Close the memory loop: distill this instance's session mirrors into
         the repo-isolated slice library so later same-repo instances can retrieve them. The
         agent never extracts on its own (extraction is `semantix extract` /
@@ -403,15 +452,22 @@ context_window = 128000
         out = {"mirrors": len(mirrors), "runs": []}
         db = kernel_dir / ".semantix" / "project.db"
         for mirror in mirrors:
+            fingerprints = mirror_fingerprint_paths(mirror, workspace)
             ecmd = [self.kernel_bin, "extract",
                     "--input", str(mirror),
                     "--scope", "project",
                     "--project-db", str(db),
                     "--session", instance_id,
                     "--project", repo]
+            if base_commit:
+                ecmd += ["--base-commit", base_commit]
+            if fingerprints:
+                ecmd += ["--fingerprint", ",".join(fingerprints)]
             try:
-                ep = subprocess.run(ecmd, capture_output=True, text=True, timeout=120)
+                ep = subprocess.run(ecmd, capture_output=True, text=True, timeout=120,
+                                    cwd=workspace)
                 out["runs"].append({"mirror": mirror.name, "exit": ep.returncode,
+                                    "fingerprints": fingerprints,
                                     "out": (ep.stdout or ep.stderr).strip()[-300:]})
             except Exception as exc:  # extraction is best-effort, never fails the instance
                 out["runs"].append({"mirror": mirror.name, "error": str(exc)[:200]})

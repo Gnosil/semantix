@@ -25,6 +25,7 @@ func runExtract(args []string, stdout, stderr io.Writer, deps dependencies) erro
 	project := flags.String("project", "", "project slug")
 	taskType := flags.String("task-type", "", "task type metadata")
 	language := flags.String("language", "", "language metadata")
+	baseCommit := flags.String("base-commit", "", "repository revision visible when the session ran")
 	fingerprintPaths := flags.String("fingerprint", "", "comma-separated relative paths to fingerprint (sha256) into each slice's Deps")
 	l3Safe := flags.Bool("l3-safe", false, "mark dependency-free Result slices as explicitly L3-reusable (opt-in; ignored when --fingerprint is set)")
 	embedder := flags.String("embedder", "hash", "embedder for stored slices: hash (default, zero-dependency) | model (remote OpenAI-compatible API; see SEMANTIX_EMBED_* env)")
@@ -60,6 +61,7 @@ func runExtract(args []string, stdout, stderr io.Writer, deps dependencies) erro
 		TaskType:      *taskType,
 		Language:      *language,
 		ProjectSlug:   *project,
+		BaseCommit:    strings.TrimSpace(*baseCommit),
 		Origin:        slice.OriginUserCurated, // Issue #279: explicit user action
 	}
 	if *fingerprintPaths != "" {

@@ -161,6 +161,23 @@ A 不读取 seed；断点续跑通过 `.seed-source.json` 识别已经完成的�
 未知历史与冻结语料混在一起。发布实验结果时应同时保存 seed 生成命令、输入 session
 列表和 repo 顺序。
 
+矩阵启动前先执行 fail-closed 预检；它逐 repo 检查 store 是否存在、library 是否达到
+strict 的最小规模、同类型来源 session 是否达到门槛，以及可注入切片是否携带
+`base_commit`。退出码 `0` 才进入真实评测，退出码 `3` 表示 seed 尚未就绪：
+
+```bash
+python3 validate_memory_seed.py \
+  --seed-dir state/issue447-frozen-seed \
+  --dataset data/swebench_verified.jsonl \
+  --ids subsets/verified-50-s20260824.txt \
+  --json-out results/issue447-seed-validation.json
+```
+
+runner 从 session mirror 的文件参数中提取仍位于 workspace 内的普通文件，并在 extraction
+时写入 SHA-256 dependency fingerprint 与当前 `base_commit`。strict retrieval 在提交不同
+且没有依赖证明、依赖缺失/越界/变化或 provenance 缺失时拒绝该切片；共享 `project_dir`
+不再被误当作实例的 git workspace。
+
 需要历史策略对照时，显式传入 `--legacy-semantix-bin`；该 binary 应固定构建自
 `cb5e9cc`（repo 隔离已合并、strict 仍为旧全类型策略），不能用 harness
 `--ablate all` 代替。矩阵 manifest 保存每个 run 的完整

@@ -55,6 +55,9 @@ type Config struct {
 	// log resolve against (kernel CLI semantics: <dir>/.semantix/...).
 	// Empty uses the process working directory.
 	ProjectDir string
+	// WorkspaceDir is the live repository used for commit/dependency checks.
+	// Empty falls back to ProjectDir for normal non-benchmark runs.
+	WorkspaceDir string
 	// CostMissUSD / CostHitUSD are the usage cost model prices (USD per 1M
 	// tokens at cache miss / hit) for the reuse panel savings delta.
 	// Zero keeps the kernel defaults (usage.DefaultCost*PerMTok).
@@ -273,12 +276,15 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 		return InjectResult{}
 	}
 	z := zone.Default()
+	workspaceDir := b.workspaceDir()
 	inj, err := (&inject.Injector{
 		Index:                idx,
 		Scope:                slice.Project,
 		K:                    5,
 		Budget:               budget,
 		AllowedTypes:         strictAllowedTypes,
+		RootDir:              workspaceDir,
+		CurrentCommit:        readGitHead(workspaceDir),
 		LibrarySize:          len(projectSlices),
 		MinLibrarySize:       strictMinLibrarySize,
 		SourceSessionsByType: sourceSessionCounts(projectSlices),
@@ -337,7 +343,7 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 }
 
 func (b *Bridge) retrievalDiagnostics(query string, retrievalQuery RetrievalQuery, library []*slice.Slice, hits []slice.Hit, inj *inject.Injection) *event.RetrievalDiagnostics {
-	projectDir := b.projectDir()
+	projectDir := b.workspaceDir()
 	d := &event.RetrievalDiagnostics{
 		Mode: string(b.mode), LibrarySize: len(library), Repo: filepath.Base(filepath.Clean(projectDir)),
 		BaseCommit: readGitHead(projectDir), QueryBefore: summarizeQuery(query), QueryAfter: summarizeQuery(retrievalQuery.Text),
@@ -362,6 +368,7 @@ func (b *Bridge) retrievalDiagnostics(query string, retrievalQuery RetrievalQuer
 			candidate.Type = sl.Type.String()
 			candidate.SourceSession = sl.Meta.SourceSession
 			candidate.Project = sl.Meta.ProjectSlug
+			candidate.BaseCommit = sl.Meta.BaseCommit
 			candidate.Origin = string(sl.Meta.Origin)
 			if sl.Type == slice.Result {
 				candidate.Verified = string(sl.Meta.EffectiveResultStatus())
@@ -491,7 +498,22 @@ func (b *Bridge) recordInjection(ids []string, bytes int) {
 // every injected slice that was active when the harness loop guard fired. IDs
 // are canonicalized so one fuse increments each slice exactly once.
 func (b *Bridge) RecordInjectionReject(ids []string, reason string) {
+	b.recordInjectionOutcome(ids, "harmful", reason, true)
+}
+
+// RecordInjectionOutcome persists an evaluator/guard observation for each
+// injected slice. Unsupported outcomes are ignored rather than inventing a
+// category; callers must supply useful, neutral, or harmful.
+func (b *Bridge) RecordInjectionOutcome(ids []string, outcome, reason string) {
+	b.recordInjectionOutcome(ids, outcome, reason, false)
+}
+
+func (b *Bridge) recordInjectionOutcome(ids []string, outcome, reason string, legacyReject bool) {
 	if b == nil || !b.Enabled() || len(ids) == 0 {
+		return
+	}
+	outcome = strings.ToLower(strings.TrimSpace(outcome))
+	if outcome != "useful" && outcome != "neutral" && outcome != "harmful" {
 		return
 	}
 	ids = append([]string(nil), ids...)
@@ -513,7 +535,17 @@ func (b *Bridge) RecordInjectionReject(ids []string, reason string) {
 	if store, err := slice.NewFileStore(filepath.Join(b.projectDir(), ".semantix", "project.db")); err == nil {
 		deltas := make(map[string]slice.SliceStats, len(unique))
 		for _, id := range unique {
-			deltas[id] = slice.SliceStats{Rejected: 1, LastUsed: now.Unix()}
+			delta := slice.SliceStats{LastUsed: now.Unix()}
+			switch outcome {
+			case "useful":
+				delta.Useful = 1
+			case "neutral":
+				delta.Neutral = 1
+			case "harmful":
+				delta.Harmful = 1
+				delta.Rejected = 1
+			}
+			deltas[id] = delta
 		}
 		_ = slice.ApplyStats(store, deltas)
 		closeSliceStore(store)
@@ -522,9 +554,15 @@ func (b *Bridge) RecordInjectionReject(ids []string, reason string) {
 	session := b.label
 	b.mu.Unlock()
 	for _, id := range unique {
-		data, err := json.Marshal(kernelevent.SliceRejectPayload{SliceID: id, Reason: reason})
+		data, err := json.Marshal(kernelevent.SliceOutcomePayload{SliceID: id, Outcome: outcome, Reason: reason})
 		if err == nil {
-			b.events.Emit(kernelevent.Event{Kind: kernelevent.SliceReject, SessionID: session, At: now, Data: data})
+			b.events.Emit(kernelevent.Event{Kind: kernelevent.SliceOutcome, SessionID: session, At: now, Data: data})
+		}
+		if legacyReject {
+			data, err = json.Marshal(kernelevent.SliceRejectPayload{SliceID: id, Reason: reason})
+			if err == nil {
+				b.events.Emit(kernelevent.Event{Kind: kernelevent.SliceReject, SessionID: session, At: now, Data: data})
+			}
 		}
 	}
 }
@@ -665,6 +703,13 @@ func (b *Bridge) projectDir() string {
 		return "."
 	}
 	return wd
+}
+
+func (b *Bridge) workspaceDir() string {
+	if strings.TrimSpace(b.cfg.WorkspaceDir) != "" {
+		return b.cfg.WorkspaceDir
+	}
+	return b.projectDir()
 }
 
 // usagePath is the kernel usage log the reuse panel savings delta reads.

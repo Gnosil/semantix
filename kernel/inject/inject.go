@@ -16,11 +16,14 @@ package inject
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"unicode"
 
 	"semantix/kernel/bm25"
+	"semantix/kernel/fingerprint"
 	"semantix/kernel/sanitize"
 	"semantix/kernel/slice"
 	"semantix/kernel/zone"
@@ -84,6 +87,10 @@ type Injector struct {
 	// AllowedTypes, when non-nil, is a fail-closed injection allowlist. Search
 	// results outside it remain in Decisions for shadow analysis.
 	AllowedTypes map[slice.SliceType]bool
+	// RootDir and CurrentCommit enable strict source-freshness admission.
+	// Callers that leave both empty retain the generic injector behavior.
+	RootDir       string
+	CurrentCommit string
 	// LibrarySize and MinLibrarySize gate immature Project libraries.
 	LibrarySize    int
 	MinLibrarySize int
@@ -141,7 +148,9 @@ type Injection struct {
 // slice. Reason is a stable enum: admitted, below_min_score, zone_grey,
 // zone_miss, sanitized_empty, origin_below_floor, budget, nil_slice,
 // type_not_allowed, library_too_small, type_sources_too_few,
-// runner_up_missing, top_margin_low, or coverage_low.
+// runner_up_missing, top_margin_low, coverage_low, current_commit_unknown,
+// commit_unknown, stale_commit, path_missing, dependency_path_invalid, or
+// dependency_changed.
 type CandidateDecision struct {
 	ID       string
 	Score    float64
@@ -179,8 +188,12 @@ func (in *Injector) BuildHits(query string, hits []slice.Hit) (*Injection, error
 		budget = DefaultBudget
 	}
 	eligibleScores := make([]float64, 0, len(hits))
+	freshnessReasons := make(map[*slice.Slice]string, len(hits))
 	for _, h := range hits {
-		if h.Slice != nil && in.admissionTypeEligible(h.Slice) {
+		if h.Slice != nil {
+			freshnessReasons[h.Slice] = in.freshnessReason(h.Slice)
+		}
+		if h.Slice != nil && in.admissionTypeEligible(h.Slice) && freshnessReasons[h.Slice] == "" {
 			eligibleScores = append(eligibleScores, h.Score)
 		}
 	}
@@ -227,6 +240,12 @@ func (in *Injector) BuildHits(query string, hits []slice.Hit) (*Injection, error
 		}
 		if in.AllowedTypes != nil && h.Slice.Type == slice.Result && h.Slice.Meta.EffectiveResultStatus() != slice.ResultStatusVerified {
 			d.Reason = "result_probation"
+			decisions = append(decisions, d)
+			dropped++
+			continue
+		}
+		if reason := freshnessReasons[h.Slice]; reason != "" {
+			d.Reason = reason
 			decisions = append(decisions, d)
 			dropped++
 			continue
@@ -386,8 +405,8 @@ func formatSliceItem(sl *slice.Slice, score float64, content string, grey bool) 
 		verified = string(sl.Meta.EffectiveResultStatus())
 	}
 	provenance := fmt.Sprintf(
-		"type=%s project=%q source=%q origin=%s verified=%s score=%.4f created_at=%d\n",
-		sl.Type.String(), sl.Meta.ProjectSlug, sl.Meta.SourceSession, sl.Meta.Origin, verified, score, sl.CreatedAt,
+		"type=%s project=%q source=%q commit=%q origin=%s verified=%s score=%.4f created_at=%d\n",
+		sl.Type.String(), sl.Meta.ProjectSlug, sl.Meta.SourceSession, sl.Meta.BaseCommit, sl.Meta.Origin, verified, score, sl.CreatedAt,
 	)
 	return header + provenance + content + "\n"
 }
@@ -401,4 +420,64 @@ func (in *Injector) admissionTypeEligible(sl *slice.Slice) bool {
 		return false
 	}
 	return in.AllowedTypes == nil || sl.Type != slice.Result || sl.Meta.EffectiveResultStatus() == slice.ResultStatusVerified
+}
+
+func (in *Injector) freshnessReason(sl *slice.Slice) string {
+	if sl == nil || (in.RootDir == "" && in.CurrentCommit == "") {
+		return ""
+	}
+	if in.CurrentCommit == "" {
+		return "current_commit_unknown"
+	}
+	if sl.Meta.BaseCommit == "" {
+		return "commit_unknown"
+	}
+	if sl.Meta.BaseCommit != in.CurrentCommit && len(sl.Meta.Deps) == 0 {
+		return "stale_commit"
+	}
+	if len(sl.Meta.Deps) == 0 {
+		return ""
+	}
+
+	paths := make([]string, 0, len(sl.Meta.Deps))
+	for path := range sl.Meta.Deps {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	root, err := filepath.Abs(in.RootDir)
+	if err != nil {
+		return "dependency_path_invalid"
+	}
+	root, err = filepath.EvalSymlinks(root)
+	if err != nil {
+		return "dependency_path_invalid"
+	}
+	for _, path := range paths {
+		if !filepath.IsLocal(path) {
+			return "dependency_path_invalid"
+		}
+		parts := strings.Split(filepath.Clean(filepath.FromSlash(path)), string(filepath.Separator))
+		current := root
+		for i, part := range parts {
+			current = filepath.Join(current, part)
+			info, err := os.Lstat(current)
+			if os.IsNotExist(err) {
+				return "path_missing"
+			}
+			if err != nil || info.Mode()&os.ModeSymlink != 0 {
+				return "dependency_path_invalid"
+			}
+			if i < len(parts)-1 && !info.IsDir() {
+				return "dependency_path_invalid"
+			}
+			if i == len(parts)-1 && !info.Mode().IsRegular() {
+				return "dependency_path_invalid"
+			}
+		}
+	}
+	changed, err := fingerprint.Verify(root, sl.Meta.Deps)
+	if err != nil || len(changed) > 0 {
+		return "dependency_changed"
+	}
+	return ""
 }

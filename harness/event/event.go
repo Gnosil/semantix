@@ -573,6 +573,7 @@ type RetrievalCandidate struct {
 	Type          string  `json:"type,omitempty"`
 	SourceSession string  `json:"sourceSession,omitempty"`
 	Project       string  `json:"project,omitempty"`
+	BaseCommit    string  `json:"baseCommit,omitempty"`
 	Origin        string  `json:"origin,omitempty"`
 	Verified      string  `json:"verified,omitempty"`
 	Score         float64 `json:"score,omitempty"`
