@@ -482,6 +482,7 @@ body.ws-right-collapsed .ws-context { display: none; }
 }
 .ws-state-running { background: var(--sx-green-dim); color: var(--sx-green-strong); border: 1px solid var(--sx-green-border); }
 .ws-state-done { background: transparent; color: var(--sx-text-3); border: 1px solid var(--sx-border-strong); }
+.ws-state-recovered { background: var(--sx-orange-dim); color: var(--sx-orange); border: 1px solid var(--sx-orange-border); }
 .ws-state-empty { background: transparent; color: var(--sx-text-3); border: 1px dashed var(--sx-border-strong); }
 .ws-task-row[aria-current="true"] .ws-dot { flex: none; }
 .ws-tasks-note { padding: 8px 10px; font-size: 11.5px; line-height: 1.6; color: var(--sx-text-3); }

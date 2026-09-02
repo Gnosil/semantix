@@ -151,11 +151,15 @@
   // running drives the 运行中 pill for the highlighted task row.
   var sessionRunning = false;
   var composerBusy = false;
+  var runningSyncSeq = 0;
   var EFFORT_LABELS = { low: "低", medium: "中", high: "高", max: "max" };
   var EFFORT_LEVELS = ["low", "medium", "high"];
   var TASK_PILLS = {
     running: ["运行中", "ws-state-running"],
     done: ["完成", "ws-state-done"],
+    // /sessions reports a branch whose last turn was interrupted as
+    // status:"recovered" (serve.go); the sidebar must render it, not crash.
+    recovered: ["待恢复", "ws-state-recovered"],
     empty: ["空会话", "ws-state-empty"]
   };
   var openMenu = null; // currently open dropdown element or null
@@ -1003,13 +1007,18 @@
     var record = workflow.tools[key];
     if (!record) {
       record = { args: "", output: "", err: "", truncated: false, progress: "", fileDiff: null, terminal: false, name: "" };
-      record.card = makeEvent("tool", toolLabel(tool.name), "⚙");
       workflow.tools[key] = record;
+    }
+    if (!record.card) {
+      // A record restored by /workspace/replay is panel-only (no timeline
+      // card yet, to avoid duplicating /history). The first live frame for
+      // the same tool id materializes its card.
+      record.card = makeEvent("tool", toolLabel(record.name || tool.name), "⚙");
     }
     if (tool.name) {
       record.name = String(tool.name);
       record.terminal = record.terminal || tool.name === "bash" || tool.name === "shell" || !!tool.execution;
-      record.card.label.textContent = toolLabel(tool.name) + " · " + tool.name;
+      if (record.card) record.card.label.textContent = toolLabel(tool.name) + " · " + tool.name;
     }
     if (tool.args) record.args = String(tool.args);
     if (tool.fileDiff) {
@@ -1134,6 +1143,22 @@
   function setComposerRunning(running) {
     composerBusy = !!running;
     updateComposerControls();
+  }
+
+  // #403: /status is the single source of truth for whether the active
+  // session is still running. turn_done/error frames only clear the optimistic
+  // composerBusy flag, but sessionRunning was latched by the last refreshTasks
+  // — without a re-sync the composer stayed disabled (and cancel stuck) until
+  // a manual refresh or task switch. Re-read /status so the composer and the
+  // current-row pill reflect the real backend state again.
+  function refreshRunningState() {
+    var requestSeq = ++runningSyncSeq;
+    return getJSON("/status").then(function (status) {
+      if (requestSeq !== runningSyncSeq) return; // a newer request superseded this one
+      sessionRunning = !!status.running;
+      updateComposerControls();
+      if (sessionRows.length) renderTasks(sessionRows);
+    }).catch(function () { /* transient /status failure: keep current latch */ });
   }
 
   function addOptimisticUserMessage(text) {
@@ -1270,6 +1295,7 @@
       case "error":
         composerBusy = false;
         updateComposerControls();
+        refreshRunningState(); // #403: turn aborted — release the running latch
         if (workflow.localUser) {
           setStatus(workflow.localUser.card, "未发送", "failed");
           workflow.localUser = null;
@@ -1284,6 +1310,7 @@
           var cancelled = !!data.cancelled || String(data.outcome || "").toLowerCase() === "cancelled";
           composerBusy = false;
           updateComposerControls();
+          refreshRunningState(); // #403: turn finished — re-sync the running latch
           if (workflow.localUser) {
             setStatus(workflow.localUser.card, cancelled ? "已取消" : "已发送", cancelled ? "cancelled" : "done");
             workflow.localUser = null;
@@ -1367,10 +1394,11 @@
     if (el.historyRetry) el.historyRetry.hidden = false;
   }
 
-  function hydrateHistory() {
+  function hydrateHistory(replayFrames) {
     historyHydrating = true;
     bufferedWorkspaceEvents = [];
     return getJSON("/history").then(renderHistory).then(function () {
+      if (Array.isArray(replayFrames) && replayFrames.length) applyReplayFrames(replayFrames);
       historyHydrating = false;
       var pending = bufferedWorkspaceEvents.splice(0);
       pending.forEach(handleWorkspaceEvent);
@@ -1379,6 +1407,101 @@
       bufferedWorkspaceEvents = [];
       showHistoryError(err);
     });
+  }
+
+  // #403: /workspace/replay is the JSON sibling of the SSE replay window. The
+  // live context panels (Diff / Terminal / Review / cache status) are pure
+  // projections of stream frames, so a fresh page (F5) or reconnect would
+  // otherwise lose every panel once a run's frames are no longer live. Loading
+  // the retained window lets the shell rebuild those panels from real observed
+  // frames — without re-adding timeline cards that /history already owns.
+  function loadWorkspaceReplay() {
+    return getJSON("/workspace/replay").then(function (snapshot) {
+      return Array.isArray(snapshot && snapshot.frames) ? snapshot.frames : [];
+    }).catch(function () {
+      // Older/standalone servers may not expose the endpoint: the shell still
+      // hydrates the conversation from /history and stays live-only.
+      return [];
+    });
+  }
+
+  // applyReplayFrames folds a retained-frame window back into the workflow
+  // projection. Unlike handleWorkspaceEvent it never touches the timeline:
+  // user/assistant/tool cards for those frames already came from /history, so
+  // rendering them again would duplicate the conversation. It only rebuilds
+  // panel state (diffs, terminal executions, review changes, cache bar).
+  //
+  // It must NOT advance the shared lastEventSeq: frames that also arrived over
+  // the live stream while hydrating are flushed afterwards by
+  // handleWorkspaceEvent, which renders their timeline content exactly as it
+  // would without replay — demoting them here would drop in-flight text that
+  // the base flow keeps. A local cursor only dedupes within this window.
+  function applyReplayFrames(frames) {
+    if (!Array.isArray(frames)) return;
+    var cursor = lastEventSeq;
+    var lastDiff = null;
+    frames.forEach(function (raw) {
+      var payload;
+      try { payload = typeof raw === "string" ? JSON.parse(raw) : raw; } catch (_) { return; }
+      if (!payload || payload.v !== 1 || !Number.isSafeInteger(payload.seq) || payload.seq < 1) return;
+      if (eventTaskID && payload.task_id !== eventTaskID) return;
+      if (!eventTaskID && typeof payload.task_id === "string") eventTaskID = payload.task_id;
+      if (payload.seq <= cursor) return;
+      cursor = payload.seq;
+      if (!canonicalEventTypes[payload.type]) return;
+      var data;
+      try { data = typeof payload.data === "string" ? JSON.parse(payload.data || "{}") : payload.data; } catch (_) { return; }
+      if (!data || typeof data !== "object") return;
+      if (data.kind === "turn_started") {
+        workflow.tools = Object.create(null);
+        workflow.diffs = Object.create(null);
+        return;
+      }
+      if (payload.type === "tool_start" || payload.type === "tool_result") {
+        var tool = data.tool;
+        if (!tool) return;
+        var kind = data.kind === "tool_progress" ? "tool_progress" : payload.type;
+        var key = toolKey(tool, payload.seq);
+        var record = workflow.tools[key];
+        if (!record) {
+          record = { args: "", output: "", err: "", truncated: false, progress: "", fileDiff: null, terminal: false, name: "" };
+          workflow.tools[key] = record;
+        }
+        if (tool.name) {
+          record.name = String(tool.name);
+          record.terminal = record.terminal || tool.name === "bash" || tool.name === "shell" || !!tool.execution;
+        }
+        if (tool.args) record.args = String(tool.args);
+        if (tool.fileDiff) {
+          record.fileDiff = tool.fileDiff;
+          workflow.diffs[String(tool.fileDiff.path || key)] = tool.fileDiff;
+          lastDiff = tool.fileDiff;
+        }
+        if (tool.execution) record.execution = tool.execution;
+        if (kind === "tool_start") {
+          record.state = "running";
+        } else if (kind === "tool_result") {
+          record.output = String(tool.output || "").slice(0, MAX_RENDER_CHARS);
+          record.err = String(tool.err || "").slice(0, MAX_RENDER_CHARS);
+          record.truncated = !!tool.truncated;
+          record.state = record.err ? "failed" : "done";
+        } else {
+          var chunk = String(tool.output || "");
+          if (record.progress.length < MAX_RENDER_CHARS) record.progress += chunk.slice(0, MAX_RENDER_CHARS - record.progress.length);
+          else if (chunk) record.truncated = true;
+          record.output = record.progress;
+          record.state = "running";
+        }
+        if (record.card) renderTool(record.card, record); // keep an existing history card in sync
+        return;
+      }
+      if (payload.type === "cache_status") { updateCacheView(data); return; }
+      if (payload.type === "task_status" && data.code === "semantix_reuse") updateCacheView(data);
+    });
+    renderDiffList();
+    renderTerminalList();
+    renderReviewList();
+    if (lastDiff) renderContextDiff(lastDiff);
   }
 
   function connectWorkspaceEvents() {
@@ -1400,7 +1523,12 @@
     workspaceEvents.addEventListener("open", function () {
       if (hydrated) return;
       hydrated = true;
-      hydrateHistory();
+      // Fetch the retained window before hydrating /history so replay frames
+      // (which only rebuild panels, never timeline cards) land between the
+      // /history render and the buffered-live flush, deduplicating by seq.
+      loadWorkspaceReplay().then(function (frames) {
+        return hydrateHistory(frames);
+      });
     });
     workspaceEvents.addEventListener("error", function () {
       if (!hydrated) hydrateHistory();
@@ -1529,9 +1657,12 @@
       meta.textContent = (s.turns ? s.turns + " 轮" : "") + (updated ? " · " + updated : "");
 
       var stateKey = sessionStatus(s);
+      // Forward-compatible guard: an unknown status must degrade to the
+      // neutral empty pill instead of throwing on TASK_PILLS[stateKey].
+      var pillStyle = TASK_PILLS[stateKey] || TASK_PILLS.empty;
       var pill = document.createElement("span");
-      pill.className = "ws-state-pill " + TASK_PILLS[stateKey][1];
-      pill.textContent = TASK_PILLS[stateKey][0];
+      pill.className = "ws-state-pill " + pillStyle[1];
+      pill.textContent = pillStyle[0];
 
       row.appendChild(dot);
       row.appendChild(title);
