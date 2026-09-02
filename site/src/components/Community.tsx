@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef } from "react";
 
 import Reveal from "@/components/Reveal";
 import { siteIdentity } from "@/lib/site-identity";
@@ -21,32 +20,6 @@ const communityLinks = [
 ];
 
 export default function Community() {
-  const scrollCopyRef = useRef<HTMLHeadingElement>(null);
-
-  useEffect(() => {
-    const copy = scrollCopyRef.current;
-
-    if (!copy) return;
-
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      copy.dataset.visible = "true";
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) return;
-        copy.dataset.visible = "true";
-        observer.disconnect();
-      },
-      { threshold: 0.22 },
-    );
-
-    observer.observe(copy);
-
-    return () => observer.disconnect();
-  }, []);
-
   return (
     <section
       id="community"
@@ -73,32 +46,9 @@ export default function Community() {
         .community-crew-track:is(:hover, :focus-within) .community-crew-row {
           animation-play-state: paused;
         }
-        .community-scroll-open {
-          opacity: 0;
-          transform: translateY(2.75rem);
-          transition: opacity 900ms cubic-bezier(0.16, 1, 0.3, 1), transform 1050ms cubic-bezier(0.16, 1, 0.3, 1);
-          will-change: transform, opacity;
-        }
-        .community-scroll-title {
-          opacity: 0;
-          transform: translateY(2.25rem);
-          transition: opacity 900ms 110ms cubic-bezier(0.16, 1, 0.3, 1), transform 1050ms 110ms cubic-bezier(0.16, 1, 0.3, 1);
-          will-change: transform, opacity;
-        }
-        .community-scroll-copy[data-visible="true"] .community-scroll-open,
-        .community-scroll-copy[data-visible="true"] .community-scroll-title {
-          opacity: 1;
-          transform: none;
-        }
         @media (prefers-reduced-motion: reduce) {
           .community-crew-row {
             animation: none;
-            transform: none;
-          }
-          .community-scroll-open,
-          .community-scroll-title {
-            transition: none;
-            opacity: 1;
             transform: none;
           }
         }
@@ -111,29 +61,17 @@ export default function Community() {
             </p>
           </div>
 
-          <div className="grid gap-9 pt-9 md:grid-cols-[minmax(20rem,0.8fr)_minmax(0,1.2fr)] md:items-center md:gap-10 md:pt-11 lg:gap-16">
-            <h2
-              ref={scrollCopyRef}
-              className="community-scroll-copy md:order-2 md:-translate-y-8 md:text-right lg:-translate-y-12"
-            >
-              <span className="community-scroll-open font-brand-display block text-[clamp(3.5rem,6.6vw,7rem)] font-black leading-[0.92] tracking-[-0.065em] text-[#111411]">
-                共同构建，
-              </span>
-              <span className="community-scroll-title font-brand-display block text-[clamp(3.5rem,6.6vw,7rem)] font-black leading-[0.92] tracking-[-0.065em] text-[#168b6d]">
-                共同验证。
-              </span>
-            </h2>
-
-            <div className="md:order-1 md:pb-1">
-              <p className="font-brand-display max-w-[34rem] text-2xl font-black leading-tight tracking-[-0.035em] text-[#111411] md:text-3xl">
+          <div className="pt-9 md:pt-11">
+            <div className="mx-auto max-w-[42rem] text-center">
+              <h2 className="font-brand-display mx-auto max-w-[34rem] text-2xl font-black leading-tight tracking-[-0.035em] text-[#111411] md:text-3xl">
                 所有贡献，都应留下可复核的路径。
-              </p>
-              <p className="mt-4 max-w-[38rem] text-sm leading-7 text-[#111411]/62 md:text-base md:leading-8">
+              </h2>
+              <p className="mx-auto mt-4 max-w-[38rem] text-sm leading-7 text-[#111411]/62 md:text-base md:leading-8">
                 Semantix 在 GitHub 公开开发。每个 Issue、PR
                 与验证结果，都应留下可检查的输入、方法和结论。
               </p>
               <nav aria-label="社区参与入口" className="mt-4">
-                <ul className="flex list-none flex-wrap gap-x-6 gap-y-1 p-0">
+                <ul className="flex list-none flex-wrap justify-center gap-x-6 gap-y-1 p-0">
                   {communityLinks.map((link) => (
                     <li key={link.href}>
                       <a
@@ -156,7 +94,7 @@ export default function Community() {
           delay={70}
           className="motion-reduce:translate-y-0 motion-reduce:opacity-100 motion-reduce:transition-none"
         >
-          <div className="mt-7 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between md:mt-8">
+          <div className="mt-12 text-center md:mt-14">
             <div>
               <p className="font-brand-display text-2xl font-black tracking-[-0.04em] md:text-3xl">
                 贡献者
@@ -164,24 +102,6 @@ export default function Community() {
               <p className="mt-1 text-xs leading-5 text-[#111411]/55">
                 以 GitHub commit、PR 审阅和 Contributors 记录为准。
               </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-5 md:-translate-x-4 md:-translate-y-8 lg:-translate-x-6 lg:-translate-y-12">
-              <a
-                href={`${repo}/blob/main/CONTRIBUTING.md`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex min-h-10 items-center whitespace-nowrap bg-[#168b6d] px-4 py-2 text-sm font-bold text-[#f8f8f4] transition-[background-color,transform] hover:bg-[#116f58] active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#168b6d] motion-reduce:transform-none"
-              >
-                参与贡献 ↗
-              </a>
-              <a
-                href={`${repo}/graphs/contributors`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex min-h-10 items-center whitespace-nowrap text-sm font-semibold transition-colors hover:text-[#168b6d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#168b6d]"
-              >
-                查看贡献记录 ↗
-              </a>
             </div>
           </div>
 
@@ -267,6 +187,25 @@ export default function Community() {
                 </div>
               ))}
             </div>
+          </div>
+
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-5 md:mt-7">
+            <a
+              href={`${repo}/blob/main/CONTRIBUTING.md`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-10 items-center whitespace-nowrap bg-[#168b6d] px-4 py-2 text-sm font-bold text-[#f8f8f4] transition-[background-color,transform] hover:bg-[#116f58] active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#168b6d] motion-reduce:transform-none"
+            >
+              参与贡献 ↗
+            </a>
+            <a
+              href={`${repo}/graphs/contributors`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-10 items-center whitespace-nowrap text-sm font-semibold transition-colors hover:text-[#168b6d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#168b6d]"
+            >
+              查看贡献记录 ↗
+            </a>
           </div>
         </Reveal>
 
