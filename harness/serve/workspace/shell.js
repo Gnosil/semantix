@@ -10,12 +10,9 @@
 
   // ── #404 chrome: collapse + side drawer ──
   var collapseBtn = document.querySelector("[data-ws-collapse]");
-  var contextPanel = document.getElementById("ws-context");
   if (collapseBtn) {
     collapseBtn.addEventListener("click", function () {
-      var collapsed = contextPanel ? !contextPanel.hidden : !document.body.classList.contains("ws-right-collapsed");
-      document.body.classList.toggle("ws-right-collapsed", collapsed);
-      if (contextPanel) contextPanel.hidden = collapsed;
+      var collapsed = document.body.classList.toggle("ws-right-collapsed");
       collapseBtn.setAttribute("aria-expanded", String(!collapsed));
     });
   }
@@ -107,14 +104,13 @@
     diffList: document.querySelector("[data-ws-diff-list]"),
     terminalList: document.querySelector("[data-ws-terminal-list]"),
     reviewList: document.querySelector("[data-ws-review-list]"),
-    tree: document.querySelector("[data-ws-tree]"),
-    suggestions: document.querySelectorAll("[data-ws-suggestion]"),
     composer: document.querySelector("[data-ws-composer]"),
-    composerProject: document.querySelector("[data-ws-composer-project]"),
-    runtimeStatus: document.querySelector("[data-ws-runtime-status]"),
     input: document.querySelector("[data-ws-input]"),
     send: document.querySelector("[data-ws-send]"),
     cancel: document.querySelector("[data-ws-cancel]"),
+    attach: document.querySelector("[data-ws-attach]"),
+    attachmentInput: document.querySelector("[data-ws-attachment-input]"),
+    attachments: document.querySelector("[data-ws-attachments]"),
     permission: document.querySelector("[data-ws-permission]"),
     permissionLabel: document.querySelector("[data-ws-permission-label]"),
     cacheStatus: document.querySelector("[data-ws-cache-status]"),
@@ -125,6 +121,7 @@
   // running drives the 运行中 pill for the highlighted task row.
   var sessionRunning = false;
   var composerBusy = false;
+  var composerAttachments = [];
   var EFFORT_LABELS = { low: "低", medium: "中", high: "高", max: "max" };
   var EFFORT_LEVELS = ["low", "medium", "high"];
   var TASK_PILLS = {
@@ -155,7 +152,6 @@
     el.cacheStatusText.textContent = parts.join("  ·  ");
     if (el.cacheStatus) {
       var observed = cacheView.l1Hit !== null || cacheView.l2Hits !== null || cacheView.l3Observed !== null;
-      el.cacheStatus.hidden = !observed;
       var dot = el.cacheStatus.querySelector(".ws-dot");
       if (dot) dot.classList.toggle("is-on", observed);
     }
@@ -193,50 +189,6 @@
   }
 
   renderCacheBar();
-
-  function renderWorkspaceTree(entries) {
-    if (!el.tree) return;
-    clearNode(el.tree);
-    if (!Array.isArray(entries) || !entries.length) {
-      var empty = document.createElement("li");
-      empty.className = "ws-context-empty";
-      empty.textContent = "工作区暂无可展示文件。";
-      el.tree.appendChild(empty);
-      return;
-    }
-    entries.forEach(function (entry) {
-      if (!entry || !entry.path || !entry.name) return;
-      var item = document.createElement("li");
-      var row = document.createElement("button");
-      row.type = "button";
-      row.className = "tree-row";
-      row.setAttribute("data-ws-path", String(entry.path).replace(/\\/g, "/"));
-      row.style.paddingLeft = (8 + Math.max(0, Number(entry.depth) || 0) * 14) + "px";
-      var icon = document.createElement("span");
-      icon.className = "tree-chevron";
-      icon.textContent = entry.directory ? "▾" : "·";
-      var name = document.createElement("span");
-      name.className = "name";
-      name.textContent = entry.name;
-      row.appendChild(icon);
-      row.appendChild(name);
-      row.addEventListener("click", function () {
-        document.querySelectorAll(".ws-tree .tree-row.is-selected").forEach(function (selected) { selected.classList.remove("is-selected"); });
-        row.classList.add("is-selected");
-      });
-      item.appendChild(row);
-      el.tree.appendChild(item);
-    });
-  }
-
-  function loadWorkspaceTree() {
-    return getJSON("/workspace/tree").then(function (data) {
-      renderWorkspaceTree(data && data.entries);
-    }).catch(function () {
-      renderWorkspaceTree([]);
-      showNotice("工作区文件读取失败，可稍后重试。", "warn");
-    });
-  }
 
   // GUI-4 (#407) + GUI-5 (#408): consume the versioned workspace stream as a
   var sessionRows = [];
@@ -297,8 +249,6 @@
     workflow.asks = Object.create(null);
     workflow.localUser = null;
     workflow.active = false;
-    cacheView = { l1Hit: null, l1Miss: null, l2Hits: null, l3Observed: null, reason: "" };
-    renderCacheBar();
     clearNode(el.timeline);
     if (el.demo) el.demo.classList.remove("is-hidden");
     renderDiffList();
@@ -578,7 +528,6 @@
     if (!el.contextDiff || !fileDiff) return;
     if (el.fileHead) {
       clearNode(el.fileHead);
-      el.fileHead.hidden = false;
       var path = document.createElement("span");
       path.textContent = String(fileDiff.path || "未命名文件");
       var status = document.createElement("span");
@@ -588,7 +537,6 @@
       el.fileHead.appendChild(status);
     }
     clearNode(el.contextDiff);
-    el.contextDiff.hidden = false;
     renderDiff(el.contextDiff, fileDiff, { context: true, hideHeader: true });
   }
 
@@ -1152,12 +1100,23 @@
       el.send.hidden = busy;
     }
     if (el.cancel) el.cancel.hidden = !busy;
-    if (el.runtimeStatus) el.runtimeStatus.textContent = busy ? "运行中" : "就绪";
   }
 
   function setComposerRunning(running) {
     composerBusy = !!running;
     updateComposerControls();
+  }
+
+  function renderComposerAttachments() {
+    if (!el.attachments) return;
+    clearNode(el.attachments);
+    composerAttachments.forEach(function (name) {
+      var item = document.createElement("span");
+      item.className = "composer-attachment";
+      item.textContent = name;
+      item.title = name + "（仅记录文件名，当前服务端不上传附件内容）";
+      el.attachments.appendChild(item);
+    });
   }
 
   function addOptimisticUserMessage(text) {
@@ -1177,13 +1136,16 @@
       showNotice("当前任务正在运行，请等待完成或先中止。", "warn");
       return;
     }
-    // Attachments are intentionally not submitted until the backend accepts
-    // file content. Never turn a filename into a fake attachment capability.
     var submitted = text;
+    if (composerAttachments.length) {
+      submitted += "\n\n附件文件名（内容未上传）： " + composerAttachments.join(", ");
+    }
     addOptimisticUserMessage(text);
     setComposerRunning(true);
     postJSON("/submit", { input: submitted }).then(function () {
       el.input.value = "";
+      composerAttachments = [];
+      renderComposerAttachments();
       refreshTasks();
     }).catch(function (err) {
       setComposerRunning(false);
@@ -1230,17 +1192,20 @@
         cancelComposer();
       }
     });
+    if (el.attach && el.attachmentInput) {
+      el.attach.addEventListener("click", function () { el.attachmentInput.click(); });
+      el.attachmentInput.addEventListener("change", function () {
+        Array.prototype.forEach.call(el.attachmentInput.files || [], function (file) {
+          if (file && file.name && composerAttachments.indexOf(file.name) === -1) composerAttachments.push(file.name);
+        });
+        renderComposerAttachments();
+        el.attachmentInput.value = "";
+      });
+    }
     if (el.permission) el.permission.addEventListener("click", function () {
       showNotice("权限由服务端策略控制；高风险操作会单独请求确认。", "warn");
     });
-    Array.prototype.forEach.call(el.suggestions || [], function (suggestion) {
-      suggestion.addEventListener("click", function () {
-        if (!el.input || composerBusy || sessionRunning) return;
-        el.input.value = suggestion.getAttribute("data-ws-suggestion") || suggestion.textContent || "";
-        el.input.focus();
-        el.input.dispatchEvent(new Event("input"));
-      });
-    });
+    renderComposerAttachments();
     setComposerRunning(false);
   }
 
@@ -1315,9 +1280,7 @@
         if (data.kind === "turn_done") {
           var cancelled = !!data.cancelled || String(data.outcome || "").toLowerCase() === "cancelled";
           composerBusy = false;
-          sessionRunning = false;
           updateComposerControls();
-          loadWorkspaceTree();
           if (workflow.localUser) {
             setStatus(workflow.localUser.card, cancelled ? "已取消" : "已发送", cancelled ? "cancelled" : "done");
             workflow.localUser = null;
@@ -1427,22 +1390,17 @@
       var name = cwd.split(/[\\/]/).filter(Boolean).pop() || "semantix";
       setValue(el.projectName, name);
       if (el.sideProjectName) el.sideProjectName.textContent = name;
-      if (el.composerProject) el.composerProject.textContent = name;
       sessionRunning = !!status.running;
       renderPermission(status.toolApprovalMode);
       updateComposerControls();
       setState(el.project, "ok");
-      return getJSON("/sessions").then(function (sessions) {
-        renderTasks(sessions);
-        return loadWorkspaceTree();
-      });
+      return getJSON("/sessions").then(renderTasks);
     }).catch(function () {
       setValue(el.projectName, "未知项目");
       setState(el.project, "error");
       renderPermission("ask");
       updateComposerControls();
       renderTasks(null);
-      renderWorkspaceTree([]);
     });
   }
 
@@ -1463,8 +1421,6 @@
       return;
     }
     sessionRows = sessions;
-    var sessionCount = document.querySelector("[data-ws-session-count]");
-    if (sessionCount) sessionCount.textContent = sessions.length ? String(sessions.length) : "";
     refreshSessionProjectFilter();
     var visible = filterSessions();
     if (!visible.length) {
@@ -1600,8 +1556,6 @@
   function renderEffort(level, hasModel) {
     var label = level ? (EFFORT_LABELS[level] || level) : hasModel ? "默认" : "—";
     setValue(el.effortValue, label);
-    var composerEffort = document.querySelector("[data-ws-composer-effort]");
-    if (composerEffort) composerEffort.textContent = label;
     setState(el.effort, "ok");
     el.effort.title = "推理强度：" + label;
     var rows = EFFORT_LEVELS.map(function (lv) {
@@ -1635,9 +1589,7 @@
       var models = Array.isArray(data.models) ? data.models : [];
       if (!models.length) {
         // #405 acceptance: an explicit, visible unavailable-model signal.
-      setValue(el.modelName, "模型不可用");
-        var unavailableComposerModel = document.querySelector("[data-ws-composer-model]");
-        if (unavailableComposerModel) unavailableComposerModel.textContent = "模型不可用";
+        setValue(el.modelName, "模型不可用");
         setState(el.model, "empty");
         el.model.title = "没有任何已配置的可用模型；请在 provider 设置中添加后刷新";
         fillList(el.modelMenu, [{ label: "模型不可用：未配置任何模型", disabled: true }]);
@@ -1652,14 +1604,10 @@
         return { label: label, ref: ref, active: !!m.active };
       }), pickModel);
       setValue(el.modelName, data.label || (activeRef || "").split("/").pop());
-      var composerModel = document.querySelector("[data-ws-composer-model]");
-      if (composerModel) composerModel.textContent = data.label || (activeRef || "").split("/").pop();
       setState(el.model, "ok");
       el.model.title = "当前模型：" + (activeRef || data.label || "");
     }).catch(function () {
       setValue(el.modelName, "不可用");
-      var unavailableComposerModel = document.querySelector("[data-ws-composer-model]");
-      if (unavailableComposerModel) unavailableComposerModel.textContent = "模型不可用";
       setState(el.model, "error");
       el.model.title = "无法读取模型列表";
     });

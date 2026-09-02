@@ -506,7 +506,6 @@ func (s *Server) handler() http.Handler {
 	mux.HandleFunc("GET /workspace/tokens.css", staticBytes("text/css; charset=utf-8", &workspaceTokensCSS))
 	mux.HandleFunc("GET /workspace/layout.css", staticBytes("text/css; charset=utf-8", &workspaceLayoutCSS))
 	mux.HandleFunc("GET /workspace/shell.js", staticBytes("text/javascript; charset=utf-8", &workspaceShellJS))
-	mux.HandleFunc("GET /workspace/tree", s.workspaceTree)
 	mux.HandleFunc("GET /events", s.events)
 	mux.HandleFunc("GET /workspace/events", s.workspaceEvents)
 	mux.HandleFunc("GET /history", s.history)

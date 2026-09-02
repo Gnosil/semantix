@@ -53,18 +53,15 @@ func TestServeWorkspaceShellRenders(t *testing.T) {
 		`data-ws-side-close`,        // mobile drawer scrim
 		`id="ws-context"`,           // right context panel
 		`data-ws-collapse`,          // collapse control
-		`给 Semantix 发消息`,              // Reasonix-style composer
-		`data-ws-demo`,               // formal empty state, without demo work
-		`data-ws-suggestion`,         // useful first prompts
+		`aria-expanded="true"`,      // expanded by default at desktop widths
+		`提出后续修改要求`,                  // composer placeholder
+		`实现高缓存命中率`,                  // demo task title from the GUI-1 mockup
+		`src/cache/prefix_cache.go`, // file tree + diff headers
 		`data-ws-cache-status`,       // GUI-9 cache observability hook
+		`缓存状态：暂无数据`,                // no fabricated cache numbers before telemetry
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("workspace shell missing %q", want)
-		}
-	}
-	for _, forbidden := range []string{"实现高缓存命中率", "src/cache/prefix_cache.go", "L2 4 slices", "本轮缓存已复用"} {
-		if strings.Contains(html, forbidden) {
-			t.Errorf("workspace shell must not ship fabricated demo content %q", forbidden)
 		}
 	}
 }
@@ -145,7 +142,6 @@ func TestServeWorkspaceSelectorContract(t *testing.T) {
 		`"/model "`,           //   .../model <ref>
 		`"/effort "`,          //   .../effort <level>
 		`"/sessions"`,         // task list = live sessions, no second data model (#406)
-		`"/workspace/tree"`,   // bounded real project tree for the workbench
 		`"/resume"`,           // task switching keeps session content server-side
 		`"/new"`,              // creating a task enters a fresh session
 		`"/workspace/events"`, // GUI-4 versioned SSE transport
@@ -319,7 +315,7 @@ func TestServeWorkspaceComposerContract(t *testing.T) {
 	html := string(workspaceHTML)
 	for _, want := range []string{
 		`data-ws-composer`, `data-ws-input`, `data-ws-send`, `data-ws-cancel`,
-		`data-ws-permission`,
+		`data-ws-attach`, `data-ws-attachment-input`, `data-ws-permission`,
 		`type="submit"`, `hidden`,
 	} {
 		if !strings.Contains(html, want) {
@@ -330,7 +326,7 @@ func TestServeWorkspaceComposerContract(t *testing.T) {
 	for _, want := range []string{
 		`function sendComposer`, `function cancelComposer`, `function initComposer`,
 		`postJSON("/submit"`, `postJSON("/cancel"`, `data-ws-permission-label`,
-		`当前任务正在运行，请等待完成或先中止`, `已取消`, `cancelled`,
+		`当前任务正在运行，请等待完成或先中止`, `内容未上传`, `已取消`, `cancelled`,
 	} {
 		if !strings.Contains(js, want) {
 			t.Errorf("workspace composer behavior missing %q", want)
@@ -338,9 +334,6 @@ func TestServeWorkspaceComposerContract(t *testing.T) {
 	}
 	if strings.Contains(js, `postJSON("/tool-approval-mode"`) || strings.Contains(js, `postJSON("/bypass"`) {
 		t.Error("workspace composer must not change permission mode from the browser")
-	}
-	if strings.Contains(html, "data-ws-attach") || strings.Contains(js, "data-ws-attach") || strings.Contains(js, "内容未上传") {
-		t.Error("workspace composer must not expose a filename-only attachment capability")
 	}
 }
 

@@ -22,11 +22,6 @@ site/.wrangler/
 /semantix
 /semantix-agent
 
-# Generated Wails output from local desktop experiments.
-/cmd/semantix-desktop/build/
-/cmd/semantix-desktop/frontend/wailsjs/
-/.tmp/
-
 # Secrets and local deployment state (never commit)
 .env
 *.env

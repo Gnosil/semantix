@@ -3,81 +3,196 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Semantix</title>
-<link rel="stylesheet" href="/workspace/tokens.css?v=3">
-<link rel="stylesheet" href="/workspace/layout.css?v=3">
+<title>Semantix Workspace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/workspace/tokens.css">
+<link rel="stylesheet" href="/workspace/layout.css">
 </head>
 <body>
-<div class="ws-app">
-  <aside id="ws-side" class="ws-side" aria-label="项目与会话导航">
-    <div class="ws-brand" data-ws-brand><img class="ws-brand-logo" src="/assets/logo-wordmark.svg" width="136" height="32" alt="Semantix" draggable="false"></div>
-    <button class="ws-new" type="button" data-ws-new-task title="创建并进入新会话"><svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M8 2.2v11.6M2.2 8h11.6"/><path d="M3.4 1.8h6.2l3 3v9.4H3.4z"/></svg><span>新建会话</span><kbd>Ctrl+N</kbd></button>
-    <div class="ws-side-project"><span data-ws-side-project-name>读取项目…</span></div>
-    <div class="ws-side-label"><span>会话</span><span>全部 <span class="ws-side-count" data-ws-session-count></span></span></div>
-    <div class="ws-session-filters" data-ws-session-filters>
-      <label class="ws-search"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="m10.4 10.4 3.2 3.2"/></svg><input data-ws-session-search type="search" placeholder="搜索会话" aria-label="搜索会话"><kbd>Ctrl+K</kbd></label>
-      <select class="ws-filter" data-ws-session-project aria-label="按项目筛选"><option value="">全部项目</option></select>
-      <select class="ws-filter" data-ws-session-status aria-label="按状态筛选"><option value="">全部状态</option><option value="running">运行中</option><option value="done">已完成</option><option value="recovered">待恢复</option><option value="empty">空会话</option></select>
+<!-- Workspace shell (issue #404): the visible preview is a useful empty-state
+     fallback; GUI-5 replaces it with cards as versioned events arrive. -->
+
+<aside id="ws-side" class="ws-side" aria-label="项目与任务导航">
+  <div class="ws-brand" data-ws-brand>
+    <img class="ws-brand-logo" src="/assets/logo-wordmark.svg" width="136" height="32" alt="Semantix" draggable="false">
+  </div>
+
+  <nav class="ws-nav" aria-label="主导航">
+    <button class="ws-item" type="button" data-ws-new-task title="创建并进入新任务会话"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6.5"/><path d="M8 5v6M5 8h6"/></svg>新建任务<span class="ws-kbd"><kbd>Ctrl+N</kbd></span></button>
+    <button class="ws-item" type="button" data-ws-placeholder="搜索"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="m13.5 13.5-3.2-3.2"/></svg>搜索<span class="ws-kbd"><kbd>Ctrl+K</kbd></span></button>
+    <button class="ws-item" type="button" data-ws-placeholder="自动化"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="3" width="11" height="10.5" rx="2"/><path d="M2.5 6h11M5.5 1.8v2.4M10.5 1.8v2.4"/></svg>自动化</button>
+    <button class="ws-item" type="button" data-ws-placeholder="插件"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1"/><rect x="9" y="9" width="4.5" height="4.5" rx="1"/></svg>插件</button>
+  </nav>
+
+  <div class="ws-section-head">项目<button class="icon-btn is-plain" type="button" aria-label="新建项目" style="width:24px;height:24px;border:0;background:none"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg></button></div>
+
+  <div class="ws-project is-active" data-ws-side-project><span class="ws-dot is-on"></span><span data-ws-side-project-name>semantix</span>
+    <span class="ws-kbd" style="margin-left:auto;color:var(--sx-text-3)">···</span></div>
+
+  <!-- GUI-3 (#406): the task list renders live sessions from GET /sessions —
+       运行中 / 已完成 states derive from in-flight markers and turn counts, so
+       no second task data structure exists. -->
+  <ul id="ws-task-list" class="ws-sub" data-ws-task-list role="list">
+    <li class="ws-item ws-task" data-ws-tasks-loading aria-busy="true">正在读取任务…</li>
+  </ul>
+  <div class="ws-session-filters" data-ws-session-filters>
+    <input class="ws-session-search" data-ws-session-search type="search" placeholder="搜索会话" aria-label="按关键词搜索会话">
+    <select class="ws-session-select" data-ws-session-project aria-label="按项目筛选"><option value="">全部项目</option></select>
+    <select class="ws-session-select" data-ws-session-status aria-label="按状态筛选"><option value="">全部状态</option><option value="running">运行中</option><option value="done">已完成</option><option value="recovered">待恢复</option><option value="empty">空会话</option></select>
+  </div>
+
+  <footer class="ws-side-foot ws-nav">
+    <button class="ws-item" type="button"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v2M8 12.2v2M1.8 8h2M12.2 8h2M3.6 3.6l1.4 1.4M11 11l1.4 1.4M12.4 3.6 11 5M5 11l-1.4 1.4"/></svg>设置</button>
+    <button class="ws-item" type="button"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6.5"/><path d="M6.2 6.2A1.9 1.9 0 1 1 8 8.6v1"/><circle cx="8" cy="12" r=".4" fill="currentColor"/></svg>帮助与反馈</button>
+  </footer>
+</aside>
+
+<div class="ws-main">
+  <header class="ws-topbar">
+    <div class="ws-chips">
+      <button class="icon-btn ws-side-toggle" type="button" data-ws-side-toggle aria-expanded="false" aria-controls="ws-side" aria-label="打开项目导航" title="打开项目导航"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h12M2 12h12" /></svg></button>
+      <!-- GUI-2 (#405): selector chips are hydrated from live backend state by
+           shell.js. Static text below is only the pre-load placeholder. -->
+      <span class="ws-chip" data-ws-project data-ws-state="loading" title="工作目录"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.8 4.5c0-.8.7-1.5 1.5-1.5h3l1.5 1.8h5.4c.8 0 1.5.7 1.5 1.5v5.2c0 .8-.7 1.5-1.5 1.5H3.3a1.5 1.5 0 0 1-1.5-1.5V4.5Z"/></svg><span data-ws-project-name>⋯</span></span>
+      <span class="ws-menu">
+        <button class="ws-chip is-plain" type="button" data-ws-branch aria-haspopup="listbox" aria-expanded="false" data-ws-state="loading" title="当前会话分支（只读）"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="4.5" cy="12.5" r="2"/><circle cx="4.5" cy="3.5" r="2"/><path d="M11.5 4H7a3 3 0 0 0 0 6h4a3 3 0 0 1 0 6H8"/></svg><span data-ws-branch-name>⋯</span><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m4 6 4 4 4-4"/></svg></button>
+        <ul class="ws-pop" role="listbox" data-ws-branch-menu hidden></ul>
+      </span>
     </div>
-    <ul id="ws-task-list" class="ws-tasks" data-ws-task-list role="list"><li class="ws-tasks-note" data-ws-tasks-loading aria-busy="true">正在读取会话…</li></ul>
-    <nav class="ws-side-footer" aria-label="辅助导航">
-      <button type="button" data-ws-placeholder="记忆"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M8 2.1c2.9 0 5 2.1 5 4.8 0 3.8-2.7 5.7-5 7-2.3-1.3-5-3.2-5-7 0-2.7 2.1-4.8 5-4.8Z"/><path d="M5.7 7.5c.7-.7 1.3-.7 2 0s1.3.7 2 0"/></svg><span>记忆</span></button>
-      <button type="button" data-ws-placeholder="MCP 与技能"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2.4" y="2.4" width="4.5" height="4.5" rx="1"/><rect x="9.1" y="9.1" width="4.5" height="4.5" rx="1"/><path d="m6.9 4.6 2.2 2.2m0 2.4L6.9 11.4"/></svg><span>MCP 与技能</span></button>
-      <button type="button" data-ws-placeholder="设置"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.7v2M8 12.3v2M1.7 8h2M12.3 8h2M3.6 3.6 5 5M11 11l1.4 1.4M12.4 3.6 11 5M5 11l-1.4 1.4"/></svg><span>设置</span></button>
-    </nav>
-  </aside>
+    <div class="ws-chips">
+      <span class="ws-menu">
+        <button class="ws-chip is-plain" type="button" data-ws-model aria-haspopup="listbox" aria-expanded="false" data-ws-state="loading" title="当前模型"><span data-ws-model-name>⋯</span><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m4 6 4 4 4-4"/></svg></button>
+        <ul class="ws-pop" role="listbox" data-ws-model-menu hidden></ul>
+      </span>
+      <span class="ws-menu">
+        <button class="ws-chip is-plain" type="button" data-ws-effort aria-haspopup="listbox" aria-expanded="false" data-ws-state="loading" title="推理强度"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v2.5M8 11.5V14M2 8h2.5M11.5 8H14"/><circle cx="8" cy="8" r="2.5"/></svg><span data-ws-effort-value>⋯</span><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m4 6 4 4 4-4"/></svg></button>
+        <ul class="ws-pop" role="listbox" data-ws-effort-menu hidden></ul>
+      </span>
+      <button class="icon-btn" type="button" data-ws-collapse aria-expanded="true" aria-controls="ws-context" title="折叠上下文面板"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M10 2.5v11M12.5 8H13" /></svg></button>
+    </div>
+  </header>
+  <p class="ws-notice" data-ws-notice role="status" hidden></p>
 
-  <main class="ws-main">
-    <header class="ws-topbar">
-      <div class="ws-topbar-left">
-        <button class="ws-icon ws-side-toggle" type="button" data-ws-side-toggle aria-expanded="false" aria-controls="ws-side" aria-label="打开会话栏" title="打开会话栏"><svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12"/></svg></button>
-        <div class="ws-topbar-identity" data-ws-project data-ws-state="loading" title="当前工作区"><strong>Semantix</strong><span><span data-ws-project-name>读取项目…</span><span class="ws-topbar-separator"> · </span><span class="ws-topbar-runtime">浏览器工作台</span></span></div>
-      </div>
-      <div class="ws-topbar-right">
-        <button class="ws-icon" type="button" data-ws-collapse aria-expanded="false" aria-controls="ws-context" title="打开工作区面板"><svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M10 2.5v11M12.5 8H13"/></svg></button>
-      </div>
-    </header>
-    <p class="ws-notice" data-ws-notice role="status" hidden></p>
+  <div class="ws-body">
+    <section class="ws-center" aria-label="任务对话">
 
-    <div class="ws-body">
-      <section class="ws-center" aria-label="Semantix 对话">
-        <div class="ws-hero ws-demo" data-ws-demo>
-          <div class="ws-hero-mark" aria-hidden="true"><svg viewBox="0 0 48 48" width="48" height="48" fill="none" stroke-linejoin="round"><rect x="4" y="4" width="40" height="40" rx="3" transform="rotate(45 24 24)" stroke="#2dd4a0" stroke-width="3"/><rect x="13" y="13" width="22" height="22" rx="2" transform="rotate(45 24 24)" stroke="#20262d" stroke-width="3"/><rect x="20" y="20" width="8" height="8" transform="rotate(45 24 24)" fill="#2dd4a0" stroke="#2dd4a0" stroke-width="2"/></svg></div>
-          <h1>Semantix</h1><p>一个编码智能体，描述任务或直接开始对话。</p>
-          <div class="ws-hero-hints" aria-hidden="true"><span><kbd>/</kbd> 命令</span><span><kbd>@</kbd> 引用文件</span><span><kbd>↵</kbd> 发送</span></div>
-          <div class="ws-hero-suggestions"><button type="button" data-ws-suggestion="解释这个代码库的架构">解释这个代码库的架构</button><button type="button" data-ws-suggestion="总结最近的 git 改动">总结最近的 git 改动</button><button type="button" data-ws-suggestion="检查当前项目的构建状态">检查当前项目的构建状态</button></div>
-        </div>
-        <article class="ws-task-head" data-ws-task-head hidden><h1 data-ws-task-title>当前会话</h1><p class="ws-meta" data-ws-task-meta></p></article>
-        <div class="ws-timeline" data-ws-timeline aria-live="polite" aria-label="Agent 工作流时间线"></div>
-        <div class="ws-statusbar" data-ws-cache-status aria-live="polite" hidden><span class="ws-dot"></span><span data-ws-cache-status-text></span><span class="chev">›</span></div>
-        <form class="composer" data-ws-composer>
-          <span class="ws-composer-caret" aria-hidden="true">›</span><textarea data-ws-input placeholder="给 Semantix 发消息…（/ 命令 · @ 文件）" rows="2" aria-label="给 Semantix 发消息"></textarea>
-          <div class="composer-row">
-            <button class="perm-chip" data-ws-permission type="button" title="权限由服务端策略控制"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M8 1.5 13 3.4v3.4c0 3.1-2.1 5.9-5 7.7-2.9-1.3-5-4.6-5-7.7V3.4L8 1.5Z"/><path d="m5.7 7.9 1.6 1.6 3-3.2"/></svg><span data-ws-permission-label>每次确认</span><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button>
-            <span class="ws-spacer"></span>
-            <button class="send-btn" data-ws-send type="submit" aria-label="发送" disabled><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M8 13V3M4 7l4-4 4 4"/></svg></button><button class="send-btn ws-cancel-btn" data-ws-cancel type="button" aria-label="中止当前任务" title="中止当前任务" hidden><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="4" width="8" height="8" rx="1"/></svg></button>
-          </div>
-        </form>
-        <div class="ws-composer-meta" aria-label="当前会话信息">
-          <span class="ws-composer-project"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M1.8 4.5c0-.8.7-1.5 1.5-1.5h3l1.5 1.8h5.4c.8 0 1.5.7 1.5 1.5v5.2c0 .8-.7 1.5-1.5 1.5H3.3a1.5 1.5 0 0 1-1.5-1.5V4.5Z"/></svg><span data-ws-composer-project>读取项目…</span></span>
-          <span class="ws-menu"><button class="ws-context-chip" type="button" data-ws-branch aria-haspopup="listbox" aria-expanded="false" data-ws-state="loading" title="当前工作区分支"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4.5" cy="12.5" r="2"/><circle cx="4.5" cy="3.5" r="2"/><path d="M11.5 4H7a3 3 0 0 0 0 6h4a3 3 0 0 1 0 6H8"/></svg><span data-ws-branch-name>读取分支…</span><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button><ul class="ws-pop" role="listbox" data-ws-branch-menu hidden></ul></span>
-          <span class="ws-spacer"></span><span class="ws-menu"><button class="ws-model-chip" type="button" data-ws-model aria-haspopup="listbox" aria-expanded="false" data-ws-state="loading" title="当前模型"><span data-ws-model-name data-ws-composer-model>读取模型…</span><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button><ul class="ws-pop" role="listbox" data-ws-model-menu hidden></ul></span>
-          <span class="ws-menu"><button class="ws-effort-chip" type="button" data-ws-effort aria-haspopup="listbox" aria-expanded="false" data-ws-state="loading" title="推理强度"><span data-ws-effort-value>默认</span><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button><ul class="ws-pop" role="listbox" data-ws-effort-menu hidden></ul></span>
-        </div>
-        <div class="ws-status-line" aria-live="polite"><span class="ws-dot is-on"></span><span data-ws-runtime-status>就绪</span></div>
+      <article class="ws-task-head">
+        <h1>实现高缓存命中率<span class="badge"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="6.5"/><path d="m5.2 8.2 1.9 1.9 3.7-4.2"/></svg>Cache hit</span></h1>
+        <p class="ws-meta">读取仓库 · 复用现有抽象 · 运行验证</p>
+      </article>
+
+      <!-- GUI-5 (#408): live events replace the preview below once the first
+           protocol frame arrives. Keeping the preview makes the standalone
+           shell useful before a session has produced any events. -->
+      <div class="ws-timeline" data-ws-timeline aria-live="polite" aria-label="Agent 工作流时间线"></div>
+
+      <div class="ws-demo" data-ws-demo>
+        <div class="ws-bubble"><span class="tag">用户</span><p>现有 prefix cache 的命中率偏低，请分析原因并优化。</p></div>
+        <div class="ws-bubble"><span class="tag is-agent">semantix</span><p>收到。我将先读取仓库，定位缓存实现与调用链路，找出低命中原因并提出改进方案。</p></div>
+
+      <section class="card">
+        <header class="card-head"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M5.2 8.4 7 10.2l3.8-4.4"/></svg>计划</header>
+        <ol class="plan-list">
+          <li>阅读缓存相关代码与配置</li>
+          <li>分析命中率低的主要原因</li>
+          <li>优化键生成与分片策略</li>
+          <li>运行验证与回归检查</li>
+        </ol>
       </section>
 
-      <aside id="ws-context" class="ws-context" aria-label="工作区面板" hidden>
-        <nav class="ws-tabs" role="tablist" aria-label="工作区视图"><button id="ws-tab-files" class="ws-tab is-active" data-ws-tab="files" aria-controls="ws-panel-files" role="tab" aria-selected="true" type="button">文件</button><button id="ws-tab-diff" class="ws-tab" data-ws-tab="diff" aria-controls="ws-panel-diff" role="tab" aria-selected="false" type="button" tabindex="-1">Diff</button><button id="ws-tab-terminal" class="ws-tab" data-ws-tab="terminal" aria-controls="ws-panel-terminal" role="tab" aria-selected="false" type="button" tabindex="-1">终端</button><button id="ws-tab-review" class="ws-tab" data-ws-tab="review" aria-controls="ws-panel-review" role="tab" aria-selected="false" type="button" tabindex="-1">Review</button></nav>
-        <section id="ws-panel-files" class="ws-context-panel is-active" data-ws-panel="files" role="tabpanel" aria-labelledby="ws-tab-files"><ul class="ws-tree" data-ws-tree><li class="ws-context-empty">读取工作区文件…</li></ul><div class="ws-filehead" data-ws-file-head hidden></div><div class="ws-diff" data-ws-context-diff><p class="ws-context-empty">执行文件变更后，Diff 会显示在这里。</p></div></section>
-        <section id="ws-panel-diff" class="ws-context-panel" data-ws-panel="diff" role="tabpanel" aria-labelledby="ws-tab-diff" hidden><div class="ws-context-scroll" data-ws-diff-list><p class="ws-context-empty">收到变更后，Diff 会显示在这里。</p></div></section>
-        <section id="ws-panel-terminal" class="ws-context-panel" data-ws-panel="terminal" role="tabpanel" aria-labelledby="ws-tab-terminal" hidden><div class="ws-context-scroll" data-ws-terminal-list><p class="ws-context-empty">执行命令后，终端输出会显示在这里。</p></div></section>
-        <section id="ws-panel-review" class="ws-context-panel" data-ws-panel="review" role="tabpanel" aria-labelledby="ws-tab-review" hidden><div class="ws-context-scroll" data-ws-review-list><p class="ws-context-empty">暂无待审阅变更或权限请求。</p></div></section>
-      </aside>
-    </div>
-    <button class="ws-side-scrim" type="button" data-ws-side-close aria-label="关闭会话栏"></button>
-  </main>
+      <section class="card">
+        <div class="tool-row"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#4ade80" stroke-width="1.8"><circle cx="8" cy="8" r="6.5"/><path d="m5.2 8.2 1.9 1.9 3.7-4.2"/></svg><strong style="font-weight:600">读取文件</strong>&nbsp;<span class="path">src/cache/prefix_cache.go</span><span class="state">已完成&nbsp;&nbsp;1.2s<svg style="vertical-align:-2px;margin-left:6px" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m4 6 4 4 4-4"/></svg></span></div>
+      </section>
+
+      <section class="card">
+        <header class="card-head"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 1.8 3.2 3.5v9L5 14.2h8V1.8H5Z"/><path d="M9.5 6H13M9.5 8.5H13M9.5 11H13"/></svg>变更</header>
+        <div class="file-row"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 1.8h5l3.5 3.5v9H4V1.8Z"/><path d="M9 2v4h3.5"/></svg>src/cache/prefix_cache.go<span class="mini-badge mini-add">+27</span><span class="mini-badge mini-del">−8</span></div>
+        <pre class="diff-mini"><code><span class="d-ctx"><span class="ln">112</span><span class="ln">112</span> func (c *Cache) makeKey(</span><span class="d-del"><span class="ln">113</span><span class="ln"></span>- key := hash(prefix)</span><span class="d-del"><span class="ln">114</span><span class="ln"></span>- return key</span><span class="d-add"><span class="ln"></span><span class="ln">113</span>+ // 优化：加入模型与分片因子，提升命中率</span><span class="d-add"><span class="ln">113</span><span class="ln">114</span>+ key := hash(prefix + modelID + "|" + shardFactor)</span><span class="d-add"><span class="ln"></span><span class="ln">115</span>+ return key</span><span class="d-ctx"><span class="ln">116</span><span class="ln">116</span>}</span></code></pre>
+      </section>
+
+      </div>
+
+      <div class="ws-statusbar" data-ws-cache-status aria-live="polite"><span class="ws-dot"></span><span data-ws-cache-status-text>缓存状态：暂无数据</span><span class="chev">›</span></div>
+
+    </section>
+
+    <aside id="ws-context" class="ws-context" aria-label="上下文面板">
+      <nav class="ws-tabs" role="tablist" aria-label="上下文视图">
+        <button id="ws-tab-files" class="ws-tab is-active" data-ws-tab="files" aria-controls="ws-panel-files" role="tab" aria-selected="true" type="button">文件</button>
+        <button id="ws-tab-diff" class="ws-tab" data-ws-tab="diff" aria-controls="ws-panel-diff" role="tab" aria-selected="false" type="button" tabindex="-1">Diff</button>
+        <button id="ws-tab-terminal" class="ws-tab" data-ws-tab="terminal" aria-controls="ws-panel-terminal" role="tab" aria-selected="false" type="button" tabindex="-1">终端</button>
+        <button id="ws-tab-review" class="ws-tab" data-ws-tab="review" aria-controls="ws-panel-review" role="tab" aria-selected="false" type="button" tabindex="-1">Review</button>
+      </nav>
+
+      <section id="ws-panel-files" class="ws-context-panel is-active" data-ws-panel="files" role="tabpanel" aria-labelledby="ws-tab-files">
+      <ul class="ws-tree">
+        <li><div class="tree-row" style="color:var(--sx-text)"><svg class="tree-chevron" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m6 4 4 4-4 4"/></svg><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.4"/><ellipse cx="8" cy="8" rx="6.2" ry="2.6"/><ellipse cx="8" cy="8" rx="6.2" ry="2.6" transform="rotate(60 8 8)"/></svg><span class="name">semantix</span></div>
+          <ul>
+            <li><div class="tree-row"><svg class="tree-chevron" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m6 4 4 4-4 4"/></svg><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.8 4.5c0-.8.7-1.5 1.5-1.5h3l1.5 1.8h5.4c.8 0 1.5.7 1.5 1.5v5.2c0 .8-.7 1.5-1.5 1.5H3.3a1.5 1.5 0 0 1-1.5-1.5V4.5Z"/></svg><span class="name">.github</span></div></li>
+            <li><div class="tree-row"><svg class="tree-chevron" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m6 4 4 4-4 4"/></svg><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.8 4.5c0-.8.7-1.5 1.5-1.5h3l1.5 1.8h5.4c.8 0 1.5.7 1.5 1.5v5.2c0 .8-.7 1.5-1.5 1.5H3.3a1.5 1.5 0 0 1-1.5-1.5V4.5Z"/></svg><span class="name">cmd</span></div></li>
+            <li><div class="tree-row"><svg class="tree-chevron" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m4 6 4 4 4-4"/></svg><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.8 4.5c0-.8.7-1.5 1.5-1.5h3l1.5 1.8h5.4c.8 0 1.5.7 1.5 1.5v5.2c0 .8-.7 1.5-1.5 1.5H3.3a1.5 1.5 0 0 1-1.5-1.5V4.5Z"/></svg><span class="name">internal</span></div>
+              <ul>
+                <li><div class="tree-row"><svg class="tree-chevron" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m6 4 4 4-4 4"/></svg><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.8 4.5c0-.8.7-1.5 1.5-1.5h3l1.5 1.8h5.4c.8 0 1.5.7 1.5 1.5v5.2c0 .8-.7 1.5-1.5 1.5H3.3a1.5 1.5 0 0 1-1.5-1.5V4.5Z"/></svg><span class="name">cache</span></div>
+                  <ul>
+                    <li><div class="tree-row is-selected"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 1.8h5l3.5 3.5v9H4V1.8Z"/><path d="M9 2v4h3.5"/></svg><span class="name">prefix_cache.go</span><span class="modified">M</span></div></li>
+                    <li><div class="tree-row"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 1.8h5l3.5 3.5v9H4V1.8Z"/><path d="M9 2v4h3.5"/></svg><span class="name">sharder.go</span></div></li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li><div class="tree-row"><svg class="tree-chevron" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m6 4 4 4-4 4"/></svg><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.8 4.5c0-.8.7-1.5 1.5-1.5h3l1.5 1.8h5.4c.8 0 1.5.7 1.5 1.5v5.2c0 .8-.7 1.5-1.5 1.5H3.3a1.5 1.5 0 0 1-1.5-1.5V4.5Z"/></svg><span class="name">config</span></div></li>
+            <li><div class="tree-row"><svg class="tree-chevron" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m6 4 4 4-4 4"/></svg><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.8 4.5c0-.8.7-1.5 1.5-1.5h3l1.5 1.8h5.4c.8 0 1.5.7 1.5 1.5v5.2c0 .8-.7 1.5-1.5 1.5H3.3a1.5 1.5 0 0 1-1.5-1.5V4.5Z"/></svg><span class="name">server</span></div></li>
+            <li><div class="tree-row"><svg class="tree-chevron" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m6 4 4 4-4 4"/></svg><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.8 4.5c0-.8.7-1.5 1.5-1.5h3l1.5 1.8h5.4c.8 0 1.5.7 1.5 1.5v5.2c0 .8-.7 1.5-1.5 1.5H3.3a1.5 1.5 0 0 1-1.5-1.5V4.5Z"/></svg><span class="name">utils</span></div></li>
+            <li><div class="tree-row"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 1.8h5l3.5 3.5v9H4V1.8Z"/><path d="M9 2v4h3.5"/></svg><span class="name">go.mod</span></div></li>
+            <li><div class="tree-row"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 1.8h5l3.5 3.5v9H4V1.8Z"/><path d="M9 2v4h3.5"/></svg><span class="name">go.sum</span></div></li>
+            <li><div class="tree-row"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 1.8h5l3.5 3.5v9H4V1.8Z"/><path d="M9 2v4h3.5"/></svg><span class="name">README.md</span></div></li>
+          </ul>
+        </li>
+      </ul>
+
+      <div class="ws-filehead" data-ws-file-head>src/cache/prefix_cache.go<span class="modified">M</span><span class="more">···</span></div>
+      <pre class="ws-diff"><code><span class="hunk">@@ -110,7 +110,12 @@ func (c *Cache) makeKey(</span><span class="d-ctx"><span class="ln">110</span><span class="ln">110</span>              func (c *Cache) makeKey(</span><span class="d-ctx"><span class="ln">111</span><span class="ln">111</span>                prefix string, modelID string,</span><span class="d-ctx"><span class="ln">112</span><span class="ln">112</span>                shardFactor int,</span><span class="d-del"><span class="ln">113</span><span class="ln"></span>- key := hash(prefix)</span><span class="d-del"><span class="ln">114</span><span class="ln"></span>- return key</span><span class="d-add"><span class="ln"></span><span class="ln">113</span>+ // 优化：加入模型与分片因子，提升命中率</span><span class="d-add"><span class="ln">113</span><span class="ln">114</span>+ key := hash(prefix + modelID + "|" + shardFactor)</span><span class="d-add"><span class="ln">114</span><span class="ln">115</span>+ return key</span><span class="d-ctx"><span class="ln">116</span><span class="ln">116</span>}</span></code></pre>
+      </section>
+
+      <section id="ws-panel-diff" class="ws-context-panel" data-ws-panel="diff" role="tabpanel" aria-labelledby="ws-tab-diff" hidden>
+        <div class="ws-context-scroll" data-ws-diff-list>
+          <p class="ws-context-empty">收到变更后，Diff 会显示在这里。</p>
+        </div>
+      </section>
+
+      <section id="ws-panel-terminal" class="ws-context-panel" data-ws-panel="terminal" role="tabpanel" aria-labelledby="ws-tab-terminal" hidden>
+        <div class="ws-context-scroll" data-ws-terminal-list>
+          <p class="ws-context-empty">执行命令后，终端输出会显示在这里。</p>
+        </div>
+      </section>
+
+      <section id="ws-panel-review" class="ws-context-panel" data-ws-panel="review" role="tabpanel" aria-labelledby="ws-tab-review" hidden>
+        <div class="ws-context-scroll" data-ws-review-list>
+          <p class="ws-context-empty">暂无待审阅变更或权限请求。</p>
+        </div>
+      </section>
+    </aside>
+
+    <form class="composer" data-ws-composer data-demo="static">
+      <textarea data-ws-input placeholder="提出后续修改要求" rows="2" aria-label="提出后续修改要求"></textarea>
+      <div class="composer-row">
+        <button class="icon-btn" data-ws-attach type="button" aria-label="添加附件" style="border-radius:50%"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg></button>
+        <input data-ws-attachment-input type="file" hidden multiple>
+        <span data-ws-attachments class="composer-attachments" aria-live="polite"></span>
+        <button class="perm-chip" data-ws-permission type="button" title="权限由服务端策略控制"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1.5 13 3.4v3.4c0 3.1-2.1 5.9-5 7.7-2.9-1.8-5-4.6-5-7.7V3.4L8 1.5Z"/><path d="m5.7 7.9 1.6 1.6 3-3.2"/></svg><span data-ws-permission-label>服务端权限</span><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m4 6 4 4 4-4"/></svg></button>
+        <span class="ws-spacer"></span>
+        <button class="ws-chip is-plain" type="button" style="color:var(--sx-text-2);font-weight:500">GLM-5.3-Flash<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m4 6 4 4 4-4"/></svg></button>
+        <button class="ws-chip is-plain" type="button" style="color:var(--sx-text-2)"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v2.5M8 11.5V14M2 8h2.5M11.5 8H14"/><circle cx="8" cy="8" r="2.5"/></svg>高<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m4 6 4 4 4-4"/></svg></button>
+        <button class="send-btn" data-ws-send type="submit" aria-label="发送" disabled><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 13V3M4 7l4-4 4 4"/></svg></button>
+        <button class="send-btn ws-cancel-btn" data-ws-cancel type="button" aria-label="中止当前任务" title="中止当前任务" hidden><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="8" height="8" rx="1"/></svg></button>
+      </div>
+    </form>
+  </div>
+  <button class="ws-side-scrim" type="button" data-ws-side-close aria-label="关闭项目导航"></button>
 </div>
-<script src="/workspace/shell.js?v=3"></script>
+
+<script src="/workspace/shell.js"></script>
 </body>
 </html>
