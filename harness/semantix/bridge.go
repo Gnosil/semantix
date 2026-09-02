@@ -6,6 +6,7 @@ package semantix
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -103,6 +104,14 @@ type InjectResult struct {
 	Targets []string
 }
 
+// neverInjectZones is a per-type zone override whose absolute floor no
+// finite retrieval score can reach: Classify returns Miss for every
+// candidate of that type, in drop AND audit grey modes alike.
+var neverInjectZones = zone.Zones{
+	TauHigh: math.MaxFloat64, TauLow: math.MaxFloat64,
+	AbsHigh: math.MaxFloat64, AbsLow: math.MaxFloat64,
+}
+
 // Events is the in-process kernel event bus shared by the harness and kernel
 // services. ResourceCatalog uses it even when the legacy session mirror is off.
 func (b *Bridge) Events() kernelevent.Bus {
@@ -187,6 +196,24 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 	}
 	closeSliceStore(store)
 	z := zone.Default()
+	// This is a pure-BM25 path (kernelIndex), and the absolute floors are
+	// by design cosine-scale guards ("only bind on the bounded cosine
+	// scale" — zone.Zones doc). On BM25 they are wrong in both directions:
+	// large libraries score >> 1 so the floors are dead letters, while a
+	// cold library's short distilled cards score < AbsLow and the floors
+	// silently veto every candidate. Zero them here; per-scale threshold
+	// calibration is the W0–W4 follow-up, not this wiring's job.
+	z.AbsHigh, z.AbsLow = 0, 0
+	// Four-layer distill spec §2.5: tool_pattern and result slices never
+	// inject on the agent path. #268 admission evidence plus the W0 probe
+	// (93.4% cross-project pseudo-hits on tool-name slices) showed these
+	// low-abstraction trajectories carry no task discrimination — they are
+	// the misleading-reference class the two-arm pilot paid +32% for. The
+	// unreachable AbsLow makes Classify return Miss for every finite score.
+	z.ByType = map[string]zone.Zones{
+		slice.ToolPattern.String(): neverInjectZones,
+		slice.Result.String():      neverInjectZones,
+	}
 	inj, err := (&inject.Injector{
 		Index:     idx,
 		Scope:     slice.Project,
@@ -194,6 +221,9 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 		Budget:    budget,
 		Zones:     &z,
 		AllowGrey: b.cfg.GreyMode == "audit",
+		// Same-type admission for distilled plan-skeleton / outcome cards:
+		// the turn's task classification gates task-tagged Memory slices.
+		TaskType: slice.ClassifyTask(query),
 	}).Build(query)
 	if err != nil {
 		op := "miss"
