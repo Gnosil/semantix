@@ -62,8 +62,8 @@ export default function Community() {
           </div>
 
           <div className="pt-9 md:pt-11">
-            <div className="mx-auto max-w-[42rem] text-center">
-              <h2 className="font-brand-display mx-auto max-w-[42rem] text-[clamp(2rem,3.4vw,2.75rem)] font-black leading-[1.08] tracking-[-0.045em] text-[#111411]">
+            <div className="mx-auto max-w-[60rem] text-center">
+              <h2 className="font-brand-display mx-auto max-w-none text-[clamp(2rem,3.4vw,2.75rem)] font-black leading-[1.08] tracking-[-0.045em] text-[#111411] md:whitespace-nowrap">
                 所有贡献，都应留下可复核的路径。
               </h2>
               <p className="mx-auto mt-4 max-w-[38rem] text-sm leading-7 text-[#111411]/62 md:text-base md:leading-8">
