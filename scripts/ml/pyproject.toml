@@ -11,6 +11,8 @@ dependencies = []
 # Training/serving extras — dev machine only, never shipped.
 train = [
     "sentence-transformers>=3.0",
+    "datasets>=2.19",
+    "accelerate>=0.26",
     "torch>=2.3",
     "optimum[onnxruntime]>=1.21",
 ]
