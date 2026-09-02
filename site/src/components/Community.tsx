@@ -63,7 +63,7 @@ export default function Community() {
 
           <div className="pt-9 md:pt-11">
             <div className="mx-auto max-w-[42rem] text-center">
-              <h2 className="font-brand-display mx-auto max-w-[34rem] text-2xl font-black leading-tight tracking-[-0.035em] text-[#111411] md:text-3xl">
+              <h2 className="font-brand-display mx-auto max-w-[42rem] text-[clamp(2rem,3.4vw,2.75rem)] font-black leading-[1.08] tracking-[-0.045em] text-[#111411]">
                 所有贡献，都应留下可复核的路径。
               </h2>
               <p className="mx-auto mt-4 max-w-[38rem] text-sm leading-7 text-[#111411]/62 md:text-base md:leading-8">
@@ -95,14 +95,12 @@ export default function Community() {
           className="motion-reduce:translate-y-0 motion-reduce:opacity-100 motion-reduce:transition-none"
         >
           <div className="mt-12 text-center md:mt-14">
-            <div>
-              <p className="font-brand-display text-2xl font-black tracking-[-0.04em] md:text-3xl">
-                贡献者
-              </p>
-              <p className="mt-1 text-xs leading-5 text-[#111411]/55">
-                以 GitHub commit、PR 审阅和 Contributors 记录为准。
-              </p>
-            </div>
+            <p className="font-brand-display text-lg font-black tracking-[-0.035em] md:text-xl">
+              贡献者
+            </p>
+            <p className="mt-1 text-xs leading-5 text-[#111411]/55">
+              以 GitHub commit、PR 审阅和 Contributors 记录为准。
+            </p>
           </div>
 
           <div
