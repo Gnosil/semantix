@@ -165,7 +165,11 @@ export default function BloomCurtain() {
         reverseCurtainMode = false;
       }
       const forwardCurtainProgress = Math.min(
-        Math.max((rawCurtainProgress - 0.18) / 0.82, 0),
+        Math.max(
+          (window.innerHeight * 0.5 - rect.top) /
+            (window.innerHeight * 0.65),
+          0,
+        ),
         1,
       );
       const reverseCurtainProgress = Math.min(rawCurtainProgress / 0.7, 1);
