@@ -40,11 +40,17 @@ def mtime(path):
 
 def sh(cmd, log, env=None):
     """Run one pipeline step, teeing output to the round log (spec §5:
-    verification output must land on disk, never pipe-only)."""
+    verification output must land on disk, never pipe-only). cwd is pinned
+    to the ml project dir so `uv run` resolves this pyproject regardless of
+    where the daemon was launched from."""
     log.write(f"\n$ {' '.join(str(c) for c in cmd)}\n")
     log.flush()
     proc = subprocess.run(
-        [str(c) for c in cmd], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env
+        [str(c) for c in cmd],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        env=env,
+        cwd=ML_DIR,
     )
     log.write(proc.stdout.decode(errors="replace"))
     log.flush()
