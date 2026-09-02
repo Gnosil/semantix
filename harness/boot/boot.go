@@ -304,6 +304,7 @@ func build(ctx context.Context, opts Options) (*BuildResult, error) {
 		Budget:      cfg.Semantix.Budget,
 		SessionsDir: cfg.Semantix.SessionsDir,
 		ProjectDir:  cfg.Semantix.ProjectDir,
+		AuditDir:    cfg.Semantix.AuditDir,
 		CostMissUSD: cfg.Semantix.CostInputPriceUSD,
 		CostHitUSD:  cfg.Semantix.CostCachePriceUSD,
 	})

@@ -63,6 +63,12 @@ class InstanceMetrics:
     harness: str
     model: str
     instance_id: str
+    # Protocol/arm are the Issue #326 experiment axes: protocol is the
+    # cross-instance store policy (grouped | standard) and arm the published
+    # configuration name (full | no-... | +no-kernel). Both land in every
+    # metrics/cost row so Track A/B tables group by them without a join.
+    protocol: str = ""
+    arm: str = ""
     wall_ms: int = 0
     input_tokens: int = 0            # prompt tokens, cache hits included
     output_tokens: int = 0

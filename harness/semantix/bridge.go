@@ -55,6 +55,15 @@ type Config struct {
 	// log resolve against (kernel CLI semantics: <dir>/.semantix/...).
 	// Empty uses the process working directory.
 	ProjectDir string
+	// AuditDir, when set, appends one JSON line per admitted L2 injection —
+	// the full provider-visible [semantix-reuse] block plus the query it was
+	// assembled for and the admitted slice targets. This is the raw material
+	// for the Issue #326 Track B leakage scan (dumped blocks are scanned for
+	// a later instance's gold patch or FAIL_TO_PASS test names to rule out
+	// "the cache leaked the answer"). Empty disables the journal: zero file
+	// I/O and zero overhead on the hot path. Shadow/off retrieval never
+	// admits blocks, so it never writes an entry.
+	AuditDir string
 	// CostMissUSD / CostHitUSD are the usage cost model prices (USD per 1M
 	// tokens at cache miss / hit) for the reuse panel savings delta.
 	// Zero keeps the kernel defaults (usage.DefaultCost*PerMTok).
@@ -82,6 +91,12 @@ type Bridge struct {
 	evolution   *EvolutionLoop
 	statsWG     sync.WaitGroup
 	closing     bool
+
+	// auditMu guards the injection audit journal (audit.go). Separate from mu
+	// so an admitted injection never blocks the mirror/session state.
+	auditMu  sync.Mutex
+	auditF   *os.File
+	auditSeq int64
 }
 
 // RetrievalMode controls whether L2 retrieval is disabled, observed only, or
@@ -325,6 +340,7 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 		op = "degraded"
 	}
 	b.emitKernelCacheDetailed(op, "L2", targets, inj.Bytes, "", diagnostics)
+	b.auditInjection(query, budget, op == "degraded", targets, inj.Bytes, inj.Text)
 	return InjectResult{Text: inj.Text, Targets: targets, Diagnostics: diagnostics}
 }
 
@@ -706,10 +722,20 @@ func (b *Bridge) Close() error {
 	b.hs = nil
 	b.sink = nil
 	b.mu.Unlock()
-	if hs == nil {
+	var auditErr error
+	b.auditMu.Lock()
+	auditErr = b.closeAudit()
+	b.auditMu.Unlock()
+	if hs == nil && auditErr == nil {
 		return nil
 	}
-	return hs.Close()
+	if hs == nil {
+		return auditErr
+	}
+	if err := hs.Close(); err != nil {
+		return err
+	}
+	return auditErr
 }
 
 // dirOrFallback returns dir, falling back to a per-build default when empty.

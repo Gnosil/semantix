@@ -543,6 +543,9 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	if c.Semantix.ProjectDir != "" {
 		fmt.Fprintf(&b, "project_dir = %q   # shared slice library root (<dir>/.semantix/...)\n", c.Semantix.ProjectDir)
 	}
+	if c.Semantix.AuditDir != "" {
+		fmt.Fprintf(&b, "audit_dir = %q    # per-admitted-injection JSONL journal (Track B leakage scan)\n", c.Semantix.AuditDir)
+	}
 	if c.Semantix.CostInputPriceUSD != 0 {
 		fmt.Fprintf(&b, "cost_input_price_usd = %s\n", formatFloat(c.Semantix.CostInputPriceUSD))
 	}

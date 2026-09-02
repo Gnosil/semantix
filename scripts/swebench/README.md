@@ -73,8 +73,9 @@ enabled/inject；**每实例独立 `SEMANTIX_HOME`**（并发归属无竞态）�
 （`semantix-home/kernel/<owner>__<repo>/`）；每实例结束后 runner 跑
 `semantix extract` 把该会话蒸馏进库，后续同 repo 实例即可检索注入（跨实例
 记忆闭环，需 `go build -o bin/semantix ./cmd/semantix`）。`off` 为消融孪生臂
-（内核关闭，等价旧行为）。记忆对照请用这对臂，**不要用 `--ablate`**（它只关
-harness 侧模块，不触碰内核）。判读字段（metrics `raw`）：
+（内核关闭，等价旧行为）。记忆对照请用这对臂；`--ablate kernel/all` 也能经
+boot 门禁关内核（arm 同记 `no-kernel`），但 runner 层面记忆对照统一走
+`--semantix-memory`。判读字段（metrics `raw`）：
 `semantix_inject_turns` / `semantix_inject_bytes` / `semantix_reuse_hits` /
 `raw.extract`（每实例入库量）。设计与根因：`docs/specs/swebench-memory-arm.md`。
 
@@ -106,6 +107,57 @@ executor/planner/subagent/compaction/other；JSON 输出保留完整来源表和
 L2 路径。`shadow` 会检索、执行相同的 zone/清洗/预算判定并记录 `kernel_cache`
 诊断，但不向 provider 消息添加复用块；因此可作为 A/B 臂 B，与
 `--semantix-memory off` 做请求字节不变量检查，再用其分数分布标定后续门禁。
+
+#### Issue #326：双协议开关 `--protocol grouped|standard` + `cost.jsonl`
+
+`--semantix-memory on` 下的跨实例 store 策略由 `--protocol` 控制（Issue #326
+§二）：
+
+| protocol | 含义 | 对应 Track | store 布局 |
+|---|---|---|---|
+| `grouped`（默认） | 同 repo 实例共享一个切片库、按选中顺序成课程（跨实例复用） | **B（性价比，非标准协议）** | `kernel/<owner>__<repo>/` |
+| `standard` | 每实例一个**全新 per-instance store**，跨实例复用恒为零（= SWE-bench 官方协议） | **A（能力，可比 leaderboard）** | `kernel/std/<instance_id>/` |
+
+发布口径按 Issue #326 铁律执行：arm 名（`full` / `no-kernel` 等）随
+`run_config.json`、`metrics.jsonl`、`cost.jsonl` 每行落盘，
+**Track A 与 Track B 数据永不混表**（报告见下）。`--ablate` 只影响 harness 侧
+模块命名；`--semantix-memory off` 追加 `no-kernel`。
+
+每实例额外产出 `run_dir/cost.jsonl`（一行一实例，含 `arm`/`protocol`/USD 成本/
+kernel 可观测字段），与 `preds.jsonl` 同级，作为报告的成本数据源。
+
+#### Track B 注入审计 + 泄漏扫描（Issue #326 §六 #4 / §五）
+
+记忆臂每次**实际注入**的 L2 块（完整 provider-visible `[semantix-reuse]`
+文本 + query + 命中切片 ID）由 agent 按 `[semantix] audit_dir` 落盘，runner
+收进 `run_dir/audit/<instance_id>.jsonl`（+ `.txt` 人类可读版）。反作弊扫描：
+
+```bash
+python3 scan_leaks.py --run-dir results/<run_id> --dataset data/swebench_verified.jsonl
+```
+
+对每个被求解实例，检查其注入块是否含**该实例自己的** gold patch / gold 新增行
+（≥ `--min-added-len`）/ FAIL_TO_PASS 测试名。命中即「泄漏候选（人工复核）」
+——同 repo issue 与共享测试文件本来就会重叠，故候选非定论，正是 Issue #326
+要求「dump + 扫 + 随报告发布扫描脚本」的原因。默认命中即 exit 1（`--no-fail`
+放开），`--report-json` 导出结构化结果。
+
+#### Track A/B 报告合并生成（不判分）
+
+```bash
+python3 report_tracks.py --runs results/full.std.* results/nokernel.std.* \
+    --dataset data/swebench_verified.jsonl --out-dir docs/reports/data/issue-326
+```
+
+只做 join：官方 `swebench.harness.run_evaluation` 报告的 `resolved_ids`
+（`evaluate.py` 产物）+ `cost.jsonl`。产出：
+- **Track A**：每 run 一格的 能力×成本 表（resolve rate、cost/instance 均值
+  与 seed 固定的 percentile-bootstrap 95% CI、总成本、墙钟、缓存命中率）；
+- **Track B**：grouped 记忆臂按 repo 内 ordinal 的成本曲线（前后半段均值差、
+  逐实例表、`track_b.csv`），并在输出中显式标注「非标准协议，不与 leaderboard
+  并列」。
+判分永远不自研：仍是 `python -m swebench.harness.run_evaluation`。
+
 
 #### Repo 隔离与调度
 

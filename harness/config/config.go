@@ -973,6 +973,13 @@ type SemantixConfig struct {
 	// directory to share a slice library across workspaces (e.g. benchmark
 	// arms measuring cross-session reuse).
 	ProjectDir string `toml:"project_dir"`
+	// AuditDir is where the kernel appends one JSON line per admitted L2
+	// injection (full [semantix-reuse] block + query + admitted slice IDs).
+	// It is the raw material for the SWE-bench Track B leakage scan (Issue
+	// #326): dumped blocks are scanned for a later instance's gold patch or
+	// FAIL_TO_PASS test names to rule out "the cache leaked the answer".
+	// Empty disables the journal — zero file I/O.
+	AuditDir string `toml:"audit_dir"`
 	// CostInputPriceUSD / CostCachePriceUSD override the usage cost model
 	// prices (USD per 1M tokens at cache miss / hit) used by the reuse panel
 	// savings delta. Zero keeps the kernel defaults — mirror semantix.toml

@@ -72,6 +72,74 @@ def repo_store_key(inst: dict) -> str:
     return repo_identity(inst).replace("/", "__", 1)
 
 
+# Harness-side ablation modules in Go Modules() order. Kernel is handled
+# separately: boot gates the memory bridge on Ablation.Off(ablation.Kernel),
+# and the runner toggles it via --semantix-memory, so --ablate kernel/all
+# also switch the kernel off even with --semantix-memory on. Used to derive
+# the published arm name; the CLI stays the source of truth for what is
+# actually disabled.
+HARNESS_MODULES = ["evidence", "planner", "subagent", "retrieval", "compaction"]
+
+
+def _disabled_modules(spec: str) -> list[str]:
+    """Normalize an --ablate spec ("evidence,planner" | "all" | "") into the
+    ordered list of disabled modules (kernel accepted too). Harness modules are
+    ordered like Go Modules(); unknown names keep their input order last, so
+    the published arm name stays stable across machines."""
+    if not spec:
+        return []
+    spec = spec.strip().lower()
+    if spec in ("", "none"):
+        return []
+    if spec == "all":
+        # Go Parse("all") disables every ablation module, kernel included
+        # (boot gates the bridge on Ablation.Off(ablation.Kernel)), so the
+        # published arm must carry no-kernel as well.
+        return list(HARNESS_MODULES) + ["kernel"]
+    wanted = [f.strip() for f in re.split(r"[,\s]+", spec) if f.strip()]
+    rank = {m: i for i, m in enumerate(HARNESS_MODULES + ["kernel"])}
+    seen, unknown, out = set(), [], []
+    for m in wanted:
+        if m in seen:
+            continue
+        seen.add(m)
+        if m in rank:
+            out.append(m)
+        else:
+            unknown.append(m)
+    out.sort(key=lambda m: rank[m])
+    return out + unknown
+
+
+def arm_label(adapter_name: str, ablate: str, memory_on: bool) -> str:
+    """Published arm name (Issue #326): 'full' for the control arm, otherwise
+    'no-evidence+...', with '+no-kernel' when the memory kernel is disabled for
+    the semantix harness (either --semantix-memory off or --ablate kernel).
+    Only the semantix harness has a kernel, so the memory flag never changes
+    another harness's arm name."""
+    parts = [f"no-{m}" for m in _disabled_modules(ablate)]
+    if (adapter_name == "semantix" and not memory_on
+            and "no-kernel" not in parts):
+        parts.append("no-kernel")
+    return "+".join(parts) if parts else "full"
+
+
+def kernel_protocol_state(memory_on: bool, ablate: str, protocol: str) -> tuple[bool, str, bool]:
+    """Resolve what the run actually did with the kernel and the store policy.
+
+    The kernel is live only when --semantix-memory on AND the ablation spec
+    does not disable it (--ablate kernel/all — boot gates the bridge on
+    Ablation.Off(ablation.Kernel)). Only a live kernel forms a cross-instance
+    reuse course, so protocol (grouped|standard) is meaningful only then;
+    otherwise it is recorded "" so Track A/B joins never mistake a kernel-less
+    run for a Track B grouped run. Returns (kernel_on, effective_protocol,
+    standard)."""
+    disabled = set(_disabled_modules(ablate))
+    kernel_on = memory_on and "kernel" not in disabled
+    effective = protocol if kernel_on else ""
+    return kernel_on, effective, kernel_on and effective == "standard"
+
+
 class CountProxy:
     """Per-instance metering proxy (count_proxy.py) for harnesses whose own
     telemetry is unreliable. Records provider-reported usage to a ledger."""
@@ -205,6 +273,16 @@ class SemantixAdapter(Adapter):
         self.home = self.args.state_path / "semantix-home"
         self.home.mkdir(parents=True, exist_ok=True)
         self.memory_on = self.args.semantix_memory == "on"
+        # Issue #326 Track A/B protocol: grouped (default) keeps one slice
+        # store per repo across same-repo instances (cross-instance reuse =
+        # Track B); standard gives every instance a fresh, per-instance store
+        # so cross-instance reuse is exactly zero (= Track A, the leaderboard
+        # protocol). Protocol is recorded empty whenever the kernel is off —
+        # via --semantix-memory off or --ablate kernel/all — and Track A/B
+        # joins never conflate a kernel-less run with a Track B grouped run.
+        self.kernel_on, self.protocol, self.standard = kernel_protocol_state(
+            self.memory_on, self.args.ablate, getattr(self.args, "protocol", "grouped"))
+        self.arm = arm_label(self.name, self.args.ablate, self.memory_on)
         self.kernel_root = self.home / "kernel"
         if self.memory_on:
             self.kernel_root.mkdir(parents=True, exist_ok=True)
@@ -225,7 +303,12 @@ class SemantixAdapter(Adapter):
             )
 
     def execution_batches(self, instances: list[dict]) -> list[list[dict]]:
-        if not self.memory_on:
+        # A cross-instance reuse course exists only while the kernel is live
+        # and protocol is grouped. Kernel-less arms (--semantix-memory off or
+        # --ablate kernel/all) and the standard (fresh-store) protocol never
+        # share state: keep per-instance parallelism.
+        if (not self.memory_on or not getattr(self, "kernel_on", True)
+                or getattr(self, "standard", False)):
             return super().execution_batches(instances)
         by_repo: dict[str, list[dict]] = {}
         for inst in instances:
@@ -233,6 +316,13 @@ class SemantixAdapter(Adapter):
         return list(by_repo.values())
 
     def kernel_dir_for(self, inst: dict) -> Path:
+        # grouped: one store per repo shared across same-repo instances (the
+        # cross-session reuse course). standard: a fresh per-instance store so
+        # instance N can never retrieve slices distilled from instances run
+        # before it (cross-session reuse == 0 by construction).
+        if getattr(self, "standard", False):
+            iid = inst["instance_id"]
+            return self.kernel_root / "std" / iid
         return self.kernel_root / repo_store_key(inst)
 
     def _write_home(self, home: Path, sessions_dir: Path, kernel_dir: Path | None) -> None:
@@ -260,6 +350,7 @@ mode         = "{self.args.semantix_retrieval_mode}"
 budget       = 4096
 project_dir  = "{kernel_dir}"
 sessions_dir = "{sessions_dir}"
+audit_dir    = "{home / 'audit'}"
 '''
         (home / "config.toml").write_text(
             f'''default_model = "{provider_selector}"
@@ -340,7 +431,49 @@ context_window = 128000
             raw["semantix_project_dir"] = str(kernel_dir)
             raw["extract"] = self._extract_slices(
                 sessions_dir, inst["instance_id"], kernel_dir, repo)
+            raw["audit"] = self._collect_audit(home, inst["instance_id"])
         return exit_code, raw, err
+
+    def _collect_audit(self, home: Path, instance_id: str) -> dict:
+        """Copy this instance's L2 injection audit journal (written by the
+        agent's [semantix] audit_dir) into run_dir/audit/<iid>.{jsonl,txt} —
+        the raw material for the Track B leakage scan (Issue #326 §六 #4).
+        Shadow/off retrieval or an empty slice library writes no entries."""
+        out = {"entries": 0, "bytes": 0}
+        journal = home / "audit" / "inject-audit.jsonl"
+        if not journal.exists():
+            return out
+        entries = []
+        try:
+            lines = journal.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            return out
+        for line in lines:
+            if not line.strip():
+                continue
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            entries.append(entry)
+            out["bytes"] += int(entry.get("bytes", 0) or 0)
+        out["entries"] = len(entries)
+        if not entries:
+            return out
+        dest = self.run_dir / "audit"
+        dest.mkdir(parents=True, exist_ok=True)
+        (dest / f"{instance_id}.jsonl").write_text(
+            "".join(json.dumps(e, ensure_ascii=False) + "\n" for e in entries),
+            encoding="utf-8")
+        txt = []
+        for e in entries:
+            txt.append(
+                f"--- inject seq={e.get('seq')} at={e.get('at')} "
+                f"degraded={e.get('degraded', False)} bytes={e.get('bytes', 0)} "
+                f"targets={','.join(e.get('targets') or [])}")
+            txt.append(e.get("text", ""))
+        (dest / f"{instance_id}.txt").write_text("\n".join(txt) + "\n", encoding="utf-8")
+        return out
 
     def _extract_slices(self, sessions_dir: Path, instance_id: str,
                         kernel_dir: Path, repo: str) -> dict:
@@ -806,6 +939,8 @@ def process_instance(adapter: Adapter, args, run_dir: Path, prices: dict, inst: 
     m.agent_exit = exit_code
     m.error = err
     m.raw = raw
+    m.protocol = getattr(adapter, "protocol", "")
+    m.arm = getattr(adapter, "arm", "")
     try:
         adapter.fill_metrics(m, raw)
     except Exception as e:
@@ -822,6 +957,29 @@ def process_instance(adapter: Adapter, args, run_dir: Path, prices: dict, inst: 
     model_name = f"{adapter.name}+{args.model}"
     write_prediction(run_dir / "preds.jsonl", iid, model_name, patch)
     append_jsonl(run_dir / "metrics.jsonl", m.to_json())
+    # Issue #326 §三 cost / instance: a lean per-instance cost ledger so
+    # reports can price Track A/B without re-parsing the full metrics rows
+    # (which embed raw native telemetry). metrics.jsonl stays the source of
+    # truth; cost.jsonl is a projection of the same row plus the kernel
+    # observables the semantix harness reports.
+    cost_row = {
+        "run_id": m.run_id, "harness": m.harness, "model": m.model,
+        "instance_id": m.instance_id, "arm": m.arm, "protocol": m.protocol,
+        "agent_exit": m.agent_exit, "error": m.error,
+        "wall_ms": m.wall_ms, "steps": m.steps,
+        "input_tokens": m.input_tokens, "output_tokens": m.output_tokens,
+        "cache_hit_tokens": m.cache_hit_tokens,
+        "cache_miss_tokens": m.cache_miss_tokens,
+        "cache_hit_rate": m.cache_hit_rate,
+        "cost_usd": m.cost_usd, "cost_native": m.cost_native,
+        "cost_native_currency": m.cost_native_currency,
+        "patch_bytes": m.patch_bytes, "empty_patch": m.empty_patch,
+    }
+    for key in ("semantix_inject_turns", "semantix_inject_bytes",
+                "semantix_reuse_hits", "semantix_reuse_savings_usd", "audit"):
+        if key in m.raw:
+            cost_row[key] = m.raw[key]
+    append_jsonl(run_dir / "cost.jsonl", json.dumps(cost_row, ensure_ascii=False))
     rate = m.cache_hit_rate
     print(f"[{iid}] exit={exit_code} wall={m.wall_ms / 1000:.0f}s "
           f"in={m.input_tokens} out={m.output_tokens} "
@@ -859,11 +1017,19 @@ def main() -> None:
     ap.add_argument("--max-turns", type=int, default=120, help="claude-code turn cap")
     ap.add_argument("--preset", default="balanced", help="semantix preset")
     ap.add_argument("--effort", default="", help="semantix provider effort override")
-    ap.add_argument("--ablate", default="", help="semantix --ablate arm (harness-side modules only; "
-                    "it does NOT toggle the memory kernel — use --semantix-memory for that)")
+    ap.add_argument("--ablate", default="", help="semantix --ablate arm: harness-side modules "
+                    "(evidence/planner/subagent/retrieval/compaction), plus kernel/all which boot "
+                    "honors and gate the memory bridge off even with --semantix-memory on; "
+                    "the memory对照 arm is still --semantix-memory on/off")
     ap.add_argument("--semantix-memory", default="on", choices=("on", "off"),
                     help="semantix memory-kernel arm: on = [semantix] enabled+inject, shared slice "
                     "library across instances, per-instance extract; off = kernel disabled (ablation twin)")
+    ap.add_argument("--protocol", default="grouped", choices=("grouped", "standard"),
+                    help="Issue #326 cross-instance store policy for --semantix-memory on: "
+                    "grouped (default, Track B) keeps one slice store per repo across same-repo "
+                    "instances so later instances reuse earlier ones; standard (Track A) gives "
+                    "every instance a fresh per-instance store so cross-instance reuse is zero — "
+                    "the SWE-bench leaderboard protocol. Ignored when memory is off.")
     ap.add_argument("--semantix-retrieval-mode", default="strict",
                     choices=("off", "shadow", "strict"),
                     help="L2 retrieval mode when --semantix-memory=on; shadow records the same "
@@ -907,7 +1073,13 @@ def main() -> None:
     batches = adapter.execution_batches(todo)
     prices = load_prices(args.prices or None)
 
-    (run_dir / "run_config.json").write_text(json.dumps(vars(args), indent=2, default=str))
+    cfg = dict(vars(args))
+    cfg["arm"] = getattr(adapter, "arm", "")
+    # protocol is only meaningful when the memory kernel is on; record what
+    # the adapter actually ran ("" elsewhere) so tables never mislabel a
+    # no-kernel / non-semantix run as grouped (Issue #326 Track A/B split).
+    cfg["protocol"] = getattr(adapter, "protocol", "")
+    (run_dir / "run_config.json").write_text(json.dumps(cfg, indent=2, default=str))
 
     if args.workers <= 1:
         for batch in batches:
