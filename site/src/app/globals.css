@@ -58,18 +58,18 @@
   --card-foreground: oklch(0.21 0.006 260);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.21 0.006 260);
-  --primary: oklch(0.608 0.14 165);
+  --primary: #168b6d;
   --primary-foreground: oklch(0.985 0.01 160);
   --secondary: oklch(0.968 0.006 165);
   --secondary-foreground: oklch(0.21 0.006 260);
   --muted: oklch(0.976 0.005 165);
   --muted-foreground: oklch(0.45 0.02 260);
-  --accent: oklch(0.608 0.14 165);
+  --accent: #168b6d;
   --accent-foreground: oklch(0.21 0.006 260);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.905 0.004 247);
   --input: oklch(0.905 0.004 247);
-  --ring: oklch(0.55 0.13 165);
+  --ring: #168b6d;
   --chart-1: oklch(0.608 0.14 165);
   --chart-2: oklch(0.55 0.13 165);
   --chart-3: oklch(0.524 0.11 165);
@@ -93,18 +93,18 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.27 0.008 260);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.608 0.14 165);
+  --primary: #168b6d;
   --primary-foreground: oklch(0.21 0.006 260);
   --secondary: oklch(0.27 0.008 260);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.27 0.008 260);
   --muted-foreground: oklch(0.711 0.02 260);
-  --accent: oklch(0.608 0.14 165);
+  --accent: #168b6d;
   --accent-foreground: oklch(0.21 0.006 260);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.55 0.13 165);
+  --ring: #168b6d;
   --chart-1: oklch(0.608 0.14 165);
   --chart-2: oklch(0.55 0.13 165);
   --chart-3: oklch(0.524 0.11 165);
@@ -193,6 +193,103 @@
   text-wrap: nowrap;
 }
 
+/* Community -> Install: the green frame grows into view as the next chapter
+   reaches the viewport. This keeps the color handoff inside the existing
+   boundary, so the transition adds no spacer or pinned scroll distance. */
+.install-scroll-handoff {
+  position: relative;
+  isolation: isolate;
+}
+
+.install-scroll-handoff::before {
+  position: absolute;
+  z-index: 2;
+  top: calc(-1 * var(--install-frame-size, 10px));
+  left: 0;
+  width: 100%;
+  height: var(--install-frame-size, 10px);
+  background: #168b6d;
+  content: "";
+  pointer-events: none;
+  transform-origin: center;
+}
+
+@media (min-width: 768px) {
+  .install-scroll-handoff {
+    --install-frame-size: 18px;
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @keyframes install-frame-color-in {
+    from {
+      border-color: transparent;
+    }
+    to {
+      border-color: #168b6d;
+    }
+  }
+
+  @keyframes install-edge-grow {
+    from {
+      opacity: 0;
+      transform: scaleX(0.06);
+    }
+    to {
+      opacity: 1;
+      transform: scaleX(1);
+    }
+  }
+
+  @keyframes install-content-settle {
+    from {
+      opacity: 0.82;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .install-scroll-handoff {
+    view-timeline: --install-handoff block;
+    animation: install-frame-color-in linear both;
+    animation-range: entry 0% entry 42%;
+    animation-timeline: --install-handoff;
+  }
+
+  .install-scroll-handoff::before {
+    animation: install-edge-grow linear both;
+    animation-range: entry 0% entry 32%;
+    animation-timeline: --install-handoff;
+  }
+
+  .install-scroll-content {
+    animation: install-content-settle linear both;
+    animation-range: entry 4% entry 46%;
+    animation-timeline: --install-handoff;
+    will-change: opacity, transform;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .install-scroll-handoff,
+  .install-scroll-handoff::before,
+  .install-scroll-content {
+    animation: none;
+  }
+
+  .install-scroll-handoff {
+    border-color: #168b6d;
+  }
+
+  .install-scroll-content {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Title block: shift up on shorter viewports so the GitHub/CLI cards
    (incl. the copy-code box) are not clipped by the sticky 100svh frame. */
 .brand-intro-title-block {
@@ -260,25 +357,6 @@
     animation: pane-in 0.35s ease both;
   }
 
-  /* community marquee: two counter-scrolling rows (from reasonix.io) */
-  @keyframes crew-slide {
-    from {
-      transform: translateX(0);
-    }
-    to {
-      transform: translateX(-50%);
-    }
-  }
-  .crew-row {
-    display: flex;
-    gap: 12px;
-    width: max-content;
-    animation: crew-slide 60s linear infinite;
-  }
-  .crew-row.rev {
-    animation-duration: 74s;
-    animation-direction: reverse;
-  }
 }
 
 @layer components {

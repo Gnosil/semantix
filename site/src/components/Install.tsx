@@ -7,18 +7,18 @@ const steps = [
     number: "01",
     title: "克隆仓库",
     titleEn: "Clone",
-    desc: "把 semantix 拉到本地，开始贡献或自用。",
-    code: "git clone https://github.com/Gnosil/semantix.git",
+    desc: "把 semantix 拉到本地，并进入仓库目录。",
+    code: "git clone https://github.com/Gnosil/semantix.git && cd semantix",
     href: "https://github.com/Gnosil/semantix",
     external: true,
     linkLabel: "仓库 →",
   },
   {
     number: "02",
-    title: "构建 CLI",
-    titleEn: "Build",
-    desc: "一条命令编译 extract / search 工具。",
-    code: "go build ./cmd/semantix",
+    title: "安装 CLI",
+    titleEn: "Install",
+    desc: "使用 Go 1.26+ 安装完整的 Semantix 内核 CLI。",
+    code: "go install semantix/cmd/semantix",
     href: "https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md",
     external: true,
     linkLabel: "构建步骤 ↗",
@@ -27,8 +27,8 @@ const steps = [
     number: "03",
     title: "提取并检索",
     titleEn: "Extract & Search",
-    desc: "从会话中提取切片，用 BM25 检索。",
-    code: "semantix extract -session s.jsonl -scope project",
+    desc: "先从会话中提取切片，再运行 BM25 检索。",
+    code: './semantix extract --input s.jsonl --scope project\n./semantix search --query "fix failing test" --retriever bm25',
     href: "/docs/guide",
     external: false,
     linkLabel: "深度文档 →",
@@ -37,48 +37,59 @@ const steps = [
 
 export default function Install() {
   return (
-    <section id="start" className="relative overflow-hidden py-24">
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 hidden lg:block">
-        <div className="absolute -left-48 top-16 h-[360px] w-[360px] rounded-full bg-[oklch(0.608_0.14_165/0.06)] blur-3xl" />
-      </div>
-      <div className="relative wrap">
+    <section
+      id="start"
+      className="install-scroll-handoff border-x-[10px] border-t-[10px] border-[#168b6d] bg-[#f8f8f4] md:border-x-[18px] md:border-t-[18px]"
+    >
+      <div className="install-scroll-content mx-auto max-w-[1600px] px-5 py-16 md:px-10 md:py-20 lg:px-12 lg:py-24">
         <Reveal>
-          <p className="font-mono text-sm font-medium text-accent">Install 安装</p>
-          <h2 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.24em] text-[#168b6d]">
+            Install 安装
+          </p>
+          <h2 className="font-brand-display mt-4 text-5xl font-black tracking-[-0.055em] text-[#101313] md:text-6xl lg:text-[4.5rem]">
             从源码跑起来。
           </h2>
-          <p className="mt-1 text-muted-foreground">
-            Clone, build, extract — then verify the results yourself.
+          <p className="mt-3 max-w-2xl text-base leading-7 text-[#596269] md:text-lg">
+            Clone, build, extract. Then verify the results yourself.
           </p>
         </Reveal>
 
-        <div className="mt-12 grid gap-4 md:grid-cols-3">
+        <div className="mt-12 border-y border-[#101313]/18 md:grid md:grid-cols-3 md:divide-x md:divide-[#101313]/18 lg:mt-16">
           {steps.map((step, i) => (
             <Reveal key={step.number} delay={i * 80}>
-              <article className="flex h-full flex-col rounded-lg border border-border bg-white p-6 transition hover:border-accent">
-                <p className="font-mono text-sm font-semibold text-accent">
-                  {step.number}
-                </p>
-                <h3 className="mt-2 text-lg font-semibold">
-                  {step.title}{" "}
-                  <span className="font-normal text-muted-foreground">
-                    {step.titleEn}
-                  </span>
+              <article className="group flex min-h-[24rem] h-full flex-col border-b border-[#101313]/18 py-8 last:border-b-0 md:border-b-0 md:px-7 md:py-9 lg:min-h-[26rem] lg:px-10 lg:py-11">
+                <div className="flex items-center justify-between font-mono text-[10px] font-semibold uppercase tracking-[0.18em]">
+                  <span className="text-[#168b6d]">{step.number}</span>
+                  <span className="text-[#101313]/38">Step / {step.number}</span>
+                </div>
+                <h3 className="font-brand-display mt-10 text-[2rem] font-black tracking-[-0.045em] text-[#101313] lg:text-4xl">
+                  {step.title}
                 </h3>
-                <p className="mt-1 text-sm text-muted-foreground">{step.desc}</p>
-                <CopyCode className="mt-4" code={step.code} prompt />
-                <div className="mt-auto pt-4 text-sm">
+                <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[#168b6d]">
+                  {step.titleEn}
+                </p>
+                <p className="mt-6 max-w-sm text-sm leading-6 text-[#596269]">{step.desc}</p>
+                <CopyCode
+                  className="mt-7 !rounded-none border-[#101313]/12"
+                  code={step.code}
+                  prompt
+                  tone="dark"
+                />
+                <div className="mt-auto pt-8 text-sm font-semibold text-[#101313]">
                   {step.external ? (
                     <a
                       href={step.href}
                       target="_blank"
                       rel="noopener"
-                      className="text-accent hover:underline"
+                      className="inline-flex border-b border-[#168b6d]/45 pb-1 transition-colors hover:border-[#168b6d] hover:text-[#168b6d]"
                     >
                       {step.linkLabel}
                     </a>
                   ) : (
-                    <Link href={step.href} className="text-accent hover:underline">
+                    <Link
+                      href={step.href}
+                      className="inline-flex border-b border-[#168b6d]/45 pb-1 transition-colors hover:border-[#168b6d] hover:text-[#168b6d]"
+                    >
                       {step.linkLabel}
                     </Link>
                   )}
@@ -89,72 +100,65 @@ export default function Install() {
         </div>
 
         <Reveal delay={240}>
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+          <nav
+            aria-label="安装后续操作"
+            className="mt-11 flex flex-wrap items-center justify-center gap-y-4 text-center"
+          >
             <a
               href="https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md"
               target="_blank"
               rel="noopener"
-              className="rounded-md bg-accent px-5 py-2.5 font-medium text-white hover:opacity-90"
+              className="group inline-flex items-center gap-3 px-5 py-2 text-sm font-bold text-[#168b6d] transition-colors hover:text-[#101313]"
             >
-              运行离线验证（verify）↗
+              <span>运行离线验证</span>
+              <span
+                aria-hidden="true"
+                className="font-mono text-base transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+              >
+                ↗
+              </span>
             </a>
+            <span aria-hidden="true" className="h-5 w-px bg-[#101313]/18" />
             <Link
               href="/docs/guide"
-              className="rounded-md border border-border px-5 py-2.5 text-sm hover:border-accent"
+              className="px-5 py-2 text-sm font-semibold text-[#101313] transition-colors hover:text-[#168b6d]"
             >
-              阅读架构文档 →
+              阅读架构文档 <span aria-hidden="true">→</span>
             </Link>
+            <span aria-hidden="true" className="h-5 w-px bg-[#101313]/18" />
             <a
               href="https://github.com/Gnosil/semantix/blob/main/CONTRIBUTING.md"
               target="_blank"
               rel="noopener"
-              className="rounded-md border border-border px-5 py-2.5 text-sm hover:border-accent"
+              className="px-5 py-2 text-sm font-semibold text-[#101313] transition-colors hover:text-[#168b6d]"
             >
-              参与贡献 →
+              参与贡献 <span aria-hidden="true">→</span>
             </a>
-          </div>
+          </nav>
         </Reveal>
 
         <Reveal delay={300}>
-          <p className="mt-10 text-center text-sm text-muted-foreground">
-            维护者：
-            <a
-              href="https://github.com/Gnosil"
-              target="_blank"
-              rel="noopener"
-              className="text-accent hover:underline"
-            >
-              Gnosil
-            </a>
-            {"、"}
-            <a
-              href="https://github.com/radianceded"
-              target="_blank"
-              rel="noopener"
-              className="text-accent hover:underline"
-            >
-              radianceded
-            </a>
-            {"、"}
-            <a
-              href="https://github.com/Allenllii"
-              target="_blank"
-              rel="noopener"
-              className="text-accent hover:underline"
-            >
-              Allenllii
-            </a>
-            {"、"}
-            <a
-              href="https://github.com/jh10724-dotcom"
-              target="_blank"
-              rel="noopener"
-              className="text-accent hover:underline"
-            >
-              jh10724-dotcom
-            </a>
-            {" · "}© 2026 MIT License · 技术作者：Gnosil
-          </p>
+          <div className="mt-12 flex flex-col gap-4 border-t border-[#101313]/18 pt-6 text-xs text-[#596269] lg:flex-row lg:items-center lg:justify-between">
+            <p className="font-mono uppercase tracking-[0.12em]">© 2026 MIT License / Semantix</p>
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="text-[#101313]/55">维护者</span>
+              {["Gnosil", "radianceded", "Allenllii", "jh10724-dotcom"].map(
+                (name) => (
+                  <a
+                    key={name}
+                    href={`https://github.com/${name}`}
+                    target="_blank"
+                    rel="noopener"
+                    className="border-b border-transparent text-[#168b6d] transition-colors hover:border-[#168b6d]"
+                  >
+                    {name}
+                  </a>
+                ),
+              )}
+              <span className="text-[#101313]/25">/</span>
+              <span>技术作者 Gnosil</span>
+            </p>
+          </div>
         </Reveal>
       </div>
     </section>
