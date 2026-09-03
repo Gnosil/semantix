@@ -4,7 +4,7 @@
 Usage:
   python report.py --runs results/run-a results/run-b ... [--format md|json]
 
-Each run directory needs metrics.jsonl (from run_bench.py); the resolve rate
+Each run directory needs cost.jsonl (or legacy metrics.jsonl) from run_bench.py; the resolve rate
 column fills in when an official report json (evaluate.py output) is present,
 and shows "n/a" otherwise.
 """
@@ -43,7 +43,9 @@ def sum_count_maps(metrics: list[dict], key: str) -> dict[str, int]:
 
 def load_run(run_dir: Path) -> dict:
     metrics = []
-    mpath = run_dir / "metrics.jsonl"
+    mpath = run_dir / "cost.jsonl"
+    if not mpath.exists():
+        mpath = run_dir / "metrics.jsonl"
     if mpath.exists():
         with open(mpath) as f:
             metrics = [json.loads(l) for l in f if l.strip()]

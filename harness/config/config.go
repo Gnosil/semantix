@@ -967,6 +967,10 @@ type SemantixConfig struct {
 	// SessionsDir is where the session JSONL mirror is written; empty uses
 	// <controller session dir>/sessions.
 	SessionsDir string `toml:"sessions_dir"`
+	// InjectAuditPath optionally records every provider-visible L2 injection
+	// block verbatim. It is intended for benchmark leakage audits; normal runs
+	// leave it empty so retrieved context is not duplicated on disk.
+	InjectAuditPath string `toml:"inject_audit_path"`
 	// ProjectDir is the kernel project directory the slice store and usage
 	// log resolve against (kernel CLI semantics: <dir>/.semantix/...). Empty
 	// uses the process working directory. Point several agent runs at one

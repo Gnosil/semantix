@@ -255,6 +255,21 @@ def semantix_bench_provider(model: str) -> str:
     return "deepseek-pro" if model.endswith("-pro") else "deepseek-flash"
 
 
+def semantix_ablation_spec(spec: str, memory_on: bool) -> str:
+    """Return the agent ablation spec, labeling the off arm no-kernel."""
+    spec = spec.strip()
+    if memory_on:
+        return "" if spec.lower() == "none" else spec
+    if not spec or spec.lower() == "none":
+        return "kernel"
+    if spec.lower() == "all":
+        return spec
+    modules = [field.strip().lower() for field in re.split(r"[ ,]+", spec) if field.strip()]
+    if "kernel" not in modules:
+        spec += ",kernel"
+    return spec
+
+
 class SemantixAdapter(Adapter):
     name = "semantix"
 
@@ -317,7 +332,7 @@ class SemantixAdapter(Adapter):
         )
 
     def execution_batches(self, instances: list[dict]) -> list[list[dict]]:
-        if not self.memory_on:
+        if not self.memory_on or getattr(self.args, "protocol", "grouped") == "standard":
             return super().execution_batches(instances)
         by_repo: dict[str, list[dict]] = {}
         for inst in instances:
@@ -325,10 +340,13 @@ class SemantixAdapter(Adapter):
         return list(by_repo.values())
 
     def kernel_dir_for(self, inst: dict) -> Path:
+        if getattr(self.args, "protocol", "grouped") == "standard":
+            return self.kernel_root / "instances" / inst["instance_id"]
         return self.kernel_root / repo_store_key(inst)
 
     def _write_home(self, home: Path, sessions_dir: Path, kernel_dir: Path | None,
-                    workspace_dir: Path | None = None) -> None:
+                    workspace_dir: Path | None = None,
+                    inject_audit_path: Path | None = None) -> None:
         home.mkdir(parents=True, exist_ok=True)
         workspace_dir = workspace_dir or Path.cwd()
         # Provider keys resolve ONLY from Semantix's global .env (never the
@@ -355,6 +373,7 @@ budget       = 4096
 project_dir  = "{kernel_dir}"
 workspace_dir = "{workspace_dir}"
 sessions_dir = "{sessions_dir}"
+inject_audit_path = "{inject_audit_path or ''}"
 '''
         (home / "config.toml").write_text(
             f'''default_model = "{provider_selector}"
@@ -385,7 +404,12 @@ context_window = 128000
         sessions_dir = home / "kernel-sessions"
         repo = repo_identity(inst) if self.memory_on else ""
         kernel_dir = self.kernel_dir_for(inst) if self.memory_on else None
-        self._write_home(home, sessions_dir, kernel_dir, ws)
+        inject_audit_path = self.run_dir / "audit" / f"{inst['instance_id']}.txt"
+        if self.memory_on:
+            inject_audit_path.parent.mkdir(parents=True, exist_ok=True)
+            inject_audit_path.touch(exist_ok=True)
+            inject_audit_path.chmod(0o600)
+        self._write_home(home, sessions_dir, kernel_dir, ws, inject_audit_path)
         env = clean_env()
         env.update({
             "SEMANTIX_HOME": str(home),
@@ -401,8 +425,9 @@ context_window = 128000
             "--metrics", str(mfile),
             "--model", semantix_bench_provider(self.args.model),
         ]
-        if self.args.ablate:
-            cmd += ["--ablate", self.args.ablate]
+        ablate = semantix_ablation_spec(self.args.ablate, self.memory_on)
+        if ablate:
+            cmd += ["--ablate", ablate]
         stdout_text = ""
         stderr_text = ""
         try:
@@ -433,6 +458,8 @@ context_window = 128000
         if self.memory_on:
             raw["semantix_repo"] = repo
             raw["semantix_project_dir"] = str(kernel_dir)
+            raw["semantix_protocol"] = getattr(self.args, "protocol", "grouped")
+            raw["semantix_inject_audit"] = str(inject_audit_path)
             raw["extract"] = self._extract_slices(
                 sessions_dir, inst["instance_id"], kernel_dir, repo, ws,
                 inst.get("base_commit", ""))
@@ -927,7 +954,9 @@ def process_instance(adapter: Adapter, args, run_dir: Path, prices: dict, inst: 
                            m.output_tokens)
     model_name = f"{adapter.name}+{args.model}"
     write_prediction(run_dir / "preds.jsonl", iid, model_name, patch)
+    write_prediction(run_dir / "predictions.jsonl", iid, model_name, patch)
     append_jsonl(run_dir / "metrics.jsonl", m.to_json())
+    append_jsonl(run_dir / "cost.jsonl", m.to_json())
     rate = m.cache_hit_rate
     print(f"[{iid}] exit={exit_code} wall={m.wall_ms / 1000:.0f}s "
           f"in={m.input_tokens} out={m.output_tokens} "
@@ -970,6 +999,9 @@ def main() -> None:
     ap.add_argument("--semantix-memory", default="on", choices=("on", "off"),
                     help="semantix memory-kernel arm: on = [semantix] enabled+inject, shared slice "
                     "library across instances, per-instance extract; off = kernel disabled (ablation twin)")
+    ap.add_argument("--protocol", default="standard", choices=("standard", "grouped"),
+                    help="standard isolates every instance store (leaderboard-comparable); grouped "
+                    "orders by repo and preserves that repo's store across instances (non-standard Track B)")
     ap.add_argument("--semantix-retrieval-mode", default="strict",
                     choices=("off", "shadow", "strict"),
                     help="L2 retrieval mode when --semantix-memory=on; shadow records the same "
@@ -991,8 +1023,12 @@ def main() -> None:
     args = ap.parse_args()
     resolve_cli_paths(args)
 
+    if args.harness == "semantix" and args.protocol == "standard" and args.semantix_seed_dir:
+        ap.error("--semantix-seed-dir requires --protocol grouped; standard runs must start without reusable history")
+
     if not args.run_id:
-        args.run_id = f"{args.harness}.{args.model.replace('/', '-')}.{args.seed}"
+        protocol_part = f".{args.protocol}" if args.harness == "semantix" else ""
+        args.run_id = f"{args.harness}.{args.model.replace('/', '-')}{protocol_part}.{args.seed}"
     run_dir = Path(args.results_dir) / args.run_id
     run_dir.mkdir(parents=True, exist_ok=True)
     args.state_path = Path(args.state_dir) / args.run_id
@@ -1016,7 +1052,15 @@ def main() -> None:
     batches = adapter.execution_batches(todo)
     prices = load_prices(args.prices or None)
 
-    (run_dir / "run_config.json").write_text(json.dumps(vars(args), indent=2, default=str))
+    run_config = dict(vars(args))
+    try:
+        run_config["runner_commit"] = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=HERE.parent.parent,
+            check=True, capture_output=True, text=True,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        run_config["runner_commit"] = "unknown"
+    (run_dir / "run_config.json").write_text(json.dumps(run_config, indent=2, default=str))
 
     if args.workers <= 1:
         for batch in batches:
@@ -1030,7 +1074,7 @@ def main() -> None:
                 if exc:
                     print(f"worker error: {exc!r}", file=sys.stderr, flush=True)
 
-    print(f"done: predictions at {preds_path}", flush=True)
+    print(f"done: predictions at {run_dir / 'predictions.jsonl'}; costs at {run_dir / 'cost.jsonl'}", flush=True)
 
 
 if __name__ == "__main__":

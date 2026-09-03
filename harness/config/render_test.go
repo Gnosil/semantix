@@ -211,6 +211,7 @@ func TestRenderTOMLRoundTrips(t *testing.T) {
 	orig.Desktop.UpdateChannel = "preview"
 	orig.Desktop.Telemetry = boolPtr(false)
 	orig.Semantix.Mode = "shadow"
+	orig.Semantix.InjectAuditPath = "/tmp/semantix-inject-audit.txt"
 	orig.Notifications.Enabled = true
 	orig.Notifications.TurnDone = true
 	orig.Notifications.ApprovalRequest = true
@@ -332,6 +333,9 @@ func TestRenderTOMLRoundTrips(t *testing.T) {
 	}
 	if got.Semantix.Mode != "shadow" {
 		t.Errorf("semantix.mode = %q, want shadow", got.Semantix.Mode)
+	}
+	if got.Semantix.InjectAuditPath != orig.Semantix.InjectAuditPath {
+		t.Errorf("semantix.inject_audit_path = %q, want %q", got.Semantix.InjectAuditPath, orig.Semantix.InjectAuditPath)
 	}
 	if got.Language != "zh" {
 		t.Errorf("language = %q, want zh", got.Language)

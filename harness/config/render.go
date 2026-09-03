@@ -540,6 +540,9 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	if c.Semantix.SessionsDir != "" {
 		fmt.Fprintf(&b, "sessions_dir = %q\n", c.Semantix.SessionsDir)
 	}
+	if c.Semantix.InjectAuditPath != "" {
+		fmt.Fprintf(&b, "inject_audit_path = %q # opt-in verbatim L2 block audit\n", c.Semantix.InjectAuditPath)
+	}
 	if c.Semantix.ProjectDir != "" {
 		fmt.Fprintf(&b, "project_dir = %q   # shared slice library root (<dir>/.semantix/...)\n", c.Semantix.ProjectDir)
 	}

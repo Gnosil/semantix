@@ -51,6 +51,9 @@ type Config struct {
 	// SessionsDir is where the session JSONL mirror is written; empty uses
 	// <controller session dir>/sessions.
 	SessionsDir string
+	// InjectAuditPath optionally receives each provider-visible L2 block in
+	// full. This is opt-in because the file contains retrieved task context.
+	InjectAuditPath string
 	// ProjectDir is the kernel project directory the slice store and usage
 	// log resolve against (kernel CLI semantics: <dir>/.semantix/...).
 	// Empty uses the process working directory.
@@ -84,6 +87,7 @@ type Bridge struct {
 	lastSavings float64
 	evolution   *EvolutionLoop
 	statsWG     sync.WaitGroup
+	auditMu     sync.Mutex
 	closing     bool
 }
 
@@ -328,6 +332,7 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 		}
 	}
 	sort.Strings(targets)
+	b.auditInjection(inj.Text)
 	b.recordInjection(targets, inj.Bytes)
 	diagnostics.Injected = true
 	diagnostics.Bytes = inj.Bytes
@@ -340,6 +345,28 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 	}
 	b.emitKernelCacheDetailed(op, "L2", targets, inj.Bytes, "", diagnostics)
 	return InjectResult{Text: inj.Text, Targets: targets, Diagnostics: diagnostics}
+}
+
+func (b *Bridge) auditInjection(block string) {
+	path := strings.TrimSpace(b.cfg.InjectAuditPath)
+	if path == "" || block == "" {
+		return
+	}
+	b.auditMu.Lock()
+	defer b.auditMu.Unlock()
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err == nil && info.Size() > 0 {
+		_, _ = f.WriteString("\n\n--- semantix injection ---\n\n")
+	}
+	_, _ = f.WriteString(strings.TrimRight(block, "\n") + "\n")
 }
 
 func (b *Bridge) retrievalDiagnostics(query string, retrievalQuery RetrievalQuery, library []*slice.Slice, hits []slice.Hit, inj *inject.Injection) *event.RetrievalDiagnostics {

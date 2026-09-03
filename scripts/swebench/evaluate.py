@@ -29,7 +29,9 @@ def main() -> None:
     args = ap.parse_args()
 
     run_dir = Path(args.run_dir).resolve()
-    preds = run_dir / "preds.jsonl"
+    preds = run_dir / "predictions.jsonl"
+    if not preds.exists():
+        preds = run_dir / "preds.jsonl"  # pre-issue-326 run compatibility
     if not preds.exists():
         sys.exit(f"no predictions at {preds}")
     with open(preds) as f:

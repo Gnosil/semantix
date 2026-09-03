@@ -4,8 +4,10 @@ One benchmark run = one harness × one model × one instance subset. Every
 adapter produces the same two artifacts so score / tokens / cache hit rate /
 wall time are comparable across harnesses:
 
-  results/<run_id>/preds.jsonl    SWE-bench prediction format
-  results/<run_id>/metrics.jsonl  one normalized metrics record per instance
+  results/<run_id>/predictions.jsonl  SWE-bench prediction format
+  results/<run_id>/cost.jsonl         one normalized cost/usage record per instance
+
+Legacy aliases (preds.jsonl and metrics.jsonl) are emitted for existing tools.
 
 The normalized record is deliberately small; each harness's native metrics
 payload is preserved verbatim under "raw" for audit.

@@ -75,6 +75,7 @@ def build_runs(args: argparse.Namespace) -> list[MatrixRun]:
                 "--max-turns", str(args.max_turns),
                 "--preset", args.preset,
                 "--semantix-memory", memory,
+                "--protocol", "grouped",
                 "--semantix-retrieval-mode", retrieval,
                 "--semantix-bin", agent_bin,
                 "--semantix-kernel-bin", args.semantix_kernel_bin,

@@ -7,7 +7,13 @@ from unittest import mock
 
 import common
 import run_bench
-from run_bench import Adapter, SemantixAdapter, process_batch, repo_store_key
+from run_bench import (
+    Adapter,
+    SemantixAdapter,
+    process_batch,
+    repo_store_key,
+    semantix_ablation_spec,
+)
 
 
 def inst(iid: str, repo: str) -> dict:
@@ -28,6 +34,34 @@ class RepoIdentityTests(unittest.TestCase):
 
 
 class RepoSchedulingTests(unittest.TestCase):
+    def test_memory_off_arm_is_named_no_kernel(self):
+        self.assertEqual(semantix_ablation_spec("", False), "kernel")
+        self.assertEqual(semantix_ablation_spec("planner", False), "planner,kernel")
+        self.assertEqual(semantix_ablation_spec("kernel", False), "kernel")
+        self.assertEqual(semantix_ablation_spec("all", False), "all")
+        self.assertEqual(semantix_ablation_spec("planner", True), "planner")
+
+    def test_standard_protocol_isolates_every_instance(self):
+        adapter = SemantixAdapter(SimpleNamespace(protocol="standard"), Path("run"))
+        adapter.memory_on = True
+        adapter.kernel_root = Path("/state/kernel")
+        chosen = [inst("django-1", "django/django"), inst("django-2", "django/django")]
+
+        self.assertEqual(adapter.execution_batches(chosen), [[chosen[0]], [chosen[1]]])
+        self.assertNotEqual(adapter.kernel_dir_for(chosen[0]), adapter.kernel_dir_for(chosen[1]))
+
+    def test_grouped_protocol_shares_only_within_repo(self):
+        adapter = SemantixAdapter(SimpleNamespace(protocol="grouped"), Path("run"))
+        adapter.memory_on = True
+        adapter.kernel_root = Path("/state/kernel")
+        first = inst("django-1", "django/django")
+        second = inst("django-2", "django/django")
+        other = inst("flask-1", "pallets/flask")
+
+        self.assertEqual(adapter.execution_batches([first, other, second]), [[first, second], [other]])
+        self.assertEqual(adapter.kernel_dir_for(first), adapter.kernel_dir_for(second))
+        self.assertNotEqual(adapter.kernel_dir_for(first), adapter.kernel_dir_for(other))
+
     def test_memory_on_groups_by_repo_and_preserves_selected_order(self):
         adapter = SemantixAdapter(SimpleNamespace(), Path("run"))
         adapter.memory_on = True

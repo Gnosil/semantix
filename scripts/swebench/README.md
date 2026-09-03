@@ -43,7 +43,7 @@ cd scripts/swebench
 python3 -c "from pathlib import Path; from common import fetch_dataset; fetch_dataset(Path('data/swebench_verified.jsonl'))"
 
 # 1) 生成 patch（四个 harness 各一轮；--sample 50 --seed 固定可复现子集）
-python3 run_bench.py --harness semantix    --model deepseek-v4-flash --dataset data/swebench_verified.jsonl --sample 50 --workers 4
+python3 run_bench.py --harness semantix    --model deepseek-v4-flash --dataset data/swebench_verified.jsonl --sample 50 --workers 4 --protocol standard
 python3 run_bench.py --harness dsh         --model deepseek-v4-flash --dataset data/swebench_verified.jsonl --sample 50 --workers 4
 python3 run_bench.py --harness claude-code --model deepseek-v4-flash --dataset data/swebench_verified.jsonl --sample 50 --workers 4
 python3 run_bench.py --harness codex       --model deepseek-v4-flash --dataset data/swebench_verified.jsonl --sample 50 --workers 4 \
@@ -65,19 +65,47 @@ python3 run_bench.py --harness semantix --model deepseek-v4-flash \
   --semantix-bin ../../bin/semantix-agent --semantix-kernel-bin ../../bin/semantix
 ```
 
-### semantix 记忆内核臂（`--semantix-memory`，默认 on）
+每轮同时生成 issue #326 约定的公开产物 `predictions.jsonl` + `cost.jsonl`；
+为兼容已有官方评测与报告脚本，也保留等价的 `preds.jsonl` + `metrics.jsonl`。
+`run_config.json` 固化完整 CLI 参数和 runner commit SHA。
+
+### 双协议与 semantix 记忆内核臂
+
+`--protocol standard`（默认）为 Track A：每个 instance 使用独立、空白的 kernel
+store，保持 SWE-bench 标准 fresh-checkout / 无跨任务历史语义。`--protocol grouped`
+为 Track B：按 repo 分组，组内严格按冻结顺序串行，并跨同 repo instance 保留
+store；这是**非 SWE-bench 标准协议**，其结果不得与 leaderboard 数字混报。
+
+`--semantix-memory` 默认 on：
 
 `--semantix-memory on`（默认）把记忆内核真正接入基准：config 写入 `[semantix]`
 enabled/inject；**每实例独立 `SEMANTIX_HOME`**（并发归属无竞态），所有实例的
-`project_dir` 指向**真实 repo 独立切片库**
-（`semantix-home/kernel/<owner>__<repo>/`）；每实例结束后 runner 跑
-`semantix extract` 把该会话蒸馏进库，后续同 repo 实例即可检索注入（跨实例
-记忆闭环，需 `go build -o bin/semantix ./cmd/semantix`）。`off` 为消融孪生臂
-（内核关闭，等价旧行为）。记忆对照请用这对臂，**不要用 `--ablate`**（它只关
+`project_dir` 指向协议决定的隔离切片库：standard 使用
+`semantix-home/kernel/instances/<instance>`，grouped 使用
+`semantix-home/kernel/<owner>__<repo>`。每实例结束后 runner 跑
+`semantix extract` 把该会话蒸馏进库；只有 grouped 的后续同 repo instance
+会检索到这份历史（需 `go build -o bin/semantix ./cmd/semantix`）。`off` 为消融
+孪生臂，runner 同时传入 kernel ablation，使 agent metrics 的 arm 稳定记录为
+`no-kernel`；on 的对照名为 `full`。记忆对照请用这对臂，**不要手工用
+`--ablate` 代替**（该参数还可关闭其他 harness 模块，但不定义 store 生命周期）。判读字段（metrics `raw`）：
 harness 侧模块，不触碰内核）。判读字段（metrics `raw`）：
 `semantix_inject_turns` / `semantix_inject_bytes` / `semantix_reuse_hits` /
 `semantix_fuse_turns` / `semantix_rejected_slices` / `raw.extract`（每实例入库量）。
 设计与根因：`docs/specs/swebench-memory-arm.md`。
+
+Track B 会把 strict 模式下组装用于注入的 L2 块逐实例完整写到
+`results/<run_id>/audit/<instance>.txt`（0600 权限）。跑完必须执行泄漏扫描；
+只要出现 gold patch、`FAIL_TO_PASS` 测试名或未知 instance 文件，命令就以 1 退出：
+
+```bash
+python3 scan_injection_leaks.py \
+  --audit-dir results/<run_id>/audit \
+  --dataset data/swebench_verified.jsonl \
+  --ids subsets/verified-50-s20260824.txt \
+  --json-out results/<run_id>/injection-leak-report.json
+```
+
+审计文件含检索到的任务上下文，只应用于评测取证并按敏感实验产物保管。
 
 #### 调用来源归因字段
 
