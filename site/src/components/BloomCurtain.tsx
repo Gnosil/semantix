@@ -40,35 +40,37 @@ function FinaleCopy({
         MIT license / 2026
       </div>
 
-      <h2
-        id={decorative ? undefined : "bloom-finale-title"}
-        className="font-brand-serif absolute inset-x-0 top-[11svh] m-0 whitespace-nowrap text-center text-[clamp(5rem,17.4vw,22rem)] font-normal uppercase leading-[0.72] tracking-[-0.075em]"
-      >
-        Semantix
-      </h2>
+      <div className="absolute inset-x-0 top-[9.5svh]">
+        <h2
+          id={decorative ? undefined : "bloom-finale-title"}
+          className="font-brand-serif m-0 whitespace-nowrap text-center text-[clamp(5rem,17.4vw,22rem)] font-normal uppercase leading-[0.72] tracking-[-0.075em]"
+        >
+          Semantix
+        </h2>
 
-      <div className="absolute inset-x-5 top-[33svh] flex flex-col items-center text-center md:inset-x-32 md:top-[35svh]">
-        <p className="font-mono text-[9px] font-semibold uppercase leading-[1.75] tracking-[0.2em] md:text-[11px]">
-          <span className="block">A verifiable memory kernel for agents</span>
-          <span className="block">Retrieve • Validate • Evolve</span>
-        </p>
-        {decorative ? (
-          <span
-            className={`mt-5 inline-flex min-h-11 items-center justify-center px-7 py-3 font-mono text-[10px] font-bold uppercase tracking-[0.2em] md:min-h-12 md:px-10 md:text-xs ${button}`}
-          >
-            Enter the repository ↗
-          </span>
-        ) : (
-          <a
-            href={siteIdentity.repositoryUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`pointer-events-auto mt-5 inline-flex min-h-11 items-center justify-center px-7 py-3 font-mono text-[10px] font-bold uppercase tracking-[0.2em] transition-transform hover:-translate-y-0.5 active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current md:min-h-12 md:px-10 md:text-xs ${button}`}
-          >
-            Enter the repository ↗
-            <span className="sr-only"> (opens in a new tab)</span>
-          </a>
-        )}
+        <div className="absolute inset-x-5 top-[24.5svh] flex flex-col items-center text-center md:static md:mx-auto md:mt-[clamp(1.75rem,2vw,2.5rem)]">
+          <p className="font-mono text-[9px] font-semibold uppercase leading-[1.75] tracking-[0.2em] md:text-[11px]">
+            <span className="block">A verifiable memory kernel for agents</span>
+            <span className="block">Retrieve • Validate • Evolve</span>
+          </p>
+          {decorative ? (
+            <span
+              className={`mt-5 inline-flex min-h-11 items-center justify-center px-7 py-3 font-mono text-[10px] font-bold uppercase tracking-[0.2em] md:min-h-12 md:px-10 md:text-xs ${button}`}
+            >
+              Enter the repository ↗
+            </span>
+          ) : (
+            <a
+              href={siteIdentity.repositoryUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`pointer-events-auto mt-5 inline-flex min-h-11 items-center justify-center px-7 py-3 font-mono text-[10px] font-bold uppercase tracking-[0.2em] transition-transform hover:-translate-y-0.5 active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current md:min-h-12 md:px-10 md:text-xs ${button}`}
+            >
+              Enter the repository ↗
+              <span className="sr-only"> (opens in a new tab)</span>
+            </a>
+          )}
+        </div>
       </div>
 
       <div className="absolute bottom-[0.65svh] left-2 z-40 font-mono text-[7px] font-semibold uppercase leading-[1.7] tracking-[0.2em] md:text-[9px]">
@@ -122,6 +124,7 @@ export default function BloomCurtain() {
     let lastScrollY = window.scrollY;
     let lastRawCurtainProgress = 0;
     let reverseCurtainMode = false;
+    let initialVideoSyncPending = true;
 
     video.defaultPlaybackRate = 1.2;
     video.playbackRate = 1.2;
@@ -187,7 +190,17 @@ export default function BloomCurtain() {
       setBloomVisibility(rect.top <= 64);
 
       if (!mediaQuery.matches) {
-        if (direction > 1 && sceneVisible && curtainProgress > 0.02) {
+        const shouldRestoreDirectEntry =
+          initialVideoSyncPending &&
+          video.readyState >= HTMLMediaElement.HAVE_METADATA &&
+          window.location.hash === "#bloom-finale" &&
+          sceneVisible &&
+          curtainProgress > 0.02 &&
+          currentScrollY > 0;
+
+        if (shouldRestoreDirectEntry) {
+          showFinalFrame();
+        } else if (direction > 1 && sceneVisible && curtainProgress > 0.02) {
           playForward();
         }
         if (direction < -1) {
@@ -196,6 +209,10 @@ export default function BloomCurtain() {
             video.currentTime = 0;
           }
         }
+      }
+
+      if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+        initialVideoSyncPending = false;
       }
 
       lastRawCurtainProgress = rawCurtainProgress;
@@ -269,7 +286,7 @@ export default function BloomCurtain() {
         <video
           ref={videoRef}
           aria-hidden="true"
-          className="absolute inset-0 z-10 h-full w-full object-contain object-bottom mix-blend-screen will-change-transform"
+          className="absolute inset-0 z-10 h-full w-full -translate-y-[2svh] object-contain object-bottom mix-blend-screen will-change-transform md:-translate-y-[3.5svh]"
           muted
           playsInline
           preload="auto"
