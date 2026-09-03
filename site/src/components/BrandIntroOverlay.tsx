@@ -231,11 +231,11 @@ export default function BrandIntroOverlay() {
               <div className="relative">
                 <h2 className="font-semibold">CLI</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  extract / search 切片提取与 BM25 检索
+                  Coding Agent + 跨会话记忆内核
                 </p>
                 <CopyCode
                   className="mt-3"
-                  code="go build -o semantix ./cmd/semantix"
+                  code="curl -fsSL https://raw.githubusercontent.com/Gnosil/semantix/main/agent-skill/scripts/install.sh | sh"
                   prompt
                   singleLine
                 />
