@@ -1,0 +1,52 @@
+# retrieval-lab · ON 臂：BM25 召回 + 本地重排器 + 检索事件采集。
+# 由 setup-lab.sh 渲染（__LAB__ → 实验目录绝对路径）。
+# 凭证经 run-arm.sh source，不落盘（沿用 baohuaban 惯例）。
+
+[server]
+addr = ":8091"
+gateway_key = "${SEMANTIX_GATEWAY_KEY}"
+health_timeout_seconds = 3
+
+[store]
+db = "__LAB__/on/gateway.jsonl"
+scope = "project"
+deps_root = "__LAB__/on"
+
+[retrieval]
+retriever = "bm25"
+top_k = 5
+budget = 4096
+# 检索事件日志：重排器的训练语料（spec §3 G1；含 query 明文，仅实验环境开启）
+events_log = "__LAB__/on/events.jsonl"
+# 本地重排 sidecar（spec §3 B；fail-soft，sidecar 未起时检索链无感降级）
+rerank_base_url = "http://127.0.0.1:8689"
+rerank_top_n = 20
+rerank_timeout_ms = 500
+
+[cache]
+ttl_seconds = 86400
+
+[ingest]
+sessions_dir = "__LAB__/on/sessions"
+usage_log = "__LAB__/on/usage.jsonl"
+l3_safe_default = false
+
+[billing]
+enabled = false
+recharge_url = ""
+
+[[upstreams]]
+name = "qianfan-fast"
+base_url = "https://qianfan.baidubce.com/v2"
+api_key = "${QIANFAN_API_KEY}"
+model_alias = ["ernie-4.5-turbo-128k"]
+upstream_model = "ernie-4.5-turbo-128k"
+vendor = "openai"
+
+[[upstreams]]
+name = "qianfan-deep"
+base_url = "https://qianfan.baidubce.com/v2"
+api_key = "${QIANFAN_API_KEY}"
+model_alias = ["deepseek-v4-pro"]
+upstream_model = "deepseek-v4-pro"
+vendor = "openai"
