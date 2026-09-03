@@ -5,30 +5,30 @@ import CopyCode from "@/components/CopyCode";
 const steps = [
   {
     number: "01",
-    title: "克隆仓库",
-    titleEn: "Clone",
-    desc: "把 semantix 拉到本地，并进入仓库目录。",
-    code: "git clone https://github.com/Gnosil/semantix.git && cd semantix",
-    href: "https://github.com/Gnosil/semantix",
+    title: "安装完整 Agent",
+    titleEn: "Install",
+    desc: "一行安装交互式 Agent 与记忆内核，无需安装 Go。",
+    code: "curl -fsSL https://raw.githubusercontent.com/Gnosil/semantix/main/agent-skill/scripts/install.sh | sh",
+    href: "https://github.com/Gnosil/semantix/releases/latest",
     external: true,
-    linkLabel: "仓库 →",
+    linkLabel: "发布包 ↗",
   },
   {
     number: "02",
-    title: "安装 CLI",
-    titleEn: "Install",
-    desc: "使用 Go 1.26+ 安装完整的 Semantix 内核 CLI。",
-    code: "go install semantix/cmd/semantix",
+    title: "进入项目",
+    titleEn: "Open project",
+    desc: "进入你的项目文件夹；该目录将成为 Agent 的工作区。",
+    code: "cd ~/your-project",
     href: "https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md",
     external: true,
-    linkLabel: "构建步骤 ↗",
+    linkLabel: "快速上手 ↗",
   },
   {
     number: "03",
-    title: "提取并检索",
-    titleEn: "Extract & Search",
-    desc: "先从会话中提取切片，再运行 BM25 检索。",
-    code: './semantix extract --input s.jsonl --scope project\n./semantix search --query "fix failing test" --retriever bm25',
+    title: "开始对话",
+    titleEn: "Start",
+    desc: "运行 Semantix；首次启动会引导你配置模型与 API key。",
+    code: "semantix",
     href: "/docs/guide",
     external: false,
     linkLabel: "深度文档 →",
@@ -73,6 +73,7 @@ export default function Install() {
                   className="mt-7 !rounded-none border-[#101313]/12"
                   code={step.code}
                   prompt
+                  singleLine
                   tone="dark"
                 />
                 <div className="mt-auto pt-8 text-sm font-semibold text-[#101313]">
