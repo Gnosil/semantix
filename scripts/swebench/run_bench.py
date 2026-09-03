@@ -72,6 +72,50 @@ def repo_store_key(inst: dict) -> str:
     return repo_identity(inst).replace("/", "__", 1)
 
 
+def mirror_fingerprint_paths(mirror: Path, workspace: Path) -> list[str]:
+    """Return existing regular workspace files named by tool-call arguments."""
+    workspace = workspace.resolve()
+    found: set[str] = set()
+
+    def visit(value, key: str = "") -> None:
+        if isinstance(value, dict):
+            for child_key, child in value.items():
+                visit(child, str(child_key).lower())
+            return
+        if isinstance(value, list):
+            for child in value:
+                visit(child, key)
+            return
+        if isinstance(value, str) and key in {"args", "arguments"}:
+            try:
+                visit(json.loads(value))
+            except json.JSONDecodeError:
+                pass
+            return
+        if not isinstance(value, str) or key not in {
+                "path", "paths", "file", "files", "file_path", "filepath", "filename"}:
+            return
+        candidate = Path(value)
+        if not candidate.is_absolute():
+            candidate = workspace / candidate
+        try:
+            if candidate.is_symlink():
+                return
+            resolved = candidate.resolve(strict=True)
+            relative = resolved.relative_to(workspace)
+        except (OSError, ValueError):
+            return
+        if resolved.is_file():
+            found.add(relative.as_posix())
+
+    for line in mirror.read_text(encoding="utf-8", errors="replace").splitlines():
+        try:
+            visit(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return sorted(found)
+
+
 class CountProxy:
     """Per-instance metering proxy (count_proxy.py) for harnesses whose own
     telemetry is unreliable. Records provider-reported usage to a ledger."""
@@ -147,6 +191,26 @@ def normalize_count_map(value: object) -> dict[str, int]:
     }
 
 
+CLI_PATH_FIELDS = (
+    "dataset", "ids", "results_dir", "work_dir", "state_dir", "prices",
+    "custom_spec", "semantix_bin", "semantix_kernel_bin", "semantix_seed_dir",
+    "codex_bin",
+)
+
+
+def resolve_cli_paths(args, base: Path | None = None) -> None:
+    """Pin CLI paths before adapters change the child process workspace."""
+    base = (base or Path.cwd()).resolve()
+    for name in CLI_PATH_FIELDS:
+        value = getattr(args, name, "")
+        if not value:
+            continue
+        path = Path(value).expanduser()
+        if not path.is_absolute():
+            path = base / path
+        setattr(args, name, str(path.resolve()))
+
+
 def clean_env(*, drop_prefixes=(), drop=()) -> dict:
     env = {}
     for k, v in os.environ.items():
@@ -208,6 +272,7 @@ class SemantixAdapter(Adapter):
         self.kernel_root = self.home / "kernel"
         if self.memory_on:
             self.kernel_root.mkdir(parents=True, exist_ok=True)
+            self._seed_kernel_root()
             self.kernel_bin = self.args.semantix_kernel_bin or shutil.which("semantix") or str(
                 HERE.parent.parent / "bin" / "semantix")
             if not Path(self.kernel_bin).exists():
@@ -224,6 +289,33 @@ class SemantixAdapter(Adapter):
                 "`go build -o bin/semantix-agent ./cmd/semantix-agent` or pass --semantix-bin"
             )
 
+    def _seed_kernel_root(self) -> None:
+        seed_value = getattr(self.args, "semantix_seed_dir", "")
+        if not seed_value:
+            return
+        source = Path(seed_value).resolve()
+        if not source.is_dir():
+            raise RuntimeError(f"Semantix seed store directory does not exist: {source}")
+        marker = self.kernel_root / ".seed-source.json"
+        source_text = str(source)
+        if marker.exists():
+            recorded = json.loads(marker.read_text(encoding="utf-8"))
+            if recorded.get("source") != source_text:
+                raise RuntimeError(
+                    f"Semantix state was seeded from {recorded.get('source')!r}, "
+                    f"not {source_text!r}"
+                )
+            return
+        if any(self.kernel_root.iterdir()):
+            raise RuntimeError(
+                f"Semantix kernel root already contains unseeded state: {self.kernel_root}"
+            )
+        shutil.copytree(source, self.kernel_root, dirs_exist_ok=True)
+        marker.write_text(
+            json.dumps({"schema": 1, "source": source_text}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+
     def execution_batches(self, instances: list[dict]) -> list[list[dict]]:
         if not self.memory_on:
             return super().execution_batches(instances)
@@ -235,8 +327,10 @@ class SemantixAdapter(Adapter):
     def kernel_dir_for(self, inst: dict) -> Path:
         return self.kernel_root / repo_store_key(inst)
 
-    def _write_home(self, home: Path, sessions_dir: Path, kernel_dir: Path | None) -> None:
+    def _write_home(self, home: Path, sessions_dir: Path, kernel_dir: Path | None,
+                    workspace_dir: Path | None = None) -> None:
         home.mkdir(parents=True, exist_ok=True)
+        workspace_dir = workspace_dir or Path.cwd()
         # Provider keys resolve ONLY from Semantix's global .env (never the
         # process environment) — see ProviderEntry.APIKey in harness/config.
         env_file = home / ".env"
@@ -259,6 +353,7 @@ inject       = true
 mode         = "{self.args.semantix_retrieval_mode}"
 budget       = 4096
 project_dir  = "{kernel_dir}"
+workspace_dir = "{workspace_dir}"
 sessions_dir = "{sessions_dir}"
 '''
         (home / "config.toml").write_text(
@@ -290,7 +385,7 @@ context_window = 128000
         sessions_dir = home / "kernel-sessions"
         repo = repo_identity(inst) if self.memory_on else ""
         kernel_dir = self.kernel_dir_for(inst) if self.memory_on else None
-        self._write_home(home, sessions_dir, kernel_dir)
+        self._write_home(home, sessions_dir, kernel_dir, ws)
         env = clean_env()
         env.update({
             "SEMANTIX_HOME": str(home),
@@ -339,11 +434,13 @@ context_window = 128000
             raw["semantix_repo"] = repo
             raw["semantix_project_dir"] = str(kernel_dir)
             raw["extract"] = self._extract_slices(
-                sessions_dir, inst["instance_id"], kernel_dir, repo)
+                sessions_dir, inst["instance_id"], kernel_dir, repo, ws,
+                inst.get("base_commit", ""))
         return exit_code, raw, err
 
     def _extract_slices(self, sessions_dir: Path, instance_id: str,
-                        kernel_dir: Path, repo: str) -> dict:
+                        kernel_dir: Path, repo: str, workspace: Path,
+                        base_commit: str) -> dict:
         """Close the memory loop: distill this instance's session mirrors into
         the repo-isolated slice library so later same-repo instances can retrieve them. The
         agent never extracts on its own (extraction is `semantix extract` /
@@ -355,15 +452,22 @@ context_window = 128000
         out = {"mirrors": len(mirrors), "runs": []}
         db = kernel_dir / ".semantix" / "project.db"
         for mirror in mirrors:
+            fingerprints = mirror_fingerprint_paths(mirror, workspace)
             ecmd = [self.kernel_bin, "extract",
                     "--input", str(mirror),
                     "--scope", "project",
                     "--project-db", str(db),
                     "--session", instance_id,
                     "--project", repo]
+            if base_commit:
+                ecmd += ["--base-commit", base_commit]
+            if fingerprints:
+                ecmd += ["--fingerprint", ",".join(fingerprints)]
             try:
-                ep = subprocess.run(ecmd, capture_output=True, text=True, timeout=120)
+                ep = subprocess.run(ecmd, capture_output=True, text=True, timeout=120,
+                                    cwd=workspace)
                 out["runs"].append({"mirror": mirror.name, "exit": ep.returncode,
+                                    "fingerprints": fingerprints,
                                     "out": (ep.stdout or ep.stderr).strip()[-300:]})
             except Exception as exc:  # extraction is best-effort, never fails the instance
                 out["runs"].append({"mirror": mirror.name, "error": str(exc)[:200]})
@@ -399,6 +503,8 @@ context_window = 128000
             m.repeated_tool_calls_by_name = normalize_count_map(
                 raw.get("repeated_tool_calls_by_name")
             )
+        m.semantix_fuse_turns = raw.get("semantix_fuse_turns", 0)
+        m.semantix_rejected_slices = raw.get("semantix_rejected_slices", 0)
         m.cost_native = raw.get("cost")
         m.cost_native_currency = raw.get("currency", "")
 
@@ -871,6 +977,8 @@ def main() -> None:
     ap.add_argument("--semantix-bin", default="")
     ap.add_argument("--semantix-kernel-bin", default="",
                     help="path to the semantix kernel CLI (default: bin/semantix) used for slice extraction")
+    ap.add_argument("--semantix-seed-dir", default="",
+                    help="frozen repo-store root copied once into each memory-on run")
     ap.add_argument("--codex-bin", default="", help="codex binary override (chat wire needs ≤0.80.0)")
     ap.add_argument("--codex-wire-api", default="responses", choices=["responses", "chat"])
     ap.add_argument("--state-dir", default=os.path.expanduser("~/.cache/semantix-swebench"),
@@ -881,6 +989,7 @@ def main() -> None:
     ap.add_argument("--anthropic-base", default="", help="override Anthropic-compatible base URL (mock)")
     ap.add_argument("--keep-ws", action="store_true")
     args = ap.parse_args()
+    resolve_cli_paths(args)
 
     if not args.run_id:
         args.run_id = f"{args.harness}.{args.model.replace('/', '-')}.{args.seed}"

@@ -2,32 +2,11 @@ package semantix
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"semantix/kernel/slice"
 )
-
-// seedProjectDB writes slices into <dir>/.semantix/project.db, the store the
-// bridge's in-process injection path reads.
-func seedProjectDB(t *testing.T, dir string, slices ...*slice.Slice) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Join(dir, ".semantix"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	store, err := slice.NewFileStore(filepath.Join(dir, ".semantix", "project.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer closeSliceStore(store)
-	for _, s := range slices {
-		if err := store.Put(s); err != nil {
-			t.Fatal(err)
-		}
-	}
-}
 
 // Four-layer distill spec §2.5: tool_pattern and result slices never reach
 // the agent injection block, however strong their lexical match — and their
@@ -36,8 +15,7 @@ func seedProjectDB(t *testing.T, dir string, slices ...*slice.Slice) {
 // slices, two source sessions per admitted type, a strong match plus a
 // runner-up so the strict gates (#454) are satisfied.
 func TestBridgeNeverInjectsToolPatternOrResult(t *testing.T) {
-	dir := t.TempDir()
-	seedProjectDB(t, dir,
+	dir := writeKernelDir(t, []*slice.Slice{
 		&slice.Slice{ID: "t-blocked", Type: slice.ToolPattern, Scope: slice.Project,
 			Content: []byte("修复 go 测试失败"), Meta: slice.SliceMeta{SourceSession: "boot-3"}},
 		&slice.Slice{ID: "r-blocked", Type: slice.Result, Scope: slice.Project,
@@ -48,7 +26,7 @@ func TestBridgeNeverInjectsToolPatternOrResult(t *testing.T) {
 			Content: []byte("修复 release process"), Meta: slice.SliceMeta{SourceSession: "boot-2"}},
 		&slice.Slice{ID: "mem-pad", Type: slice.Memory, Scope: slice.Project,
 			Content: []byte("部署 kubernetes 服务"), Meta: slice.SliceMeta{SourceSession: "boot-1"}},
-	)
+	}, nil)
 
 	b := NewBridge(Config{Enabled: true, Inject: true, ProjectDir: dir})
 	defer b.Close()
@@ -72,8 +50,7 @@ func TestBridgeNeverInjectsToolPatternOrResult(t *testing.T) {
 // same-type card does — and the rejected card must not act as the
 // relative-confidence denominator or the runner-up.
 func TestBridgeGatesMemoryCardsByTaskType(t *testing.T) {
-	dir := t.TempDir()
-	seedProjectDB(t, dir,
+	dir := writeKernelDir(t, []*slice.Slice{
 		&slice.Slice{ID: "m-bugfix", Type: slice.Memory, Scope: slice.Project,
 			Content: []byte("Task outcome (task=bugfix): 修复 go 测试失败\nEdited:\n- core/numbers.py"),
 			Meta:    slice.SliceMeta{SourceSession: "boot-1"}},
@@ -86,7 +63,7 @@ func TestBridgeGatesMemoryCardsByTaskType(t *testing.T) {
 			Content: []byte("部署流程记录"), Meta: slice.SliceMeta{SourceSession: "boot-2"}},
 		&slice.Slice{ID: "p-pad", Type: slice.Prompt, Scope: slice.Project,
 			Content: []byte("修复 go 测试失败问题排查"), Meta: slice.SliceMeta{SourceSession: "boot-1"}},
-	)
+	}, nil)
 
 	b := NewBridge(Config{Enabled: true, Inject: true, ProjectDir: dir})
 	defer b.Close()

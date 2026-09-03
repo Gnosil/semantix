@@ -41,3 +41,7 @@ docs/reports/data/.mimosa/
 /PROMPTS.md
 /paper/
 /paper.zip
+
+# Local experiment area (paper data, experiment designs & results live here
+# and never enter the repo — see CLAUDE.md "本地实验区")
+/lab/

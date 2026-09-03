@@ -87,6 +87,8 @@ class InstanceMetrics:
     # zero means attribution ran and observed no repeated signature.
     repeated_tool_calls: int | None = None
     repeated_tool_calls_by_name: dict[str, int] | None = None
+    semantix_fuse_turns: int = 0
+    semantix_rejected_slices: int = 0
     cost_usd: float | None = None    # computed from DeepSeek prices when possible
     cost_native: float | None = None # what the harness itself reported
     cost_native_currency: str = ""

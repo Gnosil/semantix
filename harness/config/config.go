@@ -973,6 +973,9 @@ type SemantixConfig struct {
 	// directory to share a slice library across workspaces (e.g. benchmark
 	// arms measuring cross-session reuse).
 	ProjectDir string `toml:"project_dir"`
+	// WorkspaceDir is the live repository used for commit and dependency
+	// freshness checks. It may differ from ProjectDir when stores are shared.
+	WorkspaceDir string `toml:"workspace_dir"`
 	// CostInputPriceUSD / CostCachePriceUSD override the usage cost model
 	// prices (USD per 1M tokens at cache miss / hit) used by the reuse panel
 	// savings delta. Zero keeps the kernel defaults — mirror semantix.toml

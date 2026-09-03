@@ -82,7 +82,8 @@ func TestToWireKernelCacheJSON(t *testing.T) {
 	w := ToWire(event.Event{Kind: event.KernelCache, KernelCache: &event.KernelCachePayload{
 		Op: "degraded", Layer: "L2", SliceIDs: []string{"b", "a"}, Bytes: 128, Reason: "budget",
 		Retrieval: &event.RetrievalDiagnostics{Mode: "shadow", LibrarySize: 3, TopMargin: 1.25,
-			Candidates: []event.RetrievalCandidate{{ID: "b", Type: "context", Score: 2.5, Coverage: 0.75, Zone: "hit", Admitted: true, Reason: "admitted"}}},
+			QueryStructure: event.RetrievalQueryStructure{Strategy: "structured", Intent: "repair cache", Repo: "owner/repo", Paths: []string{"cache/store.go"}, Symbols: []string{"cache.load"}},
+			Candidates:     []event.RetrievalCandidate{{ID: "b", Type: "context", Score: 2.5, Coverage: 0.75, Zone: "hit", Admitted: true, Reason: "admitted"}}},
 	}})
 	if w.Kind != "kernel_cache" || w.KernelCache == nil {
 		t.Fatalf("kernel cache wire = %+v", w)
@@ -91,7 +92,7 @@ func TestToWireKernelCacheJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{`"kind":"kernel_cache"`, `"op":"degraded"`, `"layer":"L2"`, `"sliceIds":["b","a"]`, `"reason":"budget"`, `"mode":"shadow"`, `"librarySize":3`, `"coverage":0.75`, `"reason":"admitted"`} {
+	for _, want := range []string{`"kind":"kernel_cache"`, `"op":"degraded"`, `"layer":"L2"`, `"sliceIds":["b","a"]`, `"reason":"budget"`, `"mode":"shadow"`, `"librarySize":3`, `"coverage":0.75`, `"reason":"admitted"`, `"strategy":"structured"`, `"intent":"repair cache"`, `"repo":"owner/repo"`, `"paths":["cache/store.go"]`, `"symbols":["cache.load"]`} {
 		if !strings.Contains(string(b), want) {
 			t.Fatalf("kernel cache JSON = %s, missing %s", b, want)
 		}

@@ -55,6 +55,9 @@ type Config struct {
 	// log resolve against (kernel CLI semantics: <dir>/.semantix/...).
 	// Empty uses the process working directory.
 	ProjectDir string
+	// WorkspaceDir is the live repository used for commit/dependency checks.
+	// Empty falls back to ProjectDir for normal non-benchmark runs.
+	WorkspaceDir string
 	// CostMissUSD / CostHitUSD are the usage cost model prices (USD per 1M
 	// tokens at cache miss / hit) for the reuse panel savings delta.
 	// Zero keeps the kernel defaults (usage.DefaultCost*PerMTok).
@@ -103,6 +106,7 @@ const (
 var strictAllowedTypes = map[slice.SliceType]bool{
 	slice.Context: true,
 	slice.Memory:  true,
+	slice.Result:  true,
 }
 
 // NewBridge builds a Bridge from cfg.
@@ -220,11 +224,17 @@ func (b *Bridge) Inject(ctx context.Context, query string) string {
 // 2): the harness calls this when the window budget crosses the
 // degrade_inject tier — shrink the injection instead of dropping it.
 func (b *Bridge) InjectDegraded(ctx context.Context, query string) string {
+	return b.InjectDegradedDetailed(ctx, query).Text
+}
+
+// InjectDegradedDetailed is the target-preserving form used by the agent so a
+// later negative-transfer fuse can attribute the reduced block to its slices.
+func (b *Bridge) InjectDegradedDetailed(ctx context.Context, query string) InjectResult {
 	budget := b.cfg.Budget / 2
 	if budget <= 0 {
 		budget = 1 // never fall back to the full DefaultBudget via the <=0 path
 	}
-	return b.inject(ctx, query, budget)
+	return b.injectResult(ctx, query, budget)
 }
 
 // inject is the shared injection path with an explicit block budget.
@@ -251,9 +261,10 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 		b.emitKernelCache("miss", "L2", nil, 0, "slice library unavailable")
 		return InjectResult{}
 	}
-	cleanedQuery := cleanRetrievalQuery(query)
+	retrievalQuery := buildRetrievalQuery(query)
+	cleanedQuery := retrievalQuery.Text
 	if cleanedQuery == "" {
-		diagnostics := b.retrievalDiagnostics(query, cleanedQuery, projectSlices, nil, nil)
+		diagnostics := b.retrievalDiagnostics(query, retrievalQuery, projectSlices, nil, nil)
 		diagnostics.Decision = "rejected"
 		diagnostics.DecisionReason = "empty_query_after_cleaning"
 		b.emitKernelCacheDetailed("miss", "L2", nil, 0, diagnostics.DecisionReason, diagnostics)
@@ -279,12 +290,15 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 	// reference class the two-arm pilot paid +32% for). strictAllowedTypes
 	// ({Context, Memory}, #454) subsumes that ban at the source, so no
 	// per-type zone override is needed here.
+	workspaceDir := b.workspaceDir()
 	inj, err := (&inject.Injector{
 		Index:                idx,
 		Scope:                slice.Project,
 		K:                    5,
 		Budget:               budget,
 		AllowedTypes:         strictAllowedTypes,
+		RootDir:              workspaceDir,
+		CurrentCommit:        readGitHead(workspaceDir),
 		LibrarySize:          len(projectSlices),
 		MinLibrarySize:       strictMinLibrarySize,
 		SourceSessionsByType: sourceSessionCounts(projectSlices),
@@ -310,7 +324,7 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 		b.emitKernelCache(op, "L2", nil, 0, err.Error())
 		return InjectResult{}
 	}
-	diagnostics := b.retrievalDiagnostics(query, cleanedQuery, projectSlices, hits, inj)
+	diagnostics := b.retrievalDiagnostics(query, retrievalQuery, projectSlices, hits, inj)
 	if b.mode == RetrievalShadow {
 		diagnostics.Decision = "withheld"
 		diagnostics.DecisionReason = "shadow_mode"
@@ -348,11 +362,17 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 	return InjectResult{Text: inj.Text, Targets: targets, Diagnostics: diagnostics}
 }
 
-func (b *Bridge) retrievalDiagnostics(query, cleanedQuery string, library []*slice.Slice, hits []slice.Hit, inj *inject.Injection) *event.RetrievalDiagnostics {
-	projectDir := b.projectDir()
+func (b *Bridge) retrievalDiagnostics(query string, retrievalQuery RetrievalQuery, library []*slice.Slice, hits []slice.Hit, inj *inject.Injection) *event.RetrievalDiagnostics {
+	projectDir := b.workspaceDir()
 	d := &event.RetrievalDiagnostics{
 		Mode: string(b.mode), LibrarySize: len(library), Repo: filepath.Base(filepath.Clean(projectDir)),
-		BaseCommit: readGitHead(projectDir), QueryBefore: summarizeQuery(query), QueryAfter: summarizeQuery(cleanedQuery),
+		BaseCommit: readGitHead(projectDir), QueryBefore: summarizeQuery(query), QueryAfter: summarizeQuery(retrievalQuery.Text),
+		QueryStructure: event.RetrievalQueryStructure{
+			Strategy: retrievalQuery.Strategy, Intent: retrievalQuery.Intent, Repo: retrievalQuery.Repo,
+			Paths: append([]string(nil), retrievalQuery.Paths...), Symbols: append([]string(nil), retrievalQuery.Symbols...),
+			ErrorCodes: append([]string(nil), retrievalQuery.ErrorCodes...), TestNames: append([]string(nil), retrievalQuery.TestNames...),
+			Dependencies: append([]string(nil), retrievalQuery.Dependencies...), FallbackReason: retrievalQuery.FallbackReason,
+		},
 	}
 	if inj == nil {
 		return d
@@ -368,7 +388,11 @@ func (b *Bridge) retrievalDiagnostics(query, cleanedQuery string, library []*sli
 			candidate.Type = sl.Type.String()
 			candidate.SourceSession = sl.Meta.SourceSession
 			candidate.Project = sl.Meta.ProjectSlug
+			candidate.BaseCommit = sl.Meta.BaseCommit
 			candidate.Origin = string(sl.Meta.Origin)
+			if sl.Type == slice.Result {
+				candidate.Verified = string(sl.Meta.EffectiveResultStatus())
+			}
 		}
 		d.Candidates = append(d.Candidates, candidate)
 	}
@@ -488,6 +512,79 @@ func (b *Bridge) recordInjection(ids []string, bytes int) {
 		}
 		_ = slice.ApplyStats(store, deltas)
 	}()
+}
+
+// RecordInjectionReject attributes a conservative negative-transfer signal to
+// every injected slice that was active when the harness loop guard fired. IDs
+// are canonicalized so one fuse increments each slice exactly once.
+func (b *Bridge) RecordInjectionReject(ids []string, reason string) {
+	b.recordInjectionOutcome(ids, "harmful", reason, true)
+}
+
+// RecordInjectionOutcome persists an evaluator/guard observation for each
+// injected slice. Unsupported outcomes are ignored rather than inventing a
+// category; callers must supply useful, neutral, or harmful.
+func (b *Bridge) RecordInjectionOutcome(ids []string, outcome, reason string) {
+	b.recordInjectionOutcome(ids, outcome, reason, false)
+}
+
+func (b *Bridge) recordInjectionOutcome(ids []string, outcome, reason string, legacyReject bool) {
+	if b == nil || !b.Enabled() || len(ids) == 0 {
+		return
+	}
+	outcome = strings.ToLower(strings.TrimSpace(outcome))
+	if outcome != "useful" && outcome != "neutral" && outcome != "harmful" {
+		return
+	}
+	ids = append([]string(nil), ids...)
+	sort.Strings(ids)
+	unique := ids[:0]
+	for _, id := range ids {
+		if id != "" && (len(unique) == 0 || unique[len(unique)-1] != id) {
+			unique = append(unique, id)
+		}
+	}
+	if len(unique) == 0 {
+		return
+	}
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		reason = "negative_transfer"
+	}
+	now := time.Now().UTC()
+	if store, err := slice.NewFileStore(filepath.Join(b.projectDir(), ".semantix", "project.db")); err == nil {
+		deltas := make(map[string]slice.SliceStats, len(unique))
+		for _, id := range unique {
+			delta := slice.SliceStats{LastUsed: now.Unix()}
+			switch outcome {
+			case "useful":
+				delta.Useful = 1
+			case "neutral":
+				delta.Neutral = 1
+			case "harmful":
+				delta.Harmful = 1
+				delta.Rejected = 1
+			}
+			deltas[id] = delta
+		}
+		_ = slice.ApplyStats(store, deltas)
+		closeSliceStore(store)
+	}
+	b.mu.Lock()
+	session := b.label
+	b.mu.Unlock()
+	for _, id := range unique {
+		data, err := json.Marshal(kernelevent.SliceOutcomePayload{SliceID: id, Outcome: outcome, Reason: reason})
+		if err == nil {
+			b.events.Emit(kernelevent.Event{Kind: kernelevent.SliceOutcome, SessionID: session, At: now, Data: data})
+		}
+		if legacyReject {
+			data, err = json.Marshal(kernelevent.SliceRejectPayload{SliceID: id, Reason: reason})
+			if err == nil {
+				b.events.Emit(kernelevent.Event{Kind: kernelevent.SliceReject, SessionID: session, At: now, Data: data})
+			}
+		}
+	}
 }
 
 // RecordPrefetch emits one terminal outcome for a warmed result. lead is
@@ -626,6 +723,13 @@ func (b *Bridge) projectDir() string {
 		return "."
 	}
 	return wd
+}
+
+func (b *Bridge) workspaceDir() string {
+	if strings.TrimSpace(b.cfg.WorkspaceDir) != "" {
+		return b.cfg.WorkspaceDir
+	}
+	return b.projectDir()
 }
 
 // usagePath is the kernel usage log the reuse panel savings delta reads.

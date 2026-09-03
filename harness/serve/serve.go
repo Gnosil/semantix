@@ -511,6 +511,7 @@ func (s *Server) handler() http.Handler {
 	mux.HandleFunc("GET /workspace/shell.js", staticBytes("text/javascript; charset=utf-8", &workspaceShellJS))
 	mux.HandleFunc("GET /events", s.events)
 	mux.HandleFunc("GET /workspace/events", s.workspaceEvents)
+	mux.HandleFunc("GET /workspace/replay", s.workspaceReplay)
 	mux.HandleFunc("GET /history", s.history)
 	mux.HandleFunc("GET /context", s.context)
 	mux.HandleFunc("POST /submit", s.submit)

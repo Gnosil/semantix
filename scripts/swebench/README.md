@@ -76,7 +76,8 @@ enabled/inject；**每实例独立 `SEMANTIX_HOME`**（并发归属无竞态）�
 （内核关闭，等价旧行为）。记忆对照请用这对臂，**不要用 `--ablate`**（它只关
 harness 侧模块，不触碰内核）。判读字段（metrics `raw`）：
 `semantix_inject_turns` / `semantix_inject_bytes` / `semantix_reuse_hits` /
-`raw.extract`（每实例入库量）。设计与根因：`docs/specs/swebench-memory-arm.md`。
+`semantix_fuse_turns` / `semantix_rejected_slices` / `raw.extract`（每实例入库量）。
+设计与根因：`docs/specs/swebench-memory-arm.md`。
 
 #### 调用来源归因字段
 
@@ -96,6 +97,8 @@ runner 会把原生 `usage_by_source` 规范化进每实例 `metrics.jsonl`：
 | `tool_calls_by_name` | 已完成工具调用按 canonical tool name 汇总 |
 | `repeated_tool_calls` | 同一 provider-visible 工具名 + canonical JSON 参数在首次完成后的重复次数 |
 | `repeated_tool_calls_by_name` | 上述重复按工具名拆分；只保留参数摘要，不写原始参数 |
+| `semantix_fuse_turns` | 已有 loop/progress guard 清除本轮历史块的次数（每 user turn 最多一次） |
+| `semantix_rejected_slices` | 熔断时被关联并累计 `Rejected` 的注入 slice 数 |
 
 `report.py` 的 Markdown 表用 `calls E/P/S/C/O` 显示
 executor/planner/subagent/compaction/other；JSON 输出保留完整来源表和工具表。
@@ -114,26 +117,31 @@ memory-on 时 runner 按数据集 `repo=owner/repo` 分组。同 repo 实例严�
 非法或缺失 repo 标识会在调度前失败，不会落入共享的 unknown 库。每实例
 `raw.semantix_repo` / `raw.semantix_project_dir` 记录实际归属，便于审计。
 
-#### Issue #447 A-D 配对矩阵
+#### Issue #447 A/B/C 核心配对矩阵
 
-`memory_matrix.py` 固定按 repetition 内 A→B→C→D 串行执行，避免跨臂的
+`memory_matrix.py` 默认按 repetition 内 A→B→C 串行执行，避免跨臂的
 provider/CPU 竞争；每个 repetition/arm 使用独立 state/work 目录，同时复用同一
-`--ids` 顺序：
+`--ids` 顺序。传入 `--legacy-semantix-bin` 时才追加 D；D 只用于复现旧策略，
+不属于判断当前修复是否优于 memory-off 的核心实验：
+
+所有 CLI 路径会在 runner 启动时解析为绝对路径。这样 agent 切换到每个实例的
+workspace 后，仍会读取同一个 state/config/credential 目录并把 metrics 写回预期的
+results 目录；从 `scripts/swebench` 传入相对路径与绝对路径语义一致。
 
 | 臂 | 配置 | agent binary |
 |---|---|---|
 | A | `memory=off`, `retrieval=off` | 当前版本 |
 | B | `memory=on`, `retrieval=shadow` | 当前版本 |
 | C | `memory=on`, `retrieval=strict` | 当前版本（P0 门禁） |
-| D | `memory=on`, `retrieval=strict` | P0.4 前的 legacy all-type 版本 |
+| D（可选） | `memory=on`, `retrieval=strict` | P0.4 前的 legacy all-type 版本 |
 
 ```bash
 python3 memory_matrix.py \
   --dataset data/swebench_verified.jsonl \
   --ids subsets/verified-50-s20260824.txt \
   --model deepseek-v4-flash --repetitions 3 --workers 4 \
+  --semantix-seed-dir state/issue447-frozen-seed \
   --semantix-bin ../../bin/semantix-agent \
-  --legacy-semantix-bin ../../bin/semantix-agent-issue447-legacy \
   --semantix-kernel-bin ../../bin/semantix
 
 # 对生成的每个 run 完成官方 evaluate.py 后：
@@ -145,16 +153,44 @@ python3 memory_matrix_report.py \
 首次单实例端到端预跑及其因果边界见
 [`docs/reports/issue-447-memory-matrix-pilot.md`](../../docs/reports/issue-447-memory-matrix-pilot.md)。
 
-legacy binary 应固定构建自 `cb5e9cc`（repo 隔离已合并、strict 仍为旧全类型
-策略），不能用 harness `--ablate all` 代替。矩阵 manifest 保存每个 run 的完整
+`--semantix-seed-dir` 接收一个冻结的 repo-store 根目录，内部结构与 runner 的
+`kernel/<owner>__<repo>/` 一致。矩阵会在 B/C（以及显式启用的 D）第一次启动时
+分别复制同一份 seed，
+A 不读取 seed；断点续跑通过 `.seed-source.json` 识别已经完成的复制，不会覆盖运行中
+新提取的切片。若目标 state 已有数据但没有 seed 标记，runner 会直接报错，避免把
+未知历史与冻结语料混在一起。发布实验结果时应同时保存 seed 生成命令、输入 session
+列表和 repo 顺序。
+
+矩阵启动前先执行 fail-closed 预检；它逐 repo 检查 store 是否存在、library 是否达到
+strict 的最小规模、同类型来源 session 是否达到门槛，以及可注入切片是否携带
+`base_commit`。退出码 `0` 才进入真实评测，退出码 `3` 表示 seed 尚未就绪：
+
+```bash
+python3 validate_memory_seed.py \
+  --seed-dir state/issue447-frozen-seed \
+  --dataset data/swebench_verified.jsonl \
+  --ids subsets/verified-50-s20260824.txt \
+  --json-out results/issue447-seed-validation.json
+```
+
+runner 从 session mirror 的文件参数中提取仍位于 workspace 内的普通文件，并在 extraction
+时写入 SHA-256 dependency fingerprint 与当前 `base_commit`。strict retrieval 在提交不同
+且没有依赖证明、依赖缺失/越界/变化或 provenance 缺失时拒绝该切片；共享 `project_dir`
+不再被误当作实例的 git workspace。
+
+需要历史策略对照时，显式传入 `--legacy-semantix-bin`；该 binary 应固定构建自
+`cb5e9cc`（repo 隔离已合并、strict 仍为旧全类型策略），不能用 harness
+`--ablate all` 代替。矩阵 manifest 保存每个 run 的完整
 命令、state/work/run 路径；重复执行会沿用 `run_bench.py` 的按实例续跑能力。
 
 报告严格按 `(repetition, instance_id)` 与 A 配对；任一臂缺实例立即报错。输出
 resolved、executor calls、steps、input tokens、工具总数和 read/search/test 工具族、
 wall、cost、retry、注入次数/字节的 absolute 与相对 A 的 median/P75/P90。接入
-`repeated_tool_calls` 后，Markdown 额外显示 `Δ repeats median/P75/P90`，JSON 同时
-保留重复 read/search/test 工具族。旧 metrics 缺少重复字段时维持 unattributed，
-不会把“未采集”伪装成 0；重复信号用于归因，不单独作为有害循环或熔断依据。
+`repeated_tool_calls` 后，Markdown 显示 `Δ repeats median/P75/P90`；接入熔断后还显示
+`Δ fuses median/P75/P90`，JSON 同时保留 rejected slice 数和重复 read/search/test
+工具族。旧 metrics 缺少重复字段时维持 unattributed，不会把“未采集”伪装成 0。
+重复调用本身仍只是轨迹信号；只有 harness 已有 loop/progress guard 判断为持续无进展时，
+才移除当前 turn 的历史并记录 `SliceReject(reason=loop_guard)`。
 
 ## 方法学要点（对比公平性）
 

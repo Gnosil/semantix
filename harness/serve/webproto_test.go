@@ -424,3 +424,126 @@ func TestWorkspaceEventsReplaysAfterReconnect(t *testing.T) {
 		t.Fatalf("replay types = %q, %q", second.ssetype, third.ssetype)
 	}
 }
+
+// workspaceReplayJSON mirrors the GET /workspace/replay response shape.
+type workspaceReplayJSON struct {
+	TaskID   string        `json:"task_id"`
+	FirstSeq uint64        `json:"first_seq"`
+	LastSeq  uint64        `json:"last_seq"`
+	Frames   []WebEnvelope `json:"frames"`
+}
+
+// TestWorkspaceReplaySnapshotJSON exposes the retained workspace frame window
+// through GET /workspace/replay so a refreshed workspace page can rebuild its
+// Diff/Terminal/Review panels without a live subscription (#403). The window
+// must mirror the SSE stream exactly (versioned envelopes, stable increasing
+// seqs) and be cleared together with the session by ResetSession, exactly like
+// the SSE replay path.
+func TestWorkspaceReplaySnapshotJSON(t *testing.T) {
+	bc := NewBroadcaster()
+	ctrl := control.New(control.Options{Sink: bc})
+	srv := New(ctrl, bc, config.ServeConfig{})
+	httpSrv := httptest.NewServer(srv.Handler())
+	defer httpSrv.Close()
+
+	fetch := func() workspaceReplayJSON {
+		t.Helper()
+		resp, err := http.Get(httpSrv.URL + "/workspace/replay")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("GET /workspace/replay status = %d", resp.StatusCode)
+		}
+		var out workspaceReplayJSON
+		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+			t.Fatal(err)
+		}
+		return out
+	}
+
+	expectedTaskID := filepath.Base(ctrl.SessionPath())
+	if expectedTaskID == "" || expectedTaskID == "." {
+		expectedTaskID = "current"
+	}
+
+	// No frames yet: an empty (non-null) window with matching task id.
+	empty := fetch()
+	if empty.TaskID != expectedTaskID {
+		t.Fatalf("empty replay task_id = %q, want %q", empty.TaskID, expectedTaskID)
+	}
+	if empty.Frames == nil || len(empty.Frames) != 0 {
+		t.Fatalf("empty replay frames = %#v, want []", empty.Frames)
+	}
+	if empty.FirstSeq != 0 || empty.LastSeq != 0 {
+		t.Fatalf("empty replay seqs = %d..%d, want 0..0", empty.FirstSeq, empty.LastSeq)
+	}
+
+	emitSeq := []event.Event{
+		{Kind: event.Message, Text: "完整回答"},
+		{Kind: event.ToolDispatch, Tool: event.Tool{ID: "t1", Name: "edit_file"}},
+		{Kind: event.ToolResult, Tool: event.Tool{ID: "t1", Output: "ok"}},
+		{Kind: event.Usage, Usage: &provider.Usage{CacheHitTokens: 9}},
+	}
+	for _, ev := range emitSeq {
+		bc.Emit(ev)
+	}
+
+	full := fetch()
+	wantTypes := []string{ProtoTypeAssistant, ProtoTypeToolStart, ProtoTypeToolResult, ProtoTypeCacheStatus}
+	if len(full.Frames) != len(wantTypes) {
+		t.Fatalf("replay frames = %d, want %d", len(full.Frames), len(wantTypes))
+	}
+	if full.FirstSeq != full.Frames[0].Seq || full.LastSeq != full.Frames[len(full.Frames)-1].Seq {
+		t.Fatalf("replay seq window %d..%d != frame seqs %d..%d",
+			full.FirstSeq, full.LastSeq, full.Frames[0].Seq, full.Frames[len(full.Frames)-1].Seq)
+	}
+	var last uint64
+	for i, env := range full.Frames {
+		if env.V != 1 {
+			t.Errorf("frame %d: v = %d, want 1", i, env.V)
+		}
+		if env.Seq <= last {
+			t.Errorf("frame %d: seq %d not increasing after %d", i, env.Seq, last)
+		}
+		last = env.Seq
+		if env.TaskID != expectedTaskID {
+			t.Errorf("frame %d: task_id = %q, want %q", i, env.TaskID, expectedTaskID)
+		}
+		if env.Type != wantTypes[i] {
+			t.Errorf("frame %d: type = %q, want %q", i, env.Type, wantTypes[i])
+		}
+	}
+	var inner struct {
+		Kind string `json:"kind"`
+	}
+	if err := json.Unmarshal(full.Frames[1].Data, &inner); err != nil {
+		t.Fatal(err)
+	}
+	if inner.Kind != "tool_dispatch" {
+		t.Errorf("replay tool frame inner kind = %q, want tool_dispatch", inner.Kind)
+	}
+
+	// The JSON snapshot obeys the same bounded window as the SSE replay path:
+	// once more than webHistoryLimit frames are retained, the oldest frames are
+	// evicted and the snapshot reports the surviving suffix.
+	for i := 0; i < webHistoryLimit+3; i++ {
+		bc.Emit(event.Event{Kind: event.Notice, Level: event.LevelInfo})
+	}
+	windowed := fetch()
+	if len(windowed.Frames) != webHistoryLimit {
+		t.Fatalf("bounded replay frames = %d, want %d", len(windowed.Frames), webHistoryLimit)
+	}
+	if windowed.FirstSeq == 0 || windowed.LastSeq <= windowed.FirstSeq {
+		t.Fatalf("bounded replay seqs %d..%d not strictly increasing", windowed.FirstSeq, windowed.LastSeq)
+	}
+
+	// Session (re)start clears the retained window for the next task, keeping
+	// the JSON snapshot consistent with the SSE replay path.
+	bc.ResetSession()
+	cleared := fetch()
+	if len(cleared.Frames) != 0 {
+		t.Fatalf("after ResetSession replay frames = %d, want 0", len(cleared.Frames))
+	}
+}

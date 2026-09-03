@@ -264,6 +264,25 @@ func (b *Broadcaster) SubscribeWebSince(lastSeq uint64, taskID string) (<-chan w
 	}
 }
 
+// ReplayWindow snapshots the broadcaster's retained workspace frames for a
+// client that attached after they were emitted (#403). It is the JSON sibling
+// of the SubscribeWebSince SSE path — the same bounded window, same ordering,
+// no live subscription. taskID is stamped onto every delivery exactly like a
+// fresh subscriber so the replay frames carry the same task attribution as the
+// live stream. Frames are immutable after publish, so sharing them is safe.
+func (b *Broadcaster) ReplayWindow(taskID string) []webDelivery {
+	if b == nil {
+		return nil
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	replay := make([]webDelivery, 0, len(b.webHistory))
+	for _, frame := range b.webHistory {
+		replay = append(replay, webDelivery{frame: frame, taskID: taskID})
+	}
+	return replay
+}
+
 // SubscribeWebLive registers a workspace subscriber without replaying retained
 // frames. The workspace uses this while it hydrates the durable /history
 // snapshot, buffering any events that arrive during that request.

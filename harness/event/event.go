@@ -549,15 +549,31 @@ type QuerySummary struct {
 	Tokens int    `json:"tokens,omitempty"`
 }
 
+// RetrievalQueryStructure records the deterministic, high-information query
+// projection used for retrieval. It is intentionally fielded rather than a
+// copy of the complete user prompt so experiments can explain and replay the
+// selected lexical evidence without retaining benchmark framing.
+type RetrievalQueryStructure struct {
+	Strategy       string   `json:"strategy,omitempty"`
+	Intent         string   `json:"intent,omitempty"`
+	Repo           string   `json:"repo,omitempty"`
+	Paths          []string `json:"paths,omitempty"`
+	Symbols        []string `json:"symbols,omitempty"`
+	ErrorCodes     []string `json:"errorCodes,omitempty"`
+	TestNames      []string `json:"testNames,omitempty"`
+	Dependencies   []string `json:"dependencies,omitempty"`
+	FallbackReason string   `json:"fallbackReason,omitempty"`
+}
+
 // RetrievalCandidate records one score-ordered top-k result and the exact
-// production admission outcome. Verified is "unknown" until slice metadata
-// gains a distinct successful-evaluation marker; provenance must not be
-// misreported as verification.
+// production admission outcome. Verified is probation/verified for Result
+// slices and unknown for types without a verification lifecycle.
 type RetrievalCandidate struct {
 	ID            string  `json:"id,omitempty"`
 	Type          string  `json:"type,omitempty"`
 	SourceSession string  `json:"sourceSession,omitempty"`
 	Project       string  `json:"project,omitempty"`
+	BaseCommit    string  `json:"baseCommit,omitempty"`
 	Origin        string  `json:"origin,omitempty"`
 	Verified      string  `json:"verified,omitempty"`
 	Score         float64 `json:"score,omitempty"`
@@ -571,20 +587,21 @@ type RetrievalCandidate struct {
 // shadow mode Candidates and the counterfactual FinalOrder are populated but
 // Injected/Bytes/MessageRole remain zero because provider input is untouched.
 type RetrievalDiagnostics struct {
-	Mode           string               `json:"mode,omitempty"`
-	LibrarySize    int                  `json:"librarySize,omitempty"`
-	Repo           string               `json:"repo,omitempty"`
-	BaseCommit     string               `json:"baseCommit,omitempty"`
-	QueryBefore    QuerySummary         `json:"queryBefore,omitempty"`
-	QueryAfter     QuerySummary         `json:"queryAfter,omitempty"`
-	TopMargin      float64              `json:"topMargin,omitempty"`
-	Candidates     []RetrievalCandidate `json:"candidates,omitempty"`
-	Injected       bool                 `json:"injected,omitempty"`
-	Bytes          int                  `json:"bytes,omitempty"`
-	MessageRole    string               `json:"messageRole,omitempty"`
-	FinalOrder     []string             `json:"finalOrder,omitempty"`
-	Decision       string               `json:"decision,omitempty"`
-	DecisionReason string               `json:"decisionReason,omitempty"`
+	Mode           string                  `json:"mode,omitempty"`
+	LibrarySize    int                     `json:"librarySize,omitempty"`
+	Repo           string                  `json:"repo,omitempty"`
+	BaseCommit     string                  `json:"baseCommit,omitempty"`
+	QueryBefore    QuerySummary            `json:"queryBefore,omitempty"`
+	QueryAfter     QuerySummary            `json:"queryAfter,omitempty"`
+	QueryStructure RetrievalQueryStructure `json:"queryStructure,omitempty"`
+	TopMargin      float64                 `json:"topMargin,omitempty"`
+	Candidates     []RetrievalCandidate    `json:"candidates,omitempty"`
+	Injected       bool                    `json:"injected,omitempty"`
+	Bytes          int                     `json:"bytes,omitempty"`
+	MessageRole    string                  `json:"messageRole,omitempty"`
+	FinalOrder     []string                `json:"finalOrder,omitempty"`
+	Decision       string                  `json:"decision,omitempty"`
+	DecisionReason string                  `json:"decisionReason,omitempty"`
 }
 
 // FinalReadiness carries machine-readable recovery requirements on TurnDone.
@@ -642,6 +659,9 @@ const (
 	// once per user turn so metrics can count injection coverage without
 	// scraping the prompt.
 	NoticeCodeSemantixInject = "semantix_inject"
+	// NoticeCodeSemantixFuse reports that a loop/progress guard removed the
+	// active history block. Detail carries {"slices": n, "reason": string}.
+	NoticeCodeSemantixFuse = "semantix_fuse"
 )
 
 type Event struct {

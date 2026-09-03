@@ -98,12 +98,18 @@ func (g *Gateway) handleChat(w http.ResponseWriter, r *http.Request, body []byte
 		}
 	}
 
-	// L2: inject reuse context, then forward (design §3.3 steps 4-5).
+	// L2: inject reuse context, then forward (design §3.3 steps 4-5). The
+	// ablation switch covers every memory mechanism, not just L3: a disabled
+	// gateway forwards verbatim so an OFF arm differs from ON only in memory.
 	var injectedTokens int64
 	var sliceHits int
-	inj, ierr := g.injector.Build(query)
-	if ierr != nil {
-		log.Printf("gateway: inject: %v", ierr) // never blocks the main path
+	var inj *inject.Injection
+	if !g.disabled {
+		var ierr error
+		inj, ierr = g.injector.Build(query)
+		if ierr != nil {
+			log.Printf("gateway: inject: %v", ierr) // never blocks the main path
+		}
 	}
 	if inj != nil {
 		injectedTokens = int64(inj.Bytes / 4)

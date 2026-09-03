@@ -102,6 +102,13 @@ func Import(store Store, r io.Reader, origin Origin) (imported, skipped int, err
 			continue
 		}
 		sl.Meta.Origin = origin // untrusted channel: never inherit file claims
+		// Verification is a local, host-observed property, not portable file
+		// provenance. Even a trusted import must explicitly re-verify Results.
+		if sl.Type == Result {
+			sl.Meta.ResultStatus = ResultStatusProbation
+			sl.Meta.ResultVerifiedBy = ""
+			sl.Meta.ResultVerificationEvidence = ""
+		}
 		if err := store.Put(&sl); err != nil {
 			return imported, skipped, err
 		}

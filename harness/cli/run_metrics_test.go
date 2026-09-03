@@ -164,6 +164,14 @@ func TestMetricsSinkAttributesRepeatedToolArguments(t *testing.T) {
 	}
 }
 
+func TestMetricsSinkCountsSemantixFuses(t *testing.T) {
+	s := &metricsSink{inner: event.Discard}
+	s.Emit(event.Event{Kind: event.Notice, Code: event.NoticeCodeSemantixFuse, Detail: `{"slices":2,"reason":"loop_guard"}`})
+	if s.m.SemantixFuseTurns != 1 || s.m.SemantixRejectedSlices != 2 {
+		t.Fatalf("fuse metrics = %+v", s.m)
+	}
+}
+
 func TestWriteMetricsIncludesReadinessFields(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "metrics.json")
 	if err := writeMetrics(path, RunMetrics{

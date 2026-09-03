@@ -126,6 +126,8 @@ type RunMetrics struct {
 	SemantixInjectBytes     int     `json:"semantix_inject_bytes,omitempty"`
 	SemantixReuseHits       int     `json:"semantix_reuse_hits,omitempty"`
 	SemantixReuseSavingsUSD float64 `json:"semantix_reuse_savings_usd,omitempty"`
+	SemantixFuseTurns       int     `json:"semantix_fuse_turns,omitempty"`
+	SemantixRejectedSlices  int     `json:"semantix_rejected_slices,omitempty"`
 
 	// Run accounting: what a benchmark needs to price one solved task and name
 	// the guard that ended a failed one.
@@ -379,6 +381,14 @@ func (s *metricsSink) record(e event.Event) {
 			if json.Unmarshal([]byte(e.Detail), &d) == nil {
 				s.m.SemantixReuseHits += d.Hits
 				s.m.SemantixReuseSavingsUSD += d.SavingsUSD
+			}
+		case event.NoticeCodeSemantixFuse:
+			s.m.SemantixFuseTurns++
+			var d struct {
+				Slices int `json:"slices"`
+			}
+			if json.Unmarshal([]byte(e.Detail), &d) == nil {
+				s.m.SemantixRejectedSlices += d.Slices
 			}
 		}
 	}

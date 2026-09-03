@@ -252,17 +252,56 @@ func parseLastEventID(value string) uint64 {
 }
 
 func writeWebDelivery(w http.ResponseWriter, flusher http.Flusher, delivery webDelivery) {
-	payload, err := json.Marshal(WebEnvelope{
+	payload, err := json.Marshal(webEnvelopeFromDelivery(delivery))
+	if err != nil {
+		return
+	}
+	fmt.Fprintf(w, "id: %d\nevent: %s\ndata: %s\n\n", delivery.frame.seq, delivery.frame.type_, payload)
+	flusher.Flush()
+}
+
+// webEnvelopeFromDelivery projects one broadcaster frame onto the stable
+// client envelope. Shared by the SSE writer and the JSON replay snapshot so
+// both transports expose byte-identical envelopes.
+func webEnvelopeFromDelivery(delivery webDelivery) WebEnvelope {
+	return WebEnvelope{
 		V:      1,
 		Seq:    delivery.frame.seq,
 		Type:   delivery.frame.type_,
 		TaskID: delivery.taskID,
 		TimeMS: delivery.frame.timeMS,
 		Data:   delivery.frame.data,
-	})
-	if err != nil {
-		return
 	}
-	fmt.Fprintf(w, "id: %d\nevent: %s\ndata: %s\n\n", delivery.frame.seq, delivery.frame.type_, payload)
-	flusher.Flush()
+}
+
+// workspaceReplay returns the broadcaster's retained workspace frame window as
+// JSON so a freshly attached client can rebuild the live-only context panels
+// (Diff / Terminal / Review / cache status) after a page refresh or reconnect
+// without re-adding timeline cards that /history already owns (#403).
+//
+// The window is bounded (webHistoryLimit) and session-scoped: it reflects what
+// the broadcaster observed since the active session was (re)started. Frames
+// are the same versioned WebEnvelope objects the SSE stream carries — real
+// observed events, never fabricated — and clients deduplicate by seq before
+// newer live frames arrive.
+func (s *Server) workspaceReplay(w http.ResponseWriter, r *http.Request) {
+	taskID := filepath.Base(s.ctl().SessionPath())
+	if taskID == "" || taskID == "." || taskID == string(os.PathSeparator) {
+		taskID = "current"
+	}
+	frames := s.bc.ReplayWindow(taskID)
+	envs := make([]WebEnvelope, 0, len(frames))
+	for _, delivery := range frames {
+		envs = append(envs, webEnvelopeFromDelivery(delivery))
+	}
+	firstSeq, lastSeq := uint64(0), uint64(0)
+	if len(envs) > 0 {
+		firstSeq, lastSeq = envs[0].Seq, envs[len(envs)-1].Seq
+	}
+	writeJSON(w, struct {
+		TaskID   string        `json:"task_id"`
+		FirstSeq uint64        `json:"first_seq"`
+		LastSeq  uint64        `json:"last_seq"`
+		Frames   []WebEnvelope `json:"frames"`
+	}{TaskID: taskID, FirstSeq: firstSeq, LastSeq: lastSeq, Frames: envs})
 }

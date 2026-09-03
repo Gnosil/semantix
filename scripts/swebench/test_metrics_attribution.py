@@ -52,6 +52,8 @@ class SemantixMetricAttributionTest(unittest.TestCase):
             "tool_calls_by_name": {"read_file": 4, "grep": 3, "bash": 1},
             "repeated_tool_calls": 3,
             "repeated_tool_calls_by_name": {"read_file": 2, "grep": 1},
+            "semantix_fuse_turns": 1,
+            "semantix_rejected_slices": 2,
         }
 
         metrics = self.new_metrics()
@@ -82,6 +84,8 @@ class SemantixMetricAttributionTest(unittest.TestCase):
         })
         self.assertEqual(metrics.repeated_tool_calls, 3)
         self.assertEqual(metrics.repeated_tool_calls_by_name, {"read_file": 2, "grep": 1})
+        self.assertEqual(metrics.semantix_fuse_turns, 1)
+        self.assertEqual(metrics.semantix_rejected_slices, 2)
 
     def test_fill_metrics_keeps_old_records_explicitly_unattributed(self) -> None:
         metrics = self.new_metrics()
