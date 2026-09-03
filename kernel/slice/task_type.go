@@ -61,10 +61,36 @@ func ClassifyTask(text string) string {
 	}
 	for _, rule := range taskRules {
 		for _, key := range rule.keys {
-			if strings.Contains(t, key) {
+			if containsTaskKey(t, key) {
 				return rule.kind
 			}
 		}
 	}
 	return TaskGeneral
+}
+
+// containsTaskKey applies word boundaries to ASCII keyword edges while
+// retaining substring matching for CJK keys. Without the boundary check,
+// feature terms such as "prefix", "suffix", and "fixture" accidentally
+// match the higher-precedence bugfix keyword "fix".
+func containsTaskKey(text, key string) bool {
+	for offset := 0; offset <= len(text)-len(key); {
+		i := strings.Index(text[offset:], key)
+		if i < 0 {
+			return false
+		}
+		i += offset
+		end := i + len(key)
+		beforeOK := !asciiTaskWord(key[0]) || i == 0 || !asciiTaskWord(text[i-1])
+		afterOK := !asciiTaskWord(key[len(key)-1]) || end == len(text) || !asciiTaskWord(text[end])
+		if beforeOK && afterOK {
+			return true
+		}
+		offset = i + 1
+	}
+	return false
+}
+
+func asciiTaskWord(b byte) bool {
+	return b >= 'a' && b <= 'z' || b >= '0' && b <= '9' || b == '_'
 }

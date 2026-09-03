@@ -125,7 +125,7 @@ func parseDistillDoc(data []byte) (*distillDoc, error) {
 				callIdx[tc.ID] = len(doc.calls)
 				doc.calls = append(doc.calls, distillCall{id: tc.ID, name: tc.Name, args: tc.Arguments})
 			}
-		case dl.Role == "" && dl.ToolCallID != "":
+		case (dl.Role == "" || dl.Role == "tool") && dl.ToolCallID != "":
 			// Tool result line; mirror double-writes keep the first copy.
 			if _, seen := doc.results[dl.ToolCallID]; !seen {
 				doc.results[dl.ToolCallID] = dl.Content
@@ -491,9 +491,19 @@ func cdRoots(doc *distillDoc) []string {
 }
 
 func stripRoots(p string, roots []string) string {
+	p = strings.ReplaceAll(p, `\`, "/")
 	for _, r := range roots {
-		if rest, ok := strings.CutPrefix(p, r+"/"); ok {
+		r = strings.TrimRight(strings.ReplaceAll(r, `\`, "/"), "/")
+		prefix := r + "/"
+		if rest, ok := strings.CutPrefix(p, prefix); ok {
 			return rest
+		}
+		// A transcript can be distilled on a different operating system from
+		// the one that produced it. Preserve Unix case sensitivity, but apply
+		// Windows drive-path semantics to Windows-shaped receipts.
+		if len(p) >= 3 && p[1] == ':' && p[2] == '/' &&
+			len(p) >= len(prefix) && strings.EqualFold(p[:len(prefix)], prefix) {
+			return p[len(prefix):]
 		}
 	}
 	return p

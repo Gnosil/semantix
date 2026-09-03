@@ -14,6 +14,8 @@ func TestClassifyTask(t *testing.T) {
 		{"修复登录页面的报错", TaskBugfix},
 		{"The failing test in CI needs an update", TaskTestUpdate},
 		{"Add support for HTTP/3", TaskFeature},
+		{"Add prefix support", TaskFeature},
+		{"Implement suffix handling", TaskFeature},
 		{"新增导出功能", TaskFeature},
 		{"Refactor the retry loop into a helper", TaskRefactor},
 		{"Update the README and docstrings", TaskDocs},
@@ -26,6 +28,47 @@ func TestClassifyTask(t *testing.T) {
 			t.Errorf("ClassifyTask(%q) = %q, want %q", c.text, got, c.want)
 		}
 	}
+}
+
+func TestDistillAcceptsStandardRoleToolLines(t *testing.T) {
+	transcript := []byte(`{"role":"user","content":"Fix the parser crash"}
+{"role":"assistant","tool_calls":[{"id":"e1","name":"edit_file","arguments":{"path":"parser.go"}},{"id":"t1","name":"bash","arguments":{"command":"go test ./..."}}]}
+{"role":"tool","tool_call_id":"e1","name":"edit_file","content":"edited parser.go"}
+{"role":"tool","tool_call_id":"t1","name":"bash","content":"ok"}
+`)
+	cards, err := Distill(transcript, SliceMeta{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sawOps, sawOutcome bool
+	for _, card := range cards {
+		sawOps = sawOps || strings.HasPrefix(string(card.Content), "Repo operations")
+		sawOutcome = sawOutcome || strings.HasPrefix(string(card.Content), "Task outcome")
+	}
+	if !sawOps || !sawOutcome {
+		t.Fatalf("standard role=tool results were ignored: repo-ops=%v outcome=%v", sawOps, sawOutcome)
+	}
+}
+
+func TestDistillNormalizesWindowsEditedPaths(t *testing.T) {
+	transcript := []byte("" +
+		`{"role":"user","content":"Fix the parser crash"}` + "\n" +
+		`{"role":"assistant","tool_calls":[{"id":"e1","name":"edit_file","arguments":{"path":"D:\\repo\\parser.go"}},{"id":"t1","name":"bash","arguments":{"command":"cd D:\\repo && go test ./..."}}]}` + "\n" +
+		`{"type":"tool","tool_call_id":"e1","name":"edit_file","content":"edited D:\\repo\\parser.go"}` + "\n" +
+		`{"type":"tool","tool_call_id":"t1","name":"bash","content":"ok"}` + "\n")
+	cards, err := Distill(transcript, SliceMeta{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, card := range cards {
+		if strings.HasPrefix(string(card.Content), "Task outcome") {
+			if strings.Contains(string(card.Content), `D:\repo`) || !strings.Contains(string(card.Content), "- parser.go") {
+				t.Fatalf("outcome kept absolute Windows path:\n%s", card.Content)
+			}
+			return
+		}
+	}
+	t.Fatal("missing outcome card")
 }
 
 func TestClassifyTaskPrecedence(t *testing.T) {
