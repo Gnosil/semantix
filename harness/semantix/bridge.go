@@ -276,6 +276,20 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 		return InjectResult{}
 	}
 	z := zone.Default()
+	// This is a pure-BM25 path (kernelIndex), and the absolute floors are
+	// by design cosine-scale guards ("only bind on the bounded cosine
+	// scale" — zone.Zones doc). On BM25 they are wrong in both directions:
+	// large libraries score >> 1 so the floors are dead letters, while a
+	// cold library's short distilled cards score < AbsLow and the floors
+	// silently veto every candidate. Zero them here; per-scale threshold
+	// calibration is the W0–W4 follow-up, not this wiring's job.
+	z.AbsHigh, z.AbsLow = 0, 0
+	// Four-layer distill spec §2.5 wanted tool_pattern/result slices never
+	// injected on the agent path (#268 admission evidence; W0 probe: 93.4%
+	// cross-project pseudo-hits on tool-name slices — the misleading-
+	// reference class the two-arm pilot paid +32% for). strictAllowedTypes
+	// ({Context, Memory}, #454) subsumes that ban at the source, so no
+	// per-type zone override is needed here.
 	workspaceDir := b.workspaceDir()
 	inj, err := (&inject.Injector{
 		Index:                idx,
@@ -295,6 +309,12 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 		RequireRunnerUp:      true,
 		Zones:                &z,
 		AllowGrey:            b.cfg.GreyMode == "audit",
+		// Same-type admission for distilled plan-skeleton / outcome cards
+		// (four-layer distill spec §2.5): the turn's task classification
+		// gates task-tagged Memory slices. Classify the RAW query, not
+		// cleanedQuery — the cleaned form is a BM25 token projection that
+		// splits CJK words, and ClassifyTask matches contiguous substrings.
+		TaskType: slice.ClassifyTask(query),
 	}).BuildHits(cleanedQuery, hits)
 	if err != nil {
 		op := "miss"

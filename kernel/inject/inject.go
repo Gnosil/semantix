@@ -123,6 +123,14 @@ type Injector struct {
 	// preserving the verified/grey boundary inside the block. Grey slices
 	// share the exact-byte budget bound — audit mode is not a bypass.
 	AllowGrey bool
+	// TaskType, when non-empty, gates task-tagged Memory slices (the
+	// distilled plan-skeleton / outcome cards, which carry a "task=<type>"
+	// marker) on matching the current turn's classified type. Cross-type
+	// instance locators are exactly the "misleading reference" failure the
+	// two-arm pilot measured — a bugfix outcome card must not steer a
+	// feature task. Untagged Memory slices and every other slice type are
+	// unaffected; empty TaskType keeps the historical behavior.
+	TaskType string
 }
 
 // Injection is the assembled, deterministic reuse block.
@@ -187,13 +195,19 @@ func (in *Injector) BuildHits(query string, hits []slice.Hit) (*Injection, error
 	if budget <= 0 {
 		budget = DefaultBudget
 	}
+	// Eligibility feeds the relative-confidence denominator (top1) and the
+	// runner-up margin: a candidate the type allowlist or the task gate
+	// rejects must not depress every other candidate's score/top1 ratio —
+	// the exact denominator artifact the W6 ablation measured on cold
+	// libraries (one lexically strong ineligible slice emptying the block).
 	eligibleScores := make([]float64, 0, len(hits))
 	freshnessReasons := make(map[*slice.Slice]string, len(hits))
 	for _, h := range hits {
 		if h.Slice != nil {
 			freshnessReasons[h.Slice] = in.freshnessReason(h.Slice)
 		}
-		if h.Slice != nil && in.admissionTypeEligible(h.Slice) && freshnessReasons[h.Slice] == "" {
+		if h.Slice != nil && in.admissionTypeEligible(h.Slice) && in.taskAdmits(h.Slice) &&
+			freshnessReasons[h.Slice] == "" {
 			eligibleScores = append(eligibleScores, h.Score)
 		}
 	}
@@ -282,6 +296,15 @@ func (in *Injector) BuildHits(query string, hits []slice.Hit) (*Injection, error
 		}
 		if in.MinCoverage > 0 && d.Coverage < in.MinCoverage {
 			d.Reason = "coverage_low"
+			decisions = append(decisions, d)
+			dropped++
+			continue
+		}
+		// Task-type admission for tagged Memory cards (see the TaskType
+		// field doc): a card distilled from a different task type is
+		// dropped before zone classification even sees it.
+		if !in.taskAdmits(h.Slice) {
+			d.Reason = "task_type_mismatch"
 			decisions = append(decisions, d)
 			dropped++
 			continue
@@ -393,6 +416,39 @@ func (in *Injector) BuildHits(query string, hits []slice.Hit) (*Injection, error
 		Decisions:    decisions,
 		TopMargin:    topMargin,
 	}, nil
+}
+
+// taskAdmits applies the task-type gate: with a non-empty TaskType, a
+// Memory slice carrying a different task tag is inadmissible (both for the
+// block and for the relative-confidence denominator).
+func (in *Injector) taskAdmits(sl *slice.Slice) bool {
+	if in.TaskType == "" || sl.Type != slice.Memory {
+		return true
+	}
+	tag := taskTagOf(string(sl.Content))
+	return tag == "" || tag == in.TaskType
+}
+
+// taskTagOf extracts the "task=<type>" marker a distilled Memory card
+// carries in its head line ("Plan skeleton (task=bugfix):", "Task outcome
+// (task=bugfix): …"). Empty for untagged content — legacy Memory slices
+// carry no tag and are never task-gated.
+func taskTagOf(content string) string {
+	head := content
+	if i := strings.IndexByte(head, '\n'); i >= 0 {
+		head = head[:i]
+	}
+	_, rest, ok := strings.Cut(head, "task=")
+	if !ok {
+		return ""
+	}
+	end := strings.IndexFunc(rest, func(r rune) bool {
+		return !(r == '-' || r == '_' || r >= '0' && r <= '9' || r >= 'a' && r <= 'z')
+	})
+	if end < 0 {
+		return rest
+	}
+	return rest[:end]
 }
 
 func formatSliceItem(sl *slice.Slice, score float64, content string, grey bool) string {
