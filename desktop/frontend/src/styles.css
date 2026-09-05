@@ -3312,7 +3312,7 @@ a[href] {
   display: flex;
   align-items: center;
   justify-content: center;
-  filter: drop-shadow(0 14px 22px color-mix(in srgb, #0153e5 34%, transparent));
+  filter: drop-shadow(0 14px 22px color-mix(in srgb, #6cd0a3 34%, transparent));
   margin-bottom: 22px;
 }
 .startup-splash__mark img {
