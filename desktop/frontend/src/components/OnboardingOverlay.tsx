@@ -51,7 +51,7 @@ export function OnboardingOverlay({
   return (
     <div className="onboarding" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
       <div className="onboarding__card">
-        <img src={logo} className="onboarding__logo" alt="Reasonix" draggable={false} />
+        <img src={logo} className="onboarding__logo" alt="Semantix" draggable={false} />
         <div id="onboarding-title" className="onboarding__title">{t("onboarding.title")}</div>
         <div className="onboarding__tag">{t("onboarding.tagline")}</div>
 

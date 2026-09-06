@@ -200,7 +200,7 @@ func sessionTrashArtifacts(sessionPath, key string) []sessionTrashArtifact {
 // errSessionBusyElsewhere is the sanitized error surfaced when a destructive
 // session operation is blocked by a live owner. It intentionally carries no
 // writer id, hostname, or path.
-var errSessionBusyElsewhere = errors.New("session is in use by another Reasonix window or process")
+var errSessionBusyElsewhere = errors.New("session is in use by another Semantix window or process")
 
 // acquireSessionRemovalGuard wraps agent.TryAcquireSessionRemovalGuard with
 // the sanitized busy error. The guard holds the session's save and lease

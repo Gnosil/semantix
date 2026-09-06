@@ -88,13 +88,13 @@ func (f *botEventForwarder) Emit(e event.Event) {
 	case event.ApprovalRequest:
 		// The heartbeat turn belongs to the desktop tab controller, not the bot
 		// gateway session, so remote /approve replies cannot satisfy this ID.
-		text := "⚠️ 需要在 Reasonix 桌面端批准操作: " + e.Approval.Tool + " — " + e.Approval.Subject
+		text := "⚠️ 需要在 Semantix 桌面端批准操作: " + e.Approval.Tool + " — " + e.Approval.Subject
 		text += "\n请回到桌面窗口处理。"
 		f.sendToAll(text)
 
 	case event.AskRequest:
 		var qb strings.Builder
-		qb.WriteString("❓ 需要在 Reasonix 桌面端回答问题:\n")
+		qb.WriteString("❓ 需要在 Semantix 桌面端回答问题:\n")
 		for i, q := range e.Ask.Questions {
 			if i > 0 {
 				qb.WriteString("\n")

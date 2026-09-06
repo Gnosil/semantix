@@ -94,7 +94,7 @@ func TestDeleteSessionKeepsDuplicateLiveSessionHeldByOtherRuntime(t *testing.T) 
 // lingering background/tray-hidden instance, or a leftover from a crash) must
 // not be handed back to a "new conversation" click. Reusing it would collide
 // the new tab with that holder, so every lease-gated switch (effort, model,
-// token mode) would fail as "open in another Reasonix window" no matter how
+// token mode) would fail as "open in another Semantix window" no matter how
 // many times the user retries — because it keeps re-picking the same stuck
 // topic instead of ever landing on a fresh one.
 func TestEnsureBlankTabSkipsIndexedTopicHeldByForeignRuntime(t *testing.T) {

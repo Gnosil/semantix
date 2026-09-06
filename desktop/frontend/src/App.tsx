@@ -968,7 +968,7 @@ function fence(label: string, value: string): string {
 }
 
 function sessionItemsToMarkdown(title: string, items: Item[], live?: LiveStream): string {
-  const lines: string[] = [`# ${title.trim() || "Reasonix session"}`, ""];
+  const lines: string[] = [`# ${title.trim() || "Semantix session"}`, ""];
   for (const item of materializeLiveItems(items, live)) {
     switch (item.kind) {
       case "user":
@@ -1030,7 +1030,7 @@ function sessionItemsToJson(title: string, items: Item[], live?: LiveStream): st
 
 function safeFilename(name: string): string {
   const cleaned = name.trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").slice(0, 80);
-  return cleaned || "reasonix-session";
+  return cleaned || "semantix-session";
 }
 
 /** Global hotkey handler for shell-expand toggle (Ctrl/Cmd+B). */
@@ -4339,7 +4339,7 @@ export default function App() {
             <>
               <div className="sidebar__head" aria-hidden={sidebarCollapsed}>
                 <div className="sidebar__brand sidebar__brand--workbench">
-                  <img src={logoWordmark} alt="Reasonix" className="sidebar__brand-logo sidebar__brand-logo--workbench" draggable={false} />
+                  <img src={logoWordmark} alt="Semantix" className="sidebar__brand-logo sidebar__brand-logo--workbench" draggable={false} />
                 </div>
               </div>
 
@@ -4359,7 +4359,7 @@ export default function App() {
           ) : (
             <>
               <div className="sidebar__brand" aria-hidden={sidebarCollapsed}>
-                <img src={logoWordmark} alt="Reasonix" className="sidebar__brand-logo" draggable={false} />
+                <img src={logoWordmark} alt="Semantix" className="sidebar__brand-logo" draggable={false} />
               </div>
 
               <button

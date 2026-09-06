@@ -394,7 +394,7 @@ func TestStartTopicActivationFailureDetachesPreviousAndReattaches(t *testing.T) 
 	if failed.TabID != ticketB.TabID {
 		t.Fatalf("failed event tab = %q, want %q", failed.TabID, ticketB.TabID)
 	}
-	if !strings.Contains(failed.Error, "already open in another Reasonix window") {
+	if !strings.Contains(failed.Error, "already open in another Semantix window") {
 		t.Fatalf("failed error = %q, want the sanitized lease-busy message", failed.Error)
 	}
 	if strings.Contains(failed.Error, pathB) {

@@ -928,7 +928,7 @@ func TestBuildTabControllerBlocksWhenSessionLeaseHeld(t *testing.T) {
 	// The surfaced startup error is the sanitized busy message: the raw lease
 	// error would leak the session path and the holder's host-pid-writer id
 	// into the topbar banner.
-	if !strings.Contains(tab.StartupErr, "already open in another Reasonix window") {
+	if !strings.Contains(tab.StartupErr, "already open in another Semantix window") {
 		t.Fatalf("startup error = %q, want user-facing busy message", tab.StartupErr)
 	}
 	if strings.Contains(tab.StartupErr, agent.ErrSessionLeaseHeld.Error()) ||

@@ -2287,7 +2287,7 @@ func TestSetProviderKeyLeaseHeldKeepsCurrentController(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SetProviderKey: %v", err)
 	}
-	if !strings.Contains(warning, "current session could not refresh yet") || !strings.Contains(warning, "another Reasonix window") {
+	if !strings.Contains(warning, "current session could not refresh yet") || !strings.Contains(warning, "another Semantix window") {
 		t.Fatalf("SetProviderKey warning = %q, want deferred rebuild warning", warning)
 	}
 	if strings.Contains(warning, sessionPath) || strings.Contains(warning, "held by") {
@@ -2431,7 +2431,7 @@ func TestSaveProviderWithKeyLeaseHeldPersistsCustomProvider(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SaveProviderWithKey: %v", err)
 	}
-	if !strings.Contains(warning, "current session could not refresh yet") || !strings.Contains(warning, "another Reasonix window") {
+	if !strings.Contains(warning, "current session could not refresh yet") || !strings.Contains(warning, "another Semantix window") {
 		t.Fatalf("SaveProviderWithKey warning = %q, want deferred rebuild warning", warning)
 	}
 	if strings.Contains(warning, sessionPath) || strings.Contains(warning, "held by") {
@@ -5253,7 +5253,7 @@ func TestConnectKeyRebuildLeaseHeldKeepsCurrentController(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ConnectKey: %v", err)
 	}
-	if !strings.Contains(warning, "another Reasonix window") {
+	if !strings.Contains(warning, "another Semantix window") {
 		t.Fatalf("ConnectKey warning = %q, want user-facing lease warning", warning)
 	}
 	if tab.Ctrl != oldCtrl {

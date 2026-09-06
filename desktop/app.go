@@ -9660,9 +9660,9 @@ func (e *sessionLeaseBusyError) Error() string {
 	// the session itself (startup bind), not changing a setting on it.
 	setting := strings.TrimSpace(e.setting)
 	if setting == "" {
-		return "this session is already open in another Reasonix window or still running in the background; close the other window or open a copy"
+		return "this session is already open in another Semantix window or still running in the background; close the other window or open a copy"
 	}
-	return fmt.Sprintf("this session is already open in another Reasonix window or still running in the background; close the other window or open a copy before changing %s", setting)
+	return fmt.Sprintf("this session is already open in another Semantix window or still running in the background; close the other window or open a copy before changing %s", setting)
 }
 
 func (e *sessionLeaseBusyError) Unwrap() error {
@@ -9708,7 +9708,7 @@ var (
 	// sub-agent's parent session lease inside every controller build, holding
 	// it only for the duration of a metadata rewrite (sub-millisecond); a
 	// concurrent tab build that races that probe must not surface a spurious
-	// "already open in another Reasonix window" error for a lease that is
+	// "already open in another Semantix window" error for a lease that is
 	// genuinely free once the probe releases it. A lease held by another
 	// window or process stays held for its whole lifetime, so the bounded
 	// retry still fails fast there.

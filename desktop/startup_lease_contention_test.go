@@ -11,7 +11,7 @@ import (
 )
 
 // TestEnsureTabSessionLeaseForRebuildSurvivesTransientHolder reproduces the
-// startup "this session is already open in another Reasonix window" false
+// startup "this session is already open in another Semantix window" false
 // positive: a transient lease holder — CleanupStaleRunning probing a running
 // subagent's parent session during a concurrent controller build — holds the
 // session lease for a few milliseconds while the tab's own startup bind runs.

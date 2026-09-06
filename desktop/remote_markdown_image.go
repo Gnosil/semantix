@@ -224,7 +224,7 @@ func serveRemoteMarkdownImage(
 		return
 	}
 	req.Header.Set("Accept", "image/webp,image/png,image/jpeg,image/gif,image/bmp,image/svg+xml;q=0.9,*/*;q=0.1")
-	req.Header.Set("User-Agent", "Reasonix-Desktop/1.0")
+	req.Header.Set("User-Agent", "Semantix-Desktop/1.0")
 
 	client, err := clientFactory(spec)
 	if err != nil {
