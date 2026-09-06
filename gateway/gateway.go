@@ -486,6 +486,12 @@ func (g *Gateway) recordSession(sessionID string, ctxHash, model string, turns [
 		log.Printf("gateway: write session %s: %v", path, err)
 		return
 	}
+	if g.disabled {
+		// Ablation switch: keep the sidecar transcript (arms stay auditable
+		// offline) but never grow the slice library on a disabled gateway.
+		g.ingestWG.Done()
+		return
+	}
 	go func() {
 		defer g.ingestWG.Done()
 		g.ingestSession(path, ctxHash, model)

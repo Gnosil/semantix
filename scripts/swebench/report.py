@@ -16,6 +16,31 @@ import json
 from pathlib import Path
 
 
+def sum_int(metrics: list[dict], key: str) -> int:
+    """Sum one optional integer field while tolerating legacy records."""
+    return sum(
+        value
+        for row in metrics
+        if isinstance((value := row.get(key, 0)), int)
+        and not isinstance(value, bool)
+    )
+
+
+def sum_count_maps(metrics: list[dict], key: str) -> dict[str, int]:
+    """Merge optional non-negative string-to-int counter maps."""
+    out = {}
+    for row in metrics:
+        counts = row.get(key, {})
+        if not isinstance(counts, dict):
+            continue
+        for name, count in counts.items():
+            if (not isinstance(name, str) or not isinstance(count, int)
+                    or isinstance(count, bool) or count < 0):
+                continue
+            out[name] = out.get(name, 0) + count
+    return dict(sorted(out.items()))
+
+
 def load_run(run_dir: Path) -> dict:
     metrics = []
     mpath = run_dir / "metrics.jsonl"
@@ -41,6 +66,23 @@ def load_run(run_dir: Path) -> dict:
         "cache_hit_tokens": sum(m["cache_hit_tokens"] for m in metrics),
         "cache_miss_tokens": sum(m["cache_miss_tokens"] for m in metrics),
         "cache_hit_rate": None,
+        "steps": sum_int(metrics, "steps"),
+        "executor_calls": sum_int(metrics, "executor_calls"),
+        "planner_calls": sum_int(metrics, "planner_calls"),
+        "subagent_calls": sum_int(metrics, "subagent_calls"),
+        "compaction_calls": sum_int(metrics, "compaction_calls"),
+        "other_model_calls": sum_int(metrics, "other_model_calls"),
+        "source_call_total": sum_int(metrics, "source_call_total"),
+        "source_call_delta": sum_int(metrics, "source_call_delta"),
+        "model_calls_by_source": sum_count_maps(metrics, "model_calls_by_source"),
+        "provider_retries": sum_int(metrics, "provider_retries"),
+        "compactions": sum_int(metrics, "compactions"),
+        "subagent_runs": sum_int(metrics, "subagent_runs"),
+        "tool_calls": sum_int(metrics, "tool_calls"),
+        "tool_failures": sum_int(metrics, "tool_failures"),
+        "tool_calls_by_name": sum_count_maps(metrics, "tool_calls_by_name"),
+        "repeated_tool_calls": sum_int(metrics, "repeated_tool_calls"),
+        "repeated_tool_calls_by_name": sum_count_maps(metrics, "repeated_tool_calls_by_name"),
         "cost_usd": sum(m["cost_usd"] or 0 for m in metrics),
         "empty_patches": sum(1 for m in metrics if m["empty_patch"]),
         "errors": sum(1 for m in metrics if m["error"]),
@@ -79,7 +121,8 @@ def main() -> None:
         return
 
     headers = ["harness", "model", "n", "resolved", "resolve %", "mean wall",
-               "input tok", "output tok", "cache hit %", "cost (USD)", "empty", "err"]
+               "input tok", "output tok", "cache hit %", "cost (USD)",
+               "calls E/P/S/C/O", "tools/repeat", "retry", "empty", "err"]
     print("| " + " | ".join(headers) + " |")
     print("|" + "---|" * len(headers))
     for r in rows:
@@ -89,6 +132,10 @@ def main() -> None:
             fmt(r["resolve_rate"], "pct"), fmt(r["wall_s_mean"], "s"),
             fmt(r["input_tokens"], "k"), fmt(r["output_tokens"], "k"),
             fmt(r["cache_hit_rate"], "pct"), fmt(r["cost_usd"], "usd"),
+            "/".join(str(r[key]) for key in (
+                "executor_calls", "planner_calls", "subagent_calls",
+                "compaction_calls", "other_model_calls")),
+            f"{r['tool_calls']}/{r['repeated_tool_calls']}", str(r["provider_retries"]),
             str(r["empty_patches"]), str(r["errors"]),
         ]) + " |")
 

@@ -145,6 +145,33 @@ func TestMetricsSinkAccountsToolCallsAndRetries(t *testing.T) {
 	}
 }
 
+func TestMetricsSinkAttributesRepeatedToolArguments(t *testing.T) {
+	s := &metricsSink{inner: event.Discard}
+	call := func(id, name, args string) {
+		s.Emit(event.Event{Kind: event.ToolDispatch, Tool: event.Tool{ID: id, Name: name, Args: args}})
+		s.Emit(event.Event{Kind: event.ToolResult, Tool: event.Tool{ID: id, Name: name}})
+	}
+	call("r1", "read_file", `{"path":"a.go","line":1}`)
+	call("r2", "read_file", `{"line":1,"path":"a.go"}`) // same canonical JSON
+	call("r3", "read_file", `{"path":"b.go","line":1}`)
+	call("g1", "grep", `{"path":"a.go","line":1}`) // tool name is part of signature
+
+	if s.m.RepeatedToolCalls != 1 {
+		t.Fatalf("repeated tool calls = %d, want 1", s.m.RepeatedToolCalls)
+	}
+	if s.m.RepeatedToolCallsByName["read_file"] != 1 || len(s.m.RepeatedToolCallsByName) != 1 {
+		t.Fatalf("repeated calls by name = %v, want read_file=1", s.m.RepeatedToolCallsByName)
+	}
+}
+
+func TestMetricsSinkCountsSemantixFuses(t *testing.T) {
+	s := &metricsSink{inner: event.Discard}
+	s.Emit(event.Event{Kind: event.Notice, Code: event.NoticeCodeSemantixFuse, Detail: `{"slices":2,"reason":"loop_guard"}`})
+	if s.m.SemantixFuseTurns != 1 || s.m.SemantixRejectedSlices != 2 {
+		t.Fatalf("fuse metrics = %+v", s.m)
+	}
+}
+
 func TestWriteMetricsIncludesReadinessFields(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "metrics.json")
 	if err := writeMetrics(path, RunMetrics{
@@ -180,6 +207,7 @@ func TestWriteMetricsIncludesReadinessFields(t *testing.T) {
 		t.Fatalf("Unmarshal: %v", err)
 	}
 	for _, key := range []string{
+		"repeated_tool_calls",
 		"readiness_checks",
 		"readiness_allowed",
 		"readiness_blocks",

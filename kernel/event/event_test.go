@@ -33,6 +33,7 @@ func TestRoundTripAllKinds(t *testing.T) {
 			Models: []ResourceModel{{ID: "flash-model", Tier: "flash", InputPrice: 0.1, OutputPrice: 0.2}},
 			Budget: ResourceBudget{LimitUSD: 1, SpentUSD: 0.25, Window: "session"},
 		}},
+		{SliceOutcome, SliceOutcomePayload{SliceID: "s1", Outcome: "useful", Reason: "resolved_fewer_steps"}},
 	}
 	for _, c := range cases {
 		data, err := json.Marshal(c.data)
@@ -63,8 +64,8 @@ func TestRoundTripAllKinds(t *testing.T) {
 }
 
 func TestResourceCatalogAppendedAfterEvolutionTick(t *testing.T) {
-	if ResourceCatalog != EvolutionTick+1 || KindCount != ResourceCatalog+1 {
-		t.Fatalf("event kinds must be append-only: evolution=%d catalog=%d count=%d", EvolutionTick, ResourceCatalog, KindCount)
+	if ResourceCatalog != EvolutionTick+1 || SliceOutcome != ResourceCatalog+1 || KindCount != SliceOutcome+1 {
+		t.Fatalf("event kinds must be append-only: evolution=%d catalog=%d outcome=%d count=%d", EvolutionTick, ResourceCatalog, SliceOutcome, KindCount)
 	}
 	// A wire event written before ResourceCatalog existed must retain its kind.
 	old, err := FromJSON([]byte(`{"kind":11,"session_id":"old","at":"2026-08-07T12:00:00Z"}`))

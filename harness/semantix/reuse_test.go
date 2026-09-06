@@ -2,6 +2,7 @@ package semantix
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -107,7 +108,14 @@ func TestFormatUSD(t *testing.T) {
 // Returns the project dir (pass as Config.ProjectDir).
 func writeKernelDir(t *testing.T, slicesIn []*slice.Slice, usageLines []string) string {
 	t.Helper()
+	const fixtureCommit = "1111111111111111111111111111111111111111"
 	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".git", "HEAD"), []byte(fixtureCommit+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	kernelDir := filepath.Join(dir, ".semantix")
 	if err := os.MkdirAll(kernelDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -117,6 +125,9 @@ func writeKernelDir(t *testing.T, slicesIn []*slice.Slice, usageLines []string) 
 		t.Fatal(err)
 	}
 	for _, s := range slicesIn {
+		if s.Meta.BaseCommit == "" {
+			s.Meta.BaseCommit = fixtureCommit
+		}
 		if err := store.Put(s); err != nil {
 			t.Fatal(err)
 		}
@@ -139,6 +150,16 @@ func reuseFixtureSlices() []*slice.Slice {
 		{ID: "a", Type: slice.Prompt, Scope: slice.Project, Content: []byte("修复 go 测试失败问题排查"), Meta: slice.SliceMeta{SourceSession: "boot-1"}},
 		{ID: "b", Type: slice.Result, Scope: slice.Project, Content: []byte("go 测试修复步骤记录"), Meta: slice.SliceMeta{SourceSession: "boot-1"}},
 		{ID: "c", Type: slice.Context, Scope: slice.Project, Content: []byte("测试失败修复经验总结"), Meta: slice.SliceMeta{SourceSession: "boot-2"}},
+	}
+}
+
+func admissionFixtureSlices() []*slice.Slice {
+	return []*slice.Slice{
+		{ID: "ctx-strong", Type: slice.Context, Scope: slice.Project, Content: []byte("修复 go 测试失败"), Meta: slice.SliceMeta{SourceSession: "boot-1"}},
+		{ID: "ctx-runner", Type: slice.Context, Scope: slice.Project, Content: []byte("修复 release process"), Meta: slice.SliceMeta{SourceSession: "boot-2"}},
+		{ID: "memory-other", Type: slice.Memory, Scope: slice.Project, Content: []byte("部署 kubernetes 服务"), Meta: slice.SliceMeta{SourceSession: "boot-1"}},
+		{ID: "prompt-blocked", Type: slice.Prompt, Scope: slice.Project, Content: []byte("修复 go 测试失败"), Meta: slice.SliceMeta{SourceSession: "boot-3"}},
+		{ID: "result-blocked", Type: slice.Result, Scope: slice.Project, Content: []byte("修复 go 测试失败"), Meta: slice.SliceMeta{SourceSession: "boot-4"}},
 	}
 }
 
@@ -184,13 +205,16 @@ func TestBridgeReuseForwardsKernelCacheObservation(t *testing.T) {
 }
 
 func TestBridgeInjectRecordsStatsAndEvent(t *testing.T) {
-	dir := writeKernelDir(t, reuseFixtureSlices(), nil)
+	dir := writeKernelDir(t, admissionFixtureSlices(), nil)
 	sessionsDir := t.TempDir()
 	b := NewBridge(Config{Enabled: true, Inject: true, ProjectDir: dir, SessionsDir: sessionsDir, Budget: 4096})
 	b.SetLabel("inject-stats")
 	result := b.InjectDetailed(context.Background(), "修复 go 测试")
 	if result.Text == "" || len(result.Targets) == 0 {
 		t.Fatalf("InjectDetailed() = %+v, want injected slices", result)
+	}
+	if result.Diagnostics == nil || result.Diagnostics.MessageRole != "user" {
+		t.Fatalf("injection message role = %+v, want user", result.Diagnostics)
 	}
 	if err := b.Close(); err != nil {
 		t.Fatal(err)
@@ -224,6 +248,195 @@ func TestBridgeInjectRecordsStatsAndEvent(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("session JSONL missing SliceInject: %s", raw)
+	}
+}
+
+func TestBridgeStrictAdmissionRejectsWrongTypesAndSmallLibrary(t *testing.T) {
+	dir := writeKernelDir(t, reuseFixtureSlices(), nil)
+	b := NewBridge(Config{Enabled: true, Mode: "strict", ProjectDir: dir})
+	result := b.InjectDetailed(context.Background(), "修复 go 测试")
+	if result.Text != "" || result.Diagnostics == nil {
+		t.Fatalf("strict small-library result = %+v", result)
+	}
+	reasons := map[string]bool{}
+	for _, candidate := range result.Diagnostics.Candidates {
+		reasons[candidate.Reason] = true
+	}
+	if !reasons["type_not_allowed"] || !reasons["library_too_small"] {
+		t.Fatalf("candidate reasons = %v, want type and library guards", reasons)
+	}
+}
+
+func TestBridgeStrictAdmissionInjectsOnlyContextWithStrongEvidence(t *testing.T) {
+	dir := writeKernelDir(t, admissionFixtureSlices(), nil)
+	b := NewBridge(Config{Enabled: true, Mode: "strict", ProjectDir: dir})
+	result := b.InjectDetailed(context.Background(), "修复 go 测试")
+	if result.Text == "" || result.Diagnostics == nil || !result.Diagnostics.Injected {
+		t.Fatalf("strict strong-evidence result = %+v", result)
+	}
+	if len(result.Targets) != 1 || result.Targets[0] != "ctx-strong" {
+		t.Fatalf("targets = %v, want only ctx-strong", result.Targets)
+	}
+	if strings.Contains(result.Text, "prompt-blocked") || strings.Contains(result.Text, "result-blocked") {
+		t.Fatalf("wrong-type slice leaked into injection:\n%s", result.Text)
+	}
+	for _, candidate := range result.Diagnostics.Candidates {
+		if candidate.ID == "result-blocked" && (candidate.Reason != "result_probation" || candidate.Verified != "probation") {
+			t.Fatalf("probation result diagnostics = %+v", candidate)
+		}
+	}
+}
+
+func TestBridgeRecordInjectionRejectUpdatesSlicesAndEmitsEvents(t *testing.T) {
+	dir := writeKernelDir(t, admissionFixtureSlices(), nil)
+	b := NewBridge(Config{Enabled: true, Mode: "strict", ProjectDir: dir})
+	defer b.Close()
+	var rejected []kernelevent.SliceRejectPayload
+	unsub := b.Events().Subscribe(func(e kernelevent.Event) {
+		if e.Kind != kernelevent.SliceReject {
+			return
+		}
+		var payload kernelevent.SliceRejectPayload
+		if json.Unmarshal(e.Data, &payload) == nil {
+			rejected = append(rejected, payload)
+		}
+	})
+	defer unsub()
+
+	b.RecordInjectionReject([]string{"ctx-strong", "ctx-strong"}, "repeat_tool_loop")
+	if len(rejected) != 1 || rejected[0].SliceID != "ctx-strong" || rejected[0].Reason != "repeat_tool_loop" {
+		t.Fatalf("reject events = %+v", rejected)
+	}
+	store, err := slice.NewFileStore(filepath.Join(dir, ".semantix", "project.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closeSliceStore(store)
+	got, err := store.Get("ctx-strong")
+	if err != nil || got.Stats.Rejected != 1 || got.Stats.Harmful != 1 {
+		t.Fatalf("slice after reject = %+v, %v", got, err)
+	}
+}
+
+func TestBridgeRecordInjectionOutcomeAttributesUsefulAndNeutral(t *testing.T) {
+	dir := writeKernelDir(t, admissionFixtureSlices(), nil)
+	b := NewBridge(Config{Enabled: true, Mode: "strict", ProjectDir: dir})
+	defer b.Close()
+	var outcomes []kernelevent.SliceOutcomePayload
+	unsub := b.Events().Subscribe(func(e kernelevent.Event) {
+		if e.Kind == kernelevent.SliceOutcome {
+			var payload kernelevent.SliceOutcomePayload
+			if json.Unmarshal(e.Data, &payload) == nil {
+				outcomes = append(outcomes, payload)
+			}
+		}
+	})
+	defer unsub()
+
+	b.RecordInjectionOutcome([]string{"ctx-strong", "ctx-strong"}, "useful", "resolved_fewer_steps")
+	b.RecordInjectionOutcome([]string{"ctx-runner"}, "neutral", "no_measurable_delta")
+	b.RecordInjectionOutcome([]string{"ctx-runner"}, "unsupported", "ignored")
+
+	store, err := slice.NewFileStore(filepath.Join(dir, ".semantix", "project.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closeSliceStore(store)
+	useful, _ := store.Get("ctx-strong")
+	neutral, _ := store.Get("ctx-runner")
+	if useful.Stats.Useful != 1 || neutral.Stats.Neutral != 1 {
+		t.Fatalf("outcome stats useful=%+v neutral=%+v", useful.Stats, neutral.Stats)
+	}
+	if len(outcomes) != 2 || outcomes[0].Outcome != "useful" || outcomes[0].Reason != "resolved_fewer_steps" {
+		t.Fatalf("outcome events = %+v", outcomes)
+	}
+}
+
+func TestBridgeRecordsAndUsesStructuredRetrievalQuery(t *testing.T) {
+	dir := writeKernelDir(t, admissionFixtureSlices(), nil)
+	b := NewBridge(Config{Enabled: true, Mode: "strict", ProjectDir: dir})
+	raw := `You are working in a git checkout of the owner/repo repository at commit abc.
+<issue>
+修复 go 测试
+The failure is in internal/cache/store.go and TestCacheLoad.
+</issue>
+Requirements: ignore this benchmark framing`
+	result := b.InjectDetailed(context.Background(), raw)
+	if result.Diagnostics == nil {
+		t.Fatal("missing diagnostics")
+	}
+	want := buildRetrievalQuery(raw)
+	if result.Diagnostics.QueryAfter.SHA256 != summarizeQuery(want.Text).SHA256 {
+		t.Fatalf("query after = %+v, want structured text %q", result.Diagnostics.QueryAfter, want.Text)
+	}
+	got := result.Diagnostics.QueryStructure
+	if got.Strategy != "structured" || got.Intent != "修复 go 测试" || got.Repo != "owner/repo" {
+		t.Fatalf("query structure = %+v", got)
+	}
+	if !containsString(got.Paths, "internal/cache/store.go") || !containsString(got.TestNames, "testcacheload") {
+		t.Fatalf("query structure signals = %+v", got)
+	}
+}
+
+func TestBridgeShadowRetrievalEmitsDiagnosticsWithoutInjection(t *testing.T) {
+	dir := writeKernelDir(t, reuseFixtureSlices(), nil)
+	var events []event.Event
+	b := NewBridge(Config{Enabled: true, Mode: "shadow", Inject: true, ProjectDir: dir, Budget: 4096})
+	b.SetLabel("shadow-observation")
+	b.Sink(event.FuncSink(func(e event.Event) { events = append(events, e) }))
+
+	result := b.InjectDetailed(context.Background(), "修复 go 测试")
+	if result.Text != "" {
+		t.Fatalf("shadow Text = %q, want empty provider-visible injection", result.Text)
+	}
+	if result.Diagnostics == nil || result.Diagnostics.Mode != "shadow" || len(result.Diagnostics.Candidates) == 0 {
+		t.Fatalf("shadow diagnostics = %+v", result.Diagnostics)
+	}
+	if result.Diagnostics.LibrarySize != 3 || result.Diagnostics.QueryBefore.SHA256 == "" || result.Diagnostics.QueryAfter.SHA256 == "" {
+		t.Fatalf("shadow diagnostics missing replay context: %+v", result.Diagnostics)
+	}
+	if result.Diagnostics.Injected || result.Diagnostics.Bytes != 0 || result.Diagnostics.MessageRole != "" {
+		t.Fatalf("shadow reported provider injection: %+v", result.Diagnostics)
+	}
+	if len(events) != 1 || events[0].KernelCache == nil || events[0].KernelCache.Op != "shadow" || events[0].KernelCache.Retrieval == nil {
+		t.Fatalf("shadow events = %+v", events)
+	}
+
+	store, err := slice.NewFileStore(filepath.Join(dir, ".semantix", "project.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closeSliceStore(store)
+	for _, candidate := range result.Diagnostics.Candidates {
+		got, err := store.Get(candidate.ID)
+		if err != nil || got == nil {
+			t.Fatalf("Get(%q) = %v, %v", candidate.ID, got, err)
+		}
+		if got.Stats.Injected != 0 {
+			t.Fatalf("shadow mutated injection stats for %q: %+v", candidate.ID, got.Stats)
+		}
+	}
+}
+
+func TestBridgeRetrievalModeCompatibilityAndFailClosed(t *testing.T) {
+	cases := []struct {
+		name string
+		cfg  Config
+		want RetrievalMode
+	}{
+		{"legacy strict", Config{Enabled: true, Inject: true}, RetrievalStrict},
+		{"legacy off", Config{Enabled: true}, RetrievalOff},
+		{"explicit shadow", Config{Enabled: true, Inject: true, Mode: "shadow"}, RetrievalShadow},
+		{"explicit strict", Config{Enabled: true, Mode: "strict"}, RetrievalStrict},
+		{"disabled", Config{Enabled: false, Inject: true, Mode: "strict"}, RetrievalOff},
+		{"unknown", Config{Enabled: true, Inject: true, Mode: "typo"}, RetrievalOff},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := NewBridge(tc.cfg).RetrievalMode(); got != tc.want {
+				t.Fatalf("RetrievalMode() = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
 
@@ -300,7 +513,7 @@ func TestBridgeReuseEmptySources(t *testing.T) {
 // in budget), so a tight window still gets reuse context without the
 // full injection cost.
 func TestBridgeInjectDegradedShrinksBlock(t *testing.T) {
-	dir := writeKernelDir(t, reuseFixtureSlices(), nil)
+	dir := writeKernelDir(t, admissionFixtureSlices(), nil)
 	b := NewBridge(Config{Enabled: true, Inject: true, ProjectDir: dir, Budget: 4096})
 	defer b.Close()
 	full := b.InjectDetailed(context.Background(), "修复 go 测试")

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"semantix/harness/event"
@@ -177,6 +178,20 @@ func progressGuardNoticeText() string {
 func (a *Agent) armLoopGuardPass(receiptMark int) {
 	a.turn.loopGuardArmed = true
 	a.turn.loopGuardReceiptMark = receiptMark
+	if a.turn.injectionFused || a.turn.injectBlock == "" || len(a.turn.injectTargets) == 0 {
+		return
+	}
+	targets := append([]string(nil), a.turn.injectTargets...)
+	a.turn.injectBlock = ""
+	a.turn.injectionFused = true
+	if a.semantix != nil {
+		a.semantix.RecordInjectionReject(targets, "loop_guard")
+	}
+	detail, _ := json.Marshal(map[string]any{"slices": len(targets), "reason": "loop_guard"})
+	a.svc.sink.Emit(event.Event{
+		Kind: event.Notice, Level: event.LevelWarn, Code: event.NoticeCodeSemantixFuse,
+		Text: "Semantix history was removed after a loop guard detected no progress.", Detail: string(detail),
+	})
 }
 
 // loopGuardAllowsFinal reports whether final readiness should stand down: a

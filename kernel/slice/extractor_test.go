@@ -54,3 +54,45 @@ func TestExtractOrdinarySessionUnchangedBySanitize(t *testing.T) {
 		}
 	}
 }
+
+func TestExtractResultDefaultsToProbation(t *testing.T) {
+	items, err := NewExtractor().Extract([]byte(
+		`{"role":"user","content":"fix it"}`+"\n"+
+			`{"role":"assistant","content":"done"}`), SliceMeta{SourceSession: "s1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := sliceOfType(items, Result)
+	if result == nil || result.Meta.ResultStatus != ResultStatusProbation {
+		t.Fatalf("result status = %+v, want probation", result)
+	}
+}
+
+func TestExtractResultVerifiedOnlyAfterLatestMutation(t *testing.T) {
+	verified := []byte(
+		`{"role":"user","content":"fix it"}` + "\n" +
+			`{"role":"assistant","tool_calls":[{"id":"edit","name":"apply_patch"},{"id":"test","name":"exec_command","arguments":{"command":"go test ./..."}}]}` + "\n" +
+			`{"type":"tool","tool_call_id":"edit","name":"apply_patch","workspace_mutation":true}` + "\n" +
+			`{"type":"tool","tool_call_id":"test","name":"exec_command","verification":"passed"}` + "\n" +
+			`{"role":"assistant","content":"done and tested"}`)
+	items, err := NewExtractor().Extract(verified, SliceMeta{SourceSession: "s1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := sliceOfType(items, Result)
+	if result == nil || result.Meta.ResultStatus != ResultStatusVerified || result.Meta.ResultVerifiedBy != "command" || result.Meta.ResultVerificationEvidence != "go test ./..." {
+		t.Fatalf("verified result metadata = %+v", result)
+	}
+
+	rolledBack := append(append([]byte(nil), verified[:len(verified)-len(`{"role":"assistant","content":"done and tested"}`)]...),
+		[]byte(`{"type":"tool","tool_call_id":"rollback","name":"exec_command","workspace_mutation":true}`+"\n"+
+			`{"role":"assistant","content":"rolled back"}`)...)
+	items, err = NewExtractor().Extract(rolledBack, SliceMeta{SourceSession: "s1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result = sliceOfType(items, Result)
+	if result == nil || result.Meta.ResultStatus != ResultStatusProbation {
+		t.Fatalf("post-verification mutation status = %+v, want probation", result)
+	}
+}

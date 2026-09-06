@@ -73,10 +73,14 @@ func TestCacheDoesNotMemoizeErrors(t *testing.T) {
 // TestWarmPopulatesCacheInBackground: on error with Warm, the background
 // retry must land a verdict so the next Confirm is instant.
 func TestWarmPopulatesCacheInBackground(t *testing.T) {
-	var fail atomic.Bool
-	fail.Store(true)
+	// Fail on the first call only. The warm goroutine retries exactly once
+	// and immediately, so a shared "recovered" flag races against it: if
+	// the goroutine runs before the flip, the single retry fails and the
+	// cache never fills. Counting calls makes the retry deterministically
+	// succeed regardless of scheduling.
+	var calls atomic.Int32
 	inner := &recordingJudge{cond: func() (bool, error) {
-		if fail.Load() {
+		if calls.Add(1) == 1 {
 			return false, errors.New("timeout")
 		}
 		return true, nil
@@ -86,8 +90,12 @@ func TestWarmPopulatesCacheInBackground(t *testing.T) {
 	if _, err := cj.Confirm(context.Background(), cand); err == nil {
 		t.Fatal("expected error while inner failing")
 	}
-	fail.Store(false)
-	deadline := time.Now().Add(2 * time.Second)
+	// Count-based inner makes the outcome scheduling-independent; the wait
+	// only covers the goroutine getting a slot. CI runs the suite under
+	// -race where 2s proved tight (flaked on #444), so wait generously —
+	// the callCount check below still tells apart "goroutine never ran"
+	// (scheduling) from "ran but cached nothing" (a real warm-path bug).
+	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
 		// Primary-rubric warm lands under the "p" namespace.
 		if confirm, ok := cj.Cache.Get("p" + VerdictKey("q", "s")); ok {
@@ -97,6 +105,9 @@ func TestWarmPopulatesCacheInBackground(t *testing.T) {
 			return
 		}
 		time.Sleep(10 * time.Millisecond)
+	}
+	if inner.callCount() < 2 {
+		t.Fatal("background warm goroutine never ran")
 	}
 	t.Fatal("background warm did not populate the cache in time")
 }

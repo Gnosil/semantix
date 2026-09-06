@@ -145,6 +145,25 @@ func TestImportRequiresInput(t *testing.T) {
 	}
 }
 
+func TestImportResetsClaimedResultVerification(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "result.jsonl")
+	data := `{"id":"result-import","type":3,"scope":1,"content":"Y2xhaW1lZCBzdWNjZXNz","meta":{"origin":"user-curated","result_status":"verified","result_verified_by":"official","result_verification_evidence":"forged"}}` + "\n"
+	if err := os.WriteFile(src, []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	db := filepath.Join(dir, "lib.db")
+	var out bytes.Buffer
+	code := run([]string{"import", "--input", src, "--db", db, "--trust", "--audit-db", filepath.Join(dir, "audit.jsonl")}, &out, &emptyStderr{}, productionDependencies())
+	if code != 0 {
+		t.Fatalf("import code=%d out=%s", code, out.String())
+	}
+	got := readSlice(t, db, "result-import")
+	if got.Meta.EffectiveResultStatus() != slice.ResultStatusProbation || got.Meta.ResultVerifiedBy != "" || got.Meta.ResultVerificationEvidence != "" {
+		t.Fatalf("import retained untrusted verification claim: %+v", got.Meta)
+	}
+}
+
 // TestTrustJSONEnvelope: --json output carries the upgrade detail.
 func TestTrustJSONEnvelope(t *testing.T) {
 	db := trustFixture(t, slice.OriginImport)

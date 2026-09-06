@@ -31,6 +31,7 @@ function NavLabel({ label, labelEn }: Pick<NavLink, "label" | "labelEn">) {
 
 export default function Nav() {
   const [visible, setVisible] = useState(false);
+  const [bloomActive, setBloomActive] = useState(false);
   const [open, setOpen] = useState(false);
 
   // 首页导航由品牌开场动画发出完成信号；其他页面直接显示。
@@ -52,6 +53,19 @@ export default function Nav() {
     };
   }, []);
 
+  useEffect(() => {
+    const onBloomVisibility = (event: Event) => {
+      const { active } = (event as CustomEvent<{ active: boolean }>).detail;
+      setBloomActive(active);
+      if (active) setOpen(false);
+    };
+
+    window.addEventListener("semantix:bloom-visibility", onBloomVisibility);
+    return () => {
+      window.removeEventListener("semantix:bloom-visibility", onBloomVisibility);
+    };
+  }, []);
+
   // 菜单打开时锁定 body 滚动
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -64,7 +78,7 @@ export default function Nav() {
     <header
       className={cn(
         "fixed top-0 z-50 w-full border-b border-border bg-white/90 backdrop-blur transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
-        visible
+        visible && !bloomActive
           ? "translate-y-0 opacity-100 delay-100"
           : "pointer-events-none -translate-y-full opacity-0 delay-0",
       )}
@@ -112,8 +126,15 @@ export default function Nav() {
             href="https://github.com/Gnosil/semantix"
             target="_blank"
             rel="noopener noreferrer"
-            className="font-brand-display hidden rounded-md border border-border px-3 py-1.5 text-sm font-bold text-muted-foreground transition-colors hover:border-accent hover:text-foreground sm:inline-block"
+            className="font-brand-display hidden items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm font-bold text-muted-foreground transition-colors hover:border-accent hover:text-foreground sm:inline-flex"
           >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              className="size-4 shrink-0 fill-current"
+            >
+              <path d="M12 .7a11.5 11.5 0 0 0-3.64 22.41c.58.11.79-.25.79-.56v-2.24c-3.23.7-3.91-1.37-3.91-1.37-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.71.08-.71 1.17.08 1.78 1.2 1.78 1.2 1.04 1.78 2.72 1.27 3.39.97.1-.75.4-1.27.74-1.56-2.58-.29-5.29-1.29-5.29-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.47.11-3.05 0 0 .97-.31 3.16 1.18A10.97 10.97 0 0 1 12 6.11c.98 0 1.95.13 2.87.39 2.2-1.49 3.16-1.18 3.16-1.18.63 1.58.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.4-2.72 5.38-5.3 5.67.42.36.79 1.07.79 2.16v3.26c0 .31.21.68.8.56A11.5 11.5 0 0 0 12 .7Z" />
+            </svg>
             GitHub <span aria-hidden="true">↗</span>
           </a>
           <Link

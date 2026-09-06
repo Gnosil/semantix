@@ -15,12 +15,13 @@
 
 ## 2. 修复设计
 
-### R1/切片库共享（runner）
+### R1/切片库按 repo 共享（runner）
 
 - 新 flag `--semantix-memory on|off`（默认 **on**）。on 时 config.toml 写入
   `[semantix] enabled/inject/budget=4096/project_dir/sessions_dir`；off 为消融孪生臂（不写段）。
-- **每实例独立 `SEMANTIX_HOME`**（`semantix-home/inst/<iid>/`）：会话镜像、stats、projects 天然按实例隔离，`--workers` 并发下归属无竞态；**只有切片库共享**——所有实例的 `project_dir` 指向同一 `semantix-home/kernel/`（库文件 `kernel/.semantix/project.db`）。
-- 每实例结束后 runner 以 `semantix extract --input <mirror> --scope project --project-db <shared>` 收割切片（`threading.Lock` 串行化：库的 append journal 是单写者）；extract 结果尾部写入该实例 metrics 的 `raw.extract`。
+- **每实例独立 `SEMANTIX_HOME`**（`semantix-home/inst/<iid>/`）：会话镜像、stats、projects 天然按实例隔离。Project 库只在同 repo 内共享：`project_dir` 指向 `semantix-home/kernel/<owner>__<repo>/`（库文件 `<owner>__<repo>/.semantix/project.db`），杜绝跨 repo 检索污染。
+- 每实例结束后 runner 以 `semantix extract --input <mirror> --scope project --project-db <repo-store> --project <owner/repo>` 收割切片；extract 结果尾部写入该实例 metrics 的 `raw.extract`，实际 repo/store 写入 `raw.semantix_repo` / `raw.semantix_project_dir`。
+- memory-on 调度按 repo 分批：同 repo 保持冻结子集选中顺序、在一个 worker 内串行，因此 append journal 始终单写；不同 repo 的独立 store 可并行。缺失或不安全的 repo 标识直接失败，不共享 fallback 库。memory-off 与其他 adapter 保持既有实例级并行。
 - 新 flag `--semantix-kernel-bin`（默认 `bin/semantix`）。
 
 ### R2（config 渲染往返）
@@ -37,11 +38,23 @@
 - 新 Notice 码 `semantix_inject`（Detail `{"bytes":n}`），每用户轮注入块非空时发一次。
 - `RunMetrics` 新增：`semantix_inject_turns` / `semantix_inject_bytes` / `semantix_reuse_hits` / `semantix_reuse_savings_usd`（omitempty，旧读者无感）。metricsSink 消费 `semantix_inject` 与既有 `semantix_reuse` Notice。
 
+### P0 调用来源归因（Issue #447）
+
+`RunMetrics.steps` 已包含 executor、planner、subagent、compaction 和其他辅助模型调用，不能直接当作主循环步数。Go 侧 `usage_by_source` 保持权威来源；SWE-bench runner 将其规范化为：
+
+- 完整 `model_calls_by_source` 映射，未知来源不丢弃；
+- `executor_calls`、`planner_calls`、`subagent_calls`、`compaction_calls` 四个便捷字段；
+- `other_model_calls`，汇总 classifier/title/capability-router/recovery-reviewer/goal-evaluator 与未来来源；
+- `source_call_total` 和 `source_call_delta = steps - source_call_total`，用于发现漏归因；
+- `provider_retries`、`compactions`、`subagent_runs`、`tool_failures` 和 `tool_calls_by_name`，用于区分模型调用、传输重试、压缩尝试、委派与工具行为。
+
+旧 metrics 缺少这些字段时全部按 0 读取；`source_call_delta` 保留其 `steps`，明确表示无法追溯，而不是错误归入 executor。该变更只扩展观测 JSON 和报告，不修改 agent、provider request 或记忆注入行为。
+
 ## 3. 实验臂协议（替代旧 §4「--ablate all 隔离记忆内核」的错误设想）
 
 - **记忆对照 = `--semantix-memory on` vs `off` 两臂**（同子集、同模型、同 preset）。`--ablate` 不用于记忆对照（它只关 harness 侧 planner/subagent/evidence/harness-memory/compaction）。
-- on 臂按 preds.jsonl 处理序天然形成课程：判读时报告 (a) 全臂 resolve；(b) 注入覆盖率 `semantix_inject_turns>0` 的实例占比；(c) 处理序前/后半 resolve 与步数差（学习曲线）；(d) 每注入字节的边际成本。
-- 由于处理序影响 on 臂（先跑的题喂后跑的题），跨臂公平性以「同 50 题整体」比较；更严谨的顺序敏感性留待多 seed 重复。
+- on 臂在每个 repo 内按固定选中顺序形成课程：判读时报告 (a) 全臂 resolve；(b) 注入覆盖率 `semantix_inject_turns>0` 的实例占比；(c) repo 内处理序与 resolve/步数差；(d) 每注入字节的边际成本。
+- `--workers` 只改变不同 repo 的完成交错，不改变任何 repo 内课程顺序。跨臂必须复用同一冻结子集与 repo 内顺序；更严谨的顺序敏感性留待多 seed 重复。
 
 ## 4. 实现与验证
 

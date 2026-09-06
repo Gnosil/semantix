@@ -107,3 +107,26 @@ func TestSinkToolResultErrorUsesErrText(t *testing.T) {
 		t.Errorf("t2 content = %q, want %q (placeholder for missing result)", got, "(tool output)")
 	}
 }
+
+func TestSinkPersistsHostVerificationAndMutationMetadata(t *testing.T) {
+	dir := t.TempDir()
+	s, err := NewHarnessSink(dir, "verification-meta", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Emit(event.Event{Kind: event.TurnStarted})
+	s.Emit(event.Event{Kind: event.ToolDispatch, Tool: event.Tool{ID: "test", Name: "exec_command", Args: "{}"}})
+	s.Emit(event.Event{Kind: event.ToolResult, Tool: event.Tool{
+		ID: "test", Output: "ok", WorkspaceMutation: true,
+		Execution: &event.ShellExecution{Verification: "passed"},
+	}})
+	s.Emit(event.Event{Kind: event.TurnDone})
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	got := toolLine(t, readSessionLines(t, filepath.Join(dir, "verification-meta.jsonl")), "test")
+	if got.Verification != "passed" || !got.WorkspaceMutation {
+		t.Fatalf("tool result metadata = %+v", got)
+	}
+}

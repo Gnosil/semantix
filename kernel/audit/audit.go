@@ -22,6 +22,8 @@ const (
 	ActionSliceOrigin = "slice_origin"
 	// ActionSliceTrust records an explicit trust upgrade (Issue #279).
 	ActionSliceTrust = "slice_trust"
+	// ActionResultVerify records an explicit Result probation promotion.
+	ActionResultVerify = "result_verify"
 )
 
 // Recorder appends audit events to a JSONL file (0600, atomic rewrite via
@@ -79,5 +81,12 @@ func (r *Recorder) Origin(sliceID string, origin slice.Origin, channel string) e
 func (r *Recorder) Trust(sliceID string, from, to slice.Origin) error {
 	return r.Record(ActionSliceTrust, map[string]string{
 		"slice_id": sliceID, "from_origin": string(from), "to_origin": string(to),
+	})
+}
+
+// ResultVerify records the evidence channel for a Result promotion.
+func (r *Recorder) ResultVerify(sliceID, method, evidence string) error {
+	return r.Record(ActionResultVerify, map[string]string{
+		"slice_id": sliceID, "method": method, "evidence": evidence,
 	})
 }

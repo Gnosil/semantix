@@ -1403,3 +1403,78 @@ func TestE2EFalseHitRetryBypassesL3(t *testing.T) {
 		t.Fatalf("usage false hits = %d, want 1", summary.L3FalseHits)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// ablation switch: SEMANTIX_GATEWAY_DISABLE covers every memory mechanism
+
+// TestE2EAblationSwitchDisablesMemory pins the OFF-arm contract for two-arm
+// experiments: a disabled gateway forwards verbatim and keeps usage + sidecar
+// accounting, but never injects L2 context and never grows the slice library.
+func TestE2EAblationSwitchDisablesMemory(t *testing.T) {
+	t.Setenv("SEMANTIX_GATEWAY_DISABLE", "1")
+	up := &testUpstream{plain: `{"choices":[{"message":{"role":"assistant","content":"upstream reply"}}],"usage":{"prompt_tokens":5,"completion_tokens":3}}`}
+	upSrv := httptest.NewServer(up.handler())
+	defer upSrv.Close()
+	g := newTestGateway(t, upSrv.URL)
+	srv := httptest.NewServer(g)
+	defer srv.Close()
+
+	// Same corpus as TestE2EL2InjectionForwarded: on an enabled gateway the
+	// "widgets" query produces an L2 slice hit, so a zero here is the switch.
+	seed(t, g, &slice.Slice{
+		ID: "l2-off", Type: slice.Prompt, Scope: slice.Project,
+		Content: []byte("prior knowledge about widgets"),
+	})
+	for i, content := range []string{"alpha", "bravo", "charlie", "delta"} {
+		seed(t, g, &slice.Slice{
+			ID: fmt.Sprintf("off-distractor-%d", i), Type: slice.Prompt, Scope: slice.Project,
+			Content: []byte(content),
+		})
+	}
+	before, err := g.store.ListAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, out := postChatWithHeaders(t, srv, "test-key",
+		map[string]string{"x-semantix-session": "off-arm"},
+		chatBody("deepseek-chat", "widgets", false))
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, body %s", resp.StatusCode, out)
+	}
+	if got := respContent(t, out); got != "upstream reply" {
+		t.Errorf("content = %q, want upstream reply (passthrough)", got)
+	}
+	if n := up.callCount(); n != 1 {
+		t.Fatalf("upstream calls = %d, want 1", n)
+	}
+	for _, m := range up.forwardedMessages() {
+		s, _ := m["content"].(string)
+		if strings.Contains(s, "[semantix-reuse]") {
+			t.Errorf("disabled gateway forwarded an injection block: %#v", m)
+		}
+	}
+
+	// Sidecar transcript is still written (arms stay auditable offline)…
+	lines := readSidecarLines(t, g, "off-arm")
+	if len(lines) == 0 {
+		t.Fatal("disabled gateway must still write the session sidecar")
+	}
+	// …usage still accounts the exchange, with zero slice hits…
+	summary, err := usage.Summarize(g.cfg.Ingest.UsageLog, usage.DefaultCostMissPerMTok, usage.DefaultCostHitPerMTok)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if summary.SliceHits != 0 {
+		t.Errorf("usage slice hits = %d, want 0", summary.SliceHits)
+	}
+	// …and the library never grows: ingest is skipped, not merely delayed.
+	time.Sleep(500 * time.Millisecond)
+	after, err := g.store.ListAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(after) != len(before) {
+		t.Errorf("slice store grew from %d to %d on a disabled gateway", len(before), len(after))
+	}
+}

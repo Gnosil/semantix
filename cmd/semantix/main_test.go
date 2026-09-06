@@ -120,6 +120,7 @@ func TestExtractStoresSlicesInSelectedScope(t *testing.T) {
 	code := run([]string{
 		"extract", "--input", input, "--scope", "user", "--db", dbPath,
 		"--session", "session-1", "--project", "semantix", "--language", "zh-CN",
+		"--base-commit", "abc123",
 	}, &stdout, &stderr, deps)
 	if code != 0 {
 		t.Fatalf("run() code = %d, stderr = %q", code, stderr.String())
@@ -127,7 +128,7 @@ func TestExtractStoresSlicesInSelectedScope(t *testing.T) {
 	if openedPath != dbPath {
 		t.Fatalf("opened path = %q, want %q", openedPath, dbPath)
 	}
-	if extractor.meta.SourceSession != "session-1" || extractor.meta.ProjectSlug != "semantix" || extractor.meta.Language != "zh-CN" {
+	if extractor.meta.SourceSession != "session-1" || extractor.meta.ProjectSlug != "semantix" || extractor.meta.Language != "zh-CN" || extractor.meta.BaseCommit != "abc123" {
 		t.Fatalf("extractor meta = %#v", extractor.meta)
 	}
 	for _, id := range []string{"one", "two"} {

@@ -89,7 +89,7 @@ export default function CopyCode({
       <pre
         className={`min-w-0 flex-1 p-3 font-mono leading-5 ${
           singleLine
-            ? "whitespace-pre-wrap break-words text-[11px] sm:whitespace-nowrap"
+            ? "overflow-hidden text-ellipsis whitespace-nowrap text-[11px]"
             : "whitespace-pre-wrap break-words text-xs"
         } ${
           isDark
@@ -105,7 +105,6 @@ export default function CopyCode({
         type="button"
         onClick={handleCopy}
         aria-label={`${label}代码`}
-        title={label}
         className={`flex w-11 shrink-0 items-center justify-center border-l transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent active:translate-y-px ${
           isDark
             ? "border-white/10 bg-[oklch(0.25_0.008_260)] text-slate-300 hover:bg-[oklch(0.29_0.01_260)] hover:text-emerald-300"

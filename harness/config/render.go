@@ -522,6 +522,11 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	b.WriteString("# inject the [semantix-reuse] block on similar tasks (inject).\n")
 	fmt.Fprintf(&b, "enabled = %v\n", c.Semantix.Enabled)
 	fmt.Fprintf(&b, "inject  = %v\n", c.Semantix.Inject)
+	if c.Semantix.Mode != "" {
+		fmt.Fprintf(&b, "mode    = %q   # off | shadow | strict\n", c.Semantix.Mode)
+	} else {
+		b.WriteString("# mode    = \"shadow\"   # observe retrieval without provider injection\n")
+	}
 	if c.Semantix.Binary != "" {
 		fmt.Fprintf(&b, "binary  = %q\n", c.Semantix.Binary)
 	} else {
@@ -537,6 +542,9 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	}
 	if c.Semantix.ProjectDir != "" {
 		fmt.Fprintf(&b, "project_dir = %q   # shared slice library root (<dir>/.semantix/...)\n", c.Semantix.ProjectDir)
+	}
+	if c.Semantix.WorkspaceDir != "" {
+		fmt.Fprintf(&b, "workspace_dir = %q # live repository root for freshness checks\n", c.Semantix.WorkspaceDir)
 	}
 	if c.Semantix.CostInputPriceUSD != 0 {
 		fmt.Fprintf(&b, "cost_input_price_usd = %s\n", formatFloat(c.Semantix.CostInputPriceUSD))

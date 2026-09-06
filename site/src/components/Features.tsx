@@ -11,63 +11,63 @@ type Capability = {
   body: string;
   code: string;
   art: string;
-  artAlt: string;
+  artClassName: string;
 };
 
 const capabilities: Capability[] = [
   {
     num: "01",
-    titleEn: "Semantic Slice Library",
-    title: "语义切片库",
-    body: "从历史会话提取可复用语义单元：任务模板 P、上下文块 C、工具调用模式 T、高频结果 R、记忆 M。向量索引并持久化到项目/用户双库。",
-    code: "type Slice struct { ID string; Type SliceType; Scope Scope; Content []byte }",
-    art: "/ensureok/semantix-memory-transparent.png",
-    artAlt: "多层扫描线组成的古典人物图像，象征语义切片被持续沉淀",
+    titleEn: "Cross-Session Memory",
+    title: "跨会话记忆",
+    body: "会话结束后，项目约定、任务模式、工具路径和已验证结果仍会保留下来。下一次进入同一项目，不必重新建立全部背景。",
+    code: "finished session → reusable project memory → next session",
+    art: "/flower-ink/feature-01-wisteria-landscape.png",
+    artClassName: "translate-x-[3%] -rotate-[1deg] scale-[1.05]",
   },
   {
     num: "02",
-    titleEn: "Semantic Cache L1·L2·L3",
-    title: "三级语义缓存",
-    body: "L1 字节前缀缓存；L2 把跨会话稳定的切片原样注入前缀区，让语义命中变成厂商的字节命中；L3 带验证的只读结果复用。",
-    code: "L2: stable-slice injection → vendor byte cache",
-    art: "/ensureok/semantix-cache-transparent.png",
-    artAlt: "两张被扫描线切分的古典侧脸相互回应，象征相似语义被识别和复用",
+    titleEn: "Less Repeated Spend",
+    title: "减少重复付费",
+    body: "相似任务先复用已有上下文和安全结果，再决定是否重新调用模型。稳定的注入内容还能提高厂商前缀缓存的实际命中机会。",
+    code: "semantic hit → stable bytes → fewer repeated tokens",
+    art: "/flower-ink/feature-02-orchid-landscape.png",
+    artClassName: "translate-x-[2%] rotate-[1deg] scale-[1.02]",
   },
   {
     num: "03",
-    titleEn: "Kernel Scheduler",
-    title: "内核调度器",
-    body: "仓库定义了按任务 intent 决策并发度、模型 tier、缓存注入和预取预算的接口。它是可扩展的调度边界，不代表生产控制闭环已经完成。",
-    code: "decide(intent) → {concurrency, tier, inject, prefetch}",
-    art: "/ensureok/semantix-inference-transparent.png",
-    artAlt: "古典人物从迷宫中理出清晰路径，象征调度器优化推理路线",
+    titleEn: "Faster Repeat Work",
+    title: "减少重复工作",
+    body: "Semantix 复用已经证明有效的背景与执行模式，让 Agent 少做重复查找、重复读取和重复推导，把时间留给真正变化的部分。",
+    code: "known context + proven path → less setup → faster work",
+    art: "/flower-ink/feature-03-trumpet-vine-landscape.png",
+    artClassName: "translate-x-[3%] -rotate-[1deg] scale-[1.04]",
   },
   {
     num: "04",
-    titleEn: "Speculative Prefetch",
-    title: "投机预取",
-    body: "预取接口为下一轮切片组装与 embedding 计算预留扩展点。waste/hit 信号是设计约束；主动预取与线上收益尚未形成公开生产证据。",
-    code: "waste/hit > 3:1 → signal-source weight ↓",
-    art: "/ensureok/semantix-inference-transparent.png",
-    artAlt: "古典人物从迷宫中理出清晰路径，象征提前预测和准备下一步",
+    titleEn: "Useful Waiting Time",
+    title: "利用等待时间",
+    body: "模型生成答案时，内核可以保守地准备下一步可能需要的只读资源。预测证据不足或浪费过高时，预取会自动收缩。",
+    code: "model wait → safe read-only prefetch → next context ready",
+    art: "/flower-ink/feature-04-chrysanthemum-landscape.png",
+    artClassName: "translate-x-[2%] rotate-[1deg] scale-[1.04]",
   },
   {
     num: "05",
-    titleEn: "Experimental Adaptation",
-    title: "实验性参数反馈",
-    body: "仓库实现了 EWMA、冻结窗口与参数状态持久化，用于验证反馈调参路径。真实会话闭环、离线重训和普遍收益仍需要独立评估。",
-    code: "online EWMA + freeze-period ≥1h + offline retrain",
-    art: "/ensureok/semantix-evolution-transparent.png",
-    artAlt: "多臂古典人物重塑另一具雕像，象征反馈驱动的持续进化",
+    titleEn: "Bounded Learning",
+    title: "越用越准确",
+    body: "命中、未命中、人工修正和预取浪费都会回流到评分与阈值。更新有上下界、冻结期和回滚路径，不让一次异常放大成长期偏差。",
+    code: "feedback → bounded update → better next decision",
+    art: "/flower-ink/feature-05-hydrangea-landscape.png",
+    artClassName: "translate-x-[2%] rotate-[1deg] scale-[1.03]",
   },
   {
     num: "06",
-    titleEn: "Single Kernel, Many Harnesses",
-    title: "零侵入适配",
-    body: "不改造 harness 内核：适配层接入 DeepSeek-Reasonix、Claude Code 等任意 harness，上层能力原样复用。",
-    code: "adapter(harness) → kernel.emit(event)",
-    art: "/ensureok/semantix-memory-transparent.png",
-    artAlt: "由人物与扫描线组成的记忆图像，象征多个系统共享同一套内核能力",
+    titleEn: "Works With Your Agent",
+    title: "多 Agent 适配",
+    body: "既可以直接使用内置记忆内核的 Semantix Agent，也可以通过 Agent Skill、工具注册或 Gateway，把同一套能力接入现有工作流。",
+    code: "agent skill | tool hooks | gateway → one kernel",
+    art: "/flower-ink/feature-06-roses-landscape.png",
+    artClassName: "translate-x-[2%] -rotate-[1deg] scale-[1.03]",
   },
 ];
 
@@ -91,7 +91,7 @@ export default function Features() {
         onClick={() => setActive(isActive ? null : index)}
         aria-expanded={isActive}
         aria-controls={panelId}
-        className="group grid w-full grid-cols-[3rem_1fr_auto] items-center gap-3 border-b border-[#101313]/20 py-5 text-left md:grid-cols-[5rem_1fr_auto] md:py-6"
+        className="group grid w-full scroll-mt-20 grid-cols-[3rem_1fr_auto] items-center gap-3 border-b border-[#101313]/20 py-5 text-left md:grid-cols-[5rem_1fr_auto] md:py-6"
       >
         <span
           className={`font-mono text-[10px] tracking-[0.16em] transition-colors ${
@@ -135,7 +135,7 @@ export default function Features() {
     indices: readonly [number, number],
   ) => {
     const isOpen = active !== null && indices.includes(active);
-    const selected = isOpen && active !== null ? capabilities[active] : null;
+    const selected = isOpen ? capabilities[active] : null;
     const panelId = `semantix-feature-detail-${groupIndex}`;
 
     return (
@@ -149,20 +149,27 @@ export default function Features() {
           <div className="relative overflow-hidden border-b border-[#101313] bg-[#2c8c75] text-[#f7f6f1]">
             <div className="semantix-grid pointer-events-none absolute inset-0 opacity-20" aria-hidden="true" />
             {selected ? (
-              <div key={selected.num} className="semantix-detail-in relative min-h-[28rem] md:min-h-[32rem]">
-                <Image
-                  src={selected.art}
-                  alt={selected.artAlt}
-                  fill
-                  sizes="(max-width: 767px) 100vw, 55vw"
-                  className="object-cover opacity-90 transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-[1.015] motion-reduce:transition-none"
-                />
+              <div key={selected.num} className="semantix-detail-in relative min-h-[28rem] overflow-hidden md:min-h-[34rem]">
                 <div
                   aria-hidden="true"
-                  className="absolute inset-0 bg-[#2c8c75]/80 md:bg-[linear-gradient(90deg,rgba(44,140,117,0.99)_0%,rgba(44,140,117,0.94)_42%,rgba(44,140,117,0.58)_68%,rgba(44,140,117,0.06)_100%)]"
+                  className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.045),transparent_44%)]"
                 />
 
-                <div className="relative z-[1] flex min-h-[28rem] flex-col p-6 md:min-h-[32rem] md:max-w-[68%] md:p-9 lg:p-10">
+                <figure
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-y-0 right-0 hidden w-[58%] overflow-hidden md:block"
+                >
+                  <Image
+                    src={selected.art}
+                    alt=""
+                    fill
+                    sizes="58vw"
+                    className={`object-cover object-right-center brightness-0 invert opacity-42 ${selected.artClassName}`}
+                  />
+                  <span className="absolute inset-y-0 left-0 w-[30%] bg-gradient-to-r from-[#2c8c75] via-[#2c8c75]/70 to-transparent" />
+                </figure>
+
+                <div className="relative z-[1] flex min-h-[28rem] flex-col p-6 md:min-h-[34rem] md:max-w-[64%] md:p-9 lg:p-10">
                   <div className="flex items-center justify-between font-mono text-[9px] tracking-[0.2em] text-[#bde8d9] md:text-[10px]">
                   <span>CAPABILITY DETAIL / {selected.num}</span>
                   <div className="flex gap-1.5" aria-hidden="true">
@@ -223,9 +230,8 @@ export default function Features() {
             Features 特性
           </p>
           <h2 className="font-brand-display mt-7 max-w-xl text-[clamp(2.7rem,5.8vw,6.5rem)] font-black leading-[0.98] tracking-[-0.055em]">
-            展示实现，
-            <br />
-            <span className="text-[#168b6d]">也展示边界。</span>
+            <span className="block whitespace-nowrap">跨会话复用，</span>
+            <span className="block whitespace-nowrap text-[#168b6d]">能力持续进化。</span>
           </h2>
           <p className="mt-7 text-lg text-[#101313]/55">
             Shipped capabilities, traceable evidence, and explicit limits.
