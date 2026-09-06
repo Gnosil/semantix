@@ -29,6 +29,9 @@ site/.wrangler/
 /deploy/data/
 /deploy/semantix-gateway.toml
 /tmp/
+/.tmp/
+/cmd/semantix-desktop/build/
+/cmd/semantix-desktop/frontend/wailsjs/
 
 # Local agent/tooling session state (never commit)
 .claude/

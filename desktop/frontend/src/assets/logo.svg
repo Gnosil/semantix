@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Semantix">
+  <rect width="1024" height="1024" rx="174" fill="#08090a"/>
+  <path d="M512 244 L780 512 L512 780 L244 512 Z" fill="none" stroke="#f1f5f2" stroke-width="41"/>
+  <g stroke="#6cd0a3" stroke-width="43">
+    <path d="M610.56 162.56 L865.92 417.92"/>
+    <path d="M861.44 610.56 L606.08 865.92"/>
+    <path d="M413.44 861.44 L158.08 606.08"/>
+    <path d="M162.56 413.44 L417.92 158.08"/>
+  </g>
+  <path d="M512 401 L623 512 L512 623 L401 512 Z" fill="#6cd0a3"/>
+</svg>
