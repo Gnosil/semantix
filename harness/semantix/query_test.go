@@ -122,3 +122,101 @@ func TestCleanRetrievalQueryFailsClosedWhenOnlyFramingRemains(t *testing.T) {
 		t.Fatalf("cleaned query = %q, want empty", got)
 	}
 }
+
+// Issue #447 offline replay (2026-09-07): the swe_pilot prompt shell has no
+// <issue> tag, so the "intent" became the instruction sentence, "pre-fix"
+// matched as an error code and the bare word "test" as a test name — the
+// structured query carried template tokens instead of issue signals.
+const labeledIssuePrompt = `You are solving a real GitHub issue in this repository (your cwd is the repo root at the pre-fix commit).
+
+Issue:
+dateformat.y() doesn't support years < 1000.
+When using the dateformat of django with a value of year < 1000, the four-digit
+year is not zero-padded; see django.utils.dateformat.DateFormat.y.
+
+Instructions:
+- Locate the code responsible and implement the minimal, correct fix.
+- Do NOT modify test files.
+- You may run quick syntax checks.
+- When the fix is complete, stop.`
+
+func TestBuildRetrievalQueryUsesLabeledIssueSectionAsIntent(t *testing.T) {
+	got := buildRetrievalQuery(labeledIssuePrompt)
+	if got.Strategy != "structured" {
+		t.Fatalf("strategy = %q fallback = %q", got.Strategy, got.FallbackReason)
+	}
+	if got.Intent != "dateformat.y() doesn't support years < 1000." {
+		t.Fatalf("intent = %q", got.Intent)
+	}
+	tokens := bm25.Tokenize(got.Text)
+	for _, shell := range []string{"solving", "cwd", "root", "instructions", "modify", "syntax", "stop"} {
+		if containsString(tokens, shell) {
+			t.Errorf("structured query leaked prompt shell %q: %q", shell, got.Text)
+		}
+	}
+	for _, want := range []string{"dateformat", "y", "1000"} {
+		if !containsString(tokens, want) {
+			t.Errorf("structured query lost issue token %q: %q", want, got.Text)
+		}
+	}
+}
+
+func TestCleanRetrievalQueryUsesLabeledIssueSection(t *testing.T) {
+	tokens := bm25.Tokenize(cleanRetrievalQuery(labeledIssuePrompt))
+	for _, shell := range []string{"solving", "cwd", "instructions", "modify", "syntax"} {
+		if containsString(tokens, shell) {
+			t.Errorf("cleaned query leaked prompt shell %q: %v", shell, tokens)
+		}
+	}
+	if !containsString(tokens, "dateformat") {
+		t.Errorf("cleaned query lost issue token: %v", tokens)
+	}
+}
+
+func TestBuildRetrievalQueryIgnoresHyphenatedProseAsErrorCodes(t *testing.T) {
+	got := buildRetrievalQuery(`<issue>
+The pre-fix behaviour is read-only; a four-digit year raises UnboundLocalError
+and the API returns HTTP_404 for FOO-BAR_1 codes.
+</issue>`)
+	for _, code := range []string{"unboundlocalerror", "http_404", "foo-bar_1"} {
+		if !containsString(got.ErrorCodes, code) {
+			t.Errorf("error codes = %v, missing %q", got.ErrorCodes, code)
+		}
+	}
+	for _, prose := range []string{"pre-fix", "read-only", "four-digit"} {
+		if containsString(got.ErrorCodes, prose) {
+			t.Errorf("error codes = %v, must not contain prose %q", got.ErrorCodes, prose)
+		}
+	}
+}
+
+func TestBuildRetrievalQueryIgnoresBareTestWords(t *testing.T) {
+	got := buildRetrievalQuery(`<issue>
+The test suite and all tests fail while testing test_redis_timeout and TestCacheInvalidation.
+</issue>`)
+	if !reflect.DeepEqual(got.TestNames, []string{"test_redis_timeout", "testcacheinvalidation"}) {
+		t.Fatalf("test names = %v", got.TestNames)
+	}
+}
+
+func TestBuildRetrievalQueryFallsBackToIssueSectionWhenNoSignals(t *testing.T) {
+	got := buildRetrievalQuery(`You are solving a real GitHub issue in this repository (your cwd is the repo root at the pre-fix commit).
+
+Issue:
+Wrong ordering of polynomial terms in the printer.
+
+Instructions:
+- Do NOT modify test files.`)
+	if got.Strategy != "lexical_fallback" || got.FallbackReason != "no_structured_signals" {
+		t.Fatalf("strategy = %q fallback = %q", got.Strategy, got.FallbackReason)
+	}
+	tokens := bm25.Tokenize(got.Text)
+	for _, shell := range []string{"solving", "cwd", "instructions", "modify", "test"} {
+		if containsString(tokens, shell) {
+			t.Errorf("fallback query leaked prompt shell %q: %v", shell, tokens)
+		}
+	}
+	if !containsString(tokens, "polynomial") {
+		t.Errorf("fallback query lost issue token: %v", tokens)
+	}
+}
