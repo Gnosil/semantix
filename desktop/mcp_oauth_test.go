@@ -26,7 +26,7 @@ func TestAuthenticateMCPServerUsesPrivateStateAndReconnects(t *testing.T) {
 	opened := ""
 	desktopAuthorizeHTTPMCP = func(_ context.Context, spec plugin.Spec, openURL func(string) error) error {
 		if spec.Name != "oauth" || spec.StateDir == "" || strings.HasPrefix(filepath.Clean(spec.StateDir), filepath.Clean(dir)+string(filepath.Separator)) {
-			t.Fatalf("OAuth spec must use private Reasonix state: %+v", spec)
+			t.Fatalf("OAuth spec must use private Semantix state: %+v", spec)
 		}
 		if spec.OAuthHTTPClient == nil {
 			t.Fatal("desktop OAuth did not receive the configured proxy-aware HTTP client")

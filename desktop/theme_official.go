@@ -13,7 +13,7 @@ import (
 	"embed"
 )
 
-// Official themes are read-only, MIT-licensed Reasonix assets embedded into the
+// Official themes are read-only, MIT-licensed Semantix assets embedded into the
 // desktop binary. They reuse the Theme Pack V1 validator and the same
 // content-addressed asset route as user themes, but read from embed.FS instead
 // of the user library and are served with immutable caching.

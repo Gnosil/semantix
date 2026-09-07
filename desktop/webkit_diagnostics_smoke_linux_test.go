@@ -1,4 +1,4 @@
-//go:build linux && cgo && reasonix_webkit_smoke
+//go:build linux && cgo && semantix_webkit_smoke
 
 package main
 
@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-const webKitSmokeModeEnv = "REASONIX_WEBKIT_SMOKE_MODE"
+const webKitSmokeModeEnv = "SEMANTIX_WEBKIT_SMOKE_MODE"
 
 func TestWebKitNativeRecoverySmoke(t *testing.T) {
 	tests := []struct {

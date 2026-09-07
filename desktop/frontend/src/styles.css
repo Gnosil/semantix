@@ -1,5 +1,5 @@
 /*
- * Reasonix desktop — single-column, developer-dense, terminal-flavored chat UI.
+ * Semantix desktop — single-column, developer-dense, terminal-flavored chat UI.
  *
  * Multi-platform notes:
  *  - System font stack for text; bundled icon fonts only (no web-font fetches).
@@ -10,7 +10,7 @@
  */
 
 @font-face {
-  font-family: "Reasonix Seti";
+  font-family: "Semantix Seti";
   src: url("./assets/file-icons/seti/seti.woff") format("woff");
   font-style: normal;
   font-weight: normal;
@@ -8490,24 +8490,24 @@ body > .mermaid-diagram--fullscreen {
   justify-content: flex-end;
   flex-wrap: wrap;
 }
-.reasonix-confirm-backdrop {
+.semantix-confirm-backdrop {
   --wails-draggable: no-drag;
   z-index: var(--z-overlay-backdrop);
 }
-.reasonix-confirm-dialog {
+.semantix-confirm-dialog {
   max-width: 420px;
   color: var(--fg);
 }
-.reasonix-confirm-dialog__title { margin-bottom: 8px; }
-.reasonix-confirm-dialog__message {
+.semantix-confirm-dialog__title { margin-bottom: 8px; }
+.semantix-confirm-dialog__message {
   margin-bottom: 18px;
   color: var(--fg-dim);
   font-size: var(--font-control);
   line-height: 1.55;
   white-space: pre-wrap;
 }
-.reasonix-confirm-dialog__actions .btn { min-width: 84px; }
-.reasonix-confirm-dialog__actions .btn--danger { font-weight: 600; }
+.semantix-confirm-dialog__actions .btn { min-width: 84px; }
+.semantix-confirm-dialog__actions .btn--danger { font-weight: 600; }
 .btn {
   display: inline-flex;
   align-items: center;
@@ -11004,7 +11004,7 @@ body > .mermaid-diagram--fullscreen {
   align-items: center;
   justify-content: center;
   color: var(--workspace-file-icon-dark, var(--fg-faint));
-  font-family: "Reasonix Seti";
+  font-family: "Semantix Seti";
   font-size: 16px;
   font-style: normal;
   font-weight: normal;

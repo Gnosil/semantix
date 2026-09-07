@@ -21,8 +21,8 @@ import (
 )
 
 const (
-	macBundleID         = "com.wails.reasonix-desktop"
-	macUpdateHandoffArg = "--reasonix-mac-update-handoff"
+	macBundleID         = "com.wails.semantix-desktop"
+	macUpdateHandoffArg = "--semantix-mac-update-handoff"
 	macHandoffReadyFD   = 3
 	macHandoffProceedFD = 4
 	macHandoffReadyWait = 5 * time.Second
@@ -68,7 +68,7 @@ func applyMac(zipPath, targetVersion string) error {
 	if err != nil {
 		return err
 	}
-	staging, err := os.MkdirTemp("", "reasonix-mac-update-*")
+	staging, err := os.MkdirTemp("", "semantix-mac-update-*")
 	if err != nil {
 		return err
 	}
@@ -92,7 +92,7 @@ func applyMac(zipPath, targetVersion string) error {
 	if err := verifyMacApp(nextApp); err != nil {
 		return err
 	}
-	backupApp := currentApp + ".reasonix-update-backup"
+	backupApp := currentApp + ".semantix-update-backup"
 	exe, err := os.Executable()
 	if err != nil {
 		return err
@@ -214,7 +214,7 @@ func writeMacHandoffReadyResponse(fd int, response macHandoffReadyResponse) erro
 	if fd == 0 {
 		return nil
 	}
-	ready := os.NewFile(uintptr(fd), "reasonix-update-ready")
+	ready := os.NewFile(uintptr(fd), "semantix-update-ready")
 	if ready == nil {
 		return fmt.Errorf("readiness pipe is unavailable")
 	}
@@ -256,7 +256,7 @@ type macUpdateHandoffConfig struct {
 }
 
 func parseMacUpdateHandoffArgs(args []string) (macUpdateHandoffConfig, error) {
-	fs := flag.NewFlagSet("reasonix-mac-update-handoff", flag.ContinueOnError)
+	fs := flag.NewFlagSet("semantix-mac-update-handoff", flag.ContinueOnError)
 	var cfg macUpdateHandoffConfig
 	fs.StringVar(&cfg.ToVersion, "to-version", "", "pending update target version")
 	fs.StringVar(&cfg.CreatedAt, "created-at", "", "pending update creation timestamp")
@@ -415,7 +415,7 @@ func runMacUpdateHandoff(cfg macUpdateHandoffConfig) int {
 		failedAppVerified := false
 		if publishedReplacement {
 			var retainErr error
-			failedApp, retainErr = retainMacHandoffNode(oldApp, "reasonix-update-failed")
+			failedApp, retainErr = retainMacHandoffNode(oldApp, "semantix-update-failed")
 			if retainErr != nil {
 				if !os.IsNotExist(retainErr) {
 					return fmt.Errorf("retain failed replacement bundle: %w", retainErr)
@@ -445,7 +445,7 @@ func runMacUpdateHandoff(cfg macUpdateHandoffConfig) int {
 			return fmt.Errorf("restore backup bundle: %w", err)
 		}
 		if err := repair.VerifyAppBundleUpdateHandoffOriginal(claimed); err != nil {
-			rejected, retainErr := retainMacHandoffNode(oldApp, "reasonix-update-rejected")
+			rejected, retainErr := retainMacHandoffNode(oldApp, "semantix-update-rejected")
 			if retainErr != nil {
 				return fmt.Errorf("restored backup bundle changed: %w (retain rejected bundle: %w)", err, retainErr)
 			}
@@ -492,7 +492,7 @@ func runMacUpdateHandoff(cfg macUpdateHandoffConfig) int {
 		return 1
 	}
 
-	installRoot, err := os.MkdirTemp(filepath.Dir(oldApp), ".reasonix-update-install-*")
+	installRoot, err := os.MkdirTemp(filepath.Dir(oldApp), ".semantix-update-install-*")
 	if err != nil {
 		logf("failed to create replacement staging directory: %v", err)
 		if rollbackErr := rollback(); rollbackErr != nil {
@@ -588,7 +588,7 @@ func completeMacHandoffHandshake(cfg macUpdateHandoffConfig) error {
 	if cfg.ReadyFD == 0 && cfg.ProceedFD == 0 {
 		return nil
 	}
-	proceed := os.NewFile(uintptr(cfg.ProceedFD), "reasonix-update-proceed")
+	proceed := os.NewFile(uintptr(cfg.ProceedFD), "semantix-update-proceed")
 	if proceed == nil {
 		return fmt.Errorf("handoff pipe is unavailable")
 	}
@@ -637,7 +637,7 @@ func cleanupOwnedMacUpdateDirectory(path string, owner os.FileInfo) error {
 		return fmt.Errorf("macOS update cleanup identity is incomplete")
 	}
 	for attempt := range 16 {
-		cleanup := fmt.Sprintf("%s.reasonix-cleanup-%d-%d", path, time.Now().UTC().UnixNano(), attempt)
+		cleanup := fmt.Sprintf("%s.semantix-cleanup-%d-%d", path, time.Now().UTC().UnixNano(), attempt)
 		err := unix.RenameatxNp(unix.AT_FDCWD, path, unix.AT_FDCWD, cleanup, unix.RENAME_EXCL)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -724,7 +724,7 @@ func currentMacAppBundle() (string, error) {
 }
 
 func findMacApp(root string) (string, error) {
-	direct := filepath.Join(root, "Reasonix.app")
+	direct := filepath.Join(root, "Semantix.app")
 	if _, err := os.Stat(filepath.Join(direct, "Contents", "Info.plist")); err == nil {
 		return direct, nil
 	}

@@ -16,7 +16,7 @@ func TestReplaceLocalSaveDestinationFailurePreservesExistingTarget(t *testing.T)
 		t.Fatal(err)
 	}
 
-	missingTemp := filepath.Join(dir, "missing.reasonix-copy")
+	missingTemp := filepath.Join(dir, "missing.semantix-copy")
 	if err := replaceLocalSaveDestination(missingTemp, target); err == nil {
 		t.Fatal("replaceLocalSaveDestination with missing source succeeded, want error")
 	}

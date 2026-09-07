@@ -116,7 +116,7 @@ semantix dashboard                                                      # 一屏
 
 | Agent / 助手 | 接入路径 | 状态 |
 | --- | --- | --- |
-| DeepSeek-Reasonix | 内置捆绑：`[semantix] enabled=true` + `semantix_lookup` 工具 | ✅ v0.3.0 起随包发布 |
+| Semantix Agent | 内置捆绑：`[semantix] enabled=true` + `semantix_lookup` 工具 | ✅ v0.3.0 起随包发布 |
 | Claude Code | 工具注册（`semantix_lookup` / `semantix_inject` schema） | ✅ 已文档化（`agent-skill/tools/`） |
 | LangChain 应用 | 两个 hook 的中间件（消息改写 + 会话提取） | ✅ 已文档化（[报告](./docs/reports/langchain-middleware.md)） |
 | 自研 / 私有 agent | 会话绕行：export / 事件旁路 / 直接调用 | ✅ 已文档化（`agent-skill/hooks/session-bypass.md`） |

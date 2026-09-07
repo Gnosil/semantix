@@ -10,7 +10,7 @@ process.env.PLAYWRIGHT_BROWSERS_PATH = !process.env.PLAYWRIGHT_BROWSERS_PATH || 
   ? path.join(frontendDir, ".pw-browsers")
   : process.env.PLAYWRIGHT_BROWSERS_PATH;
 const { chromium } = await import("playwright");
-const port = Number(process.env.REASONIX_APPROVAL_BROWSER_PORT ?? 4620);
+const port = Number(process.env.SEMANTIX_APPROVAL_BROWSER_PORT ?? 4620);
 const url = `http://127.0.0.1:${port}/`;
 
 function assert(condition, message) {
@@ -47,11 +47,11 @@ try {
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(String(error)));
   await page.addInitScript(() => {
-    window.__reasonixApprovalAnimationCalls = [];
+    window.__semantixApprovalAnimationCalls = [];
     const original = Element.prototype.animate;
     Element.prototype.animate = function (frames, options) {
       if (this instanceof HTMLElement && this.querySelector(".prompt-shelf")) {
-        window.__reasonixApprovalAnimationCalls.push({
+        window.__semantixApprovalAnimationCalls.push({
           easing: typeof options === "object" && options ? String(options.easing ?? "") : "",
         });
       }
@@ -72,7 +72,7 @@ try {
   await page.locator(".decision-confirm-bar__confirm").click();
   await page.waitForFunction(() => !document.querySelector(".prompt-shelf--tool-approval"), undefined, { timeout: 10_000 });
 
-  const calls = await page.evaluate(() => window.__reasonixApprovalAnimationCalls ?? []);
+  const calls = await page.evaluate(() => window.__semantixApprovalAnimationCalls ?? []);
   assert(calls.length === 1, `approval invokes one native Web Animation (${JSON.stringify(calls)})`);
   assert(calls[0]?.easing === "cubic-bezier(0.8, 0, 0.8, 0.28)", `approval uses the CSS easing contract (${calls[0]?.easing})`);
   assert(pageErrors.length === 0, `approval interaction completes without page errors (${JSON.stringify(pageErrors)})`);

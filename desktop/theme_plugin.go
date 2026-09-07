@@ -17,7 +17,7 @@ import (
 	"semantix/harness/pluginpkg"
 )
 
-// Plugin themes are .reasonix-theme packs contributed by ENABLED installed
+// Plugin themes are .semantix-theme packs contributed by ENABLED installed
 // plugins (Manifest v1 contributes.themes globs). They are read-only: they are
 // never copied into the user theme library, never staged, and never mutated —
 // every read goes straight to the ZIP inside the plugin root. The external id
@@ -61,7 +61,7 @@ type pluginTheme struct {
 	id         string // plugin:<pluginName>:<themeID>
 	pluginName string // installed plugin name (for view badging)
 	themeID    string // the pack manifest's own id
-	path       string // absolute path of the .reasonix-theme ZIP
+	path       string // absolute path of the .semantix-theme ZIP
 	manifest   *ThemePackManifest
 	digests    map[string]string // lowercase scene image name -> content digest
 	warnings   []string          // non-fatal discovery issues of the same plugin

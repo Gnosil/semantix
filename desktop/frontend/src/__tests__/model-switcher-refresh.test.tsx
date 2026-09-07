@@ -97,7 +97,7 @@ await act(async () => {
 });
 
 await act(async () => {
-  window.dispatchEvent(new Event("reasonix:model-catalog-changed"));
+  window.dispatchEvent(new Event("semantix:model-catalog-changed"));
   fresh.resolve([{ ref: "glm-cn/glm-5.2", provider: "glm-cn", model: "glm-5.2", current: true }]);
   await fresh.promise;
 });

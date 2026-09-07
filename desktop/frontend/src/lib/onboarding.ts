@@ -1,4 +1,4 @@
-export const ONBOARDING_DISMISSED_STORAGE_KEY = "reasonix.onboarding.dismissed.v1";
+export const ONBOARDING_DISMISSED_STORAGE_KEY = "semantix.onboarding.dismissed.v1";
 
 function onboardingStorage(): Storage | null {
   try {

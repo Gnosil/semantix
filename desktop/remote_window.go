@@ -37,10 +37,10 @@ const (
 	remoteWindowTicketPrefix    = ".remote-window-"
 	remoteWindowTicketTTL       = 2 * time.Minute
 	remoteWindowTicketMaxBytes  = 16 * 1024
-	remoteWindowInstancePrefix  = "com.reasonix.desktop.remote."
+	remoteWindowInstancePrefix  = "com.semantix.desktop.remote."
 )
 
-// remoteWindowLaunch is a one-shot handoff from the primary Reasonix process to
+// remoteWindowLaunch is a one-shot handoff from the primary Semantix process to
 // a lightweight web-window child process. The URL carries the local tunnel token,
 // so the descriptor lives in a mode-0600 ticket file instead of the process
 // arguments. HostKey is the non-secret per-host digest used both to derive the
@@ -99,7 +99,7 @@ func (a *App) beginRemoteWindowHostOperation(hostID string) remoteWindowHostOper
 }
 
 // remoteWindowTicketPath validates the ticket name and resolves it inside the
-// Reasonix private state directory. Only the bare generated name is accepted —
+// Semantix private state directory. Only the bare generated name is accepted —
 // never a path, a traversal, or a foreign filename.
 func remoteWindowTicketPath(ticket string) (string, error) {
 	if ticket == "" || filepath.Base(ticket) != ticket || !strings.HasPrefix(ticket, remoteWindowTicketPrefix) {
@@ -242,11 +242,11 @@ func remoteWindowTitle(hostID string) string {
 	if hostID == "" {
 		hostID = "Remote"
 	}
-	return "Reasonix [SSH: " + hostID + "]"
+	return "Semantix [SSH: " + hostID + "]"
 }
 
 // remoteWindowHostKey derives the non-secret per-host identity used for the
-// child window's Wails single-instance lock. It is scoped to the Reasonix home
+// child window's Wails single-instance lock. It is scoped to the Semantix home
 // (so two isolated data homes can each open a window for the same host label)
 // and contains no URL, token, or user data — only a digest. The child receives
 // this digest in argv and validates it against the ticket before consuming.
@@ -399,7 +399,7 @@ func (r *remoteWindowRegistry) closeAll() {
 
 // ── Spawn / open (main process) ──
 
-// spawnRemoteWindow launches a fresh Reasonix child process for hostKey. Argv
+// spawnRemoteWindow launches a fresh Semantix child process for hostKey. Argv
 // contains only the ticket name, non-secret host/owner identities, and owner
 // PID; the URL and Serve token travel exclusively in the 0600 ticket. When a
 // window already exists for this owner and host, the Wails single-instance lock
@@ -413,7 +413,7 @@ func (a *App) spawnRemoteWindow(hostKey string, launch remoteWindowLaunch) error
 	executable, err := os.Executable()
 	if err != nil {
 		_ = os.Remove(path)
-		return fmt.Errorf("locate Reasonix executable: %w", err)
+		return fmt.Errorf("locate Semantix executable: %w", err)
 	}
 	if !isRemoteWindowOwnerID(a.remoteWindowOwnerID) {
 		_ = os.Remove(path)
@@ -428,7 +428,7 @@ func (a *App) spawnRemoteWindow(hostKey string, launch remoteWindowLaunch) error
 	)
 	if err := cmd.Start(); err != nil {
 		_ = os.Remove(path)
-		return fmt.Errorf("start remote Reasonix window: %w", err)
+		return fmt.Errorf("start remote Semantix window: %w", err)
 	}
 	gen := a.remoteWindows.record(hostKey, cmd.Process)
 	// The child (or the existing window it hands off to) normally consumes the

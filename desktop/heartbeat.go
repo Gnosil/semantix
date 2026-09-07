@@ -1,7 +1,7 @@
 // Heartbeat task engine — scheduled AI prompts that create or update topics.
 //
 // Each task is a prompt submitted to a dedicated topic on a schedule.
-// The config file under the Reasonix user state directory is human- and
+// The config file under the Semantix user state directory is human- and
 // AI-editable; the engine runs the schedule in a background goroutine and
 // exposes Wails bindings on App for the frontend panel.
 //
@@ -364,7 +364,7 @@ func (e *HeartbeatEngine) executeTask(t HeartbeatTask) HeartbeatTask {
 	return e.executeTaskOwned(t)
 }
 
-// tryAcquireTaskLease extends the in-process reservation to other Reasonix
+// tryAcquireTaskLease extends the in-process reservation to other Semantix
 // processes. The lease is held from before topic creation through prompt
 // submission, and the OS releases it automatically if the process is killed.
 func (e *HeartbeatEngine) tryAcquireTaskLease(taskID string) (func(), error) {

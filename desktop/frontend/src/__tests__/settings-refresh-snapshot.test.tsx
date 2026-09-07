@@ -368,7 +368,7 @@ window.go = {
     App: {
       Settings: async () => {
         failingSettingsCalls += 1;
-        if (failingSettingsCalls === 1) throw new Error("/Users/example/.reasonix/settings.toml: permission denied");
+        if (failingSettingsCalls === 1) throw new Error("/Users/example/.semantix/settings.toml: permission denied");
         return baseSettings("standard");
       },
     } as Partial<AppBindings> as AppBindings,
@@ -472,7 +472,7 @@ window.go = {
   },
 };
 
-localStorage.setItem("reasonix-zoom-restart", "1");
+localStorage.setItem("semantix-zoom-restart", "1");
 await act(async () => {
   zoomRoot.render(
     <LocaleProvider>
@@ -514,7 +514,7 @@ await act(async () => {
 await waitFor("display zoom reset", () => document.querySelector(".zoom-slider__value")?.textContent?.trim() === "100%");
 
 eq(savedZoomFactors.at(-1), 1, "display zoom reset writes the default zoom factor");
-eq(localStorage.getItem("reasonix-zoom-restart"), "1", "display zoom reset updates the local restart zoom cache");
+eq(localStorage.getItem("semantix-zoom-restart"), "1", "display zoom reset updates the local restart zoom cache");
 
 await act(async () => {
   zoomRoot.unmount();

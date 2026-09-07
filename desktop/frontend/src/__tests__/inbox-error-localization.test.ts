@@ -34,15 +34,15 @@ const stableCases = [
 ] as const;
 
 for (const [code, expected] of stableCases) {
-  eq(formatInboxError(new Error(`reasonix_error:${code}`), "zh"), expected, `zh maps ${code}`);
+  eq(formatInboxError(new Error(`semantix_error:${code}`), "zh"), expected, `zh maps ${code}`);
 }
 
 eq(formatInboxError(new Error("inbox is paused"), "zh"), "收件箱已暂停", "legacy backend English is localized");
 eq(formatInboxError(new Error("workspace failed to start: internal detail"), "zh"), "工作区启动失败", "legacy startup detail is sanitized and localized");
-eq(formatInboxError("reasonix_error:inbox_paused", "zh-TW"), "收件匣已暫停", "traditional Chinese maps stable code");
-eq(formatInboxError(new Error("reasonix_error:inbox_paused"), "en"), "Inbox is paused", "English maps stable code");
+eq(formatInboxError("semantix_error:inbox_paused", "zh-TW"), "收件匣已暫停", "traditional Chinese maps stable code");
+eq(formatInboxError(new Error("semantix_error:inbox_paused"), "en"), "Inbox is paused", "English maps stable code");
 eq(
-  formatInboxCancelError(new Error("reasonix_error:inbox_invalid_state"), "zh"),
+  formatInboxCancelError(new Error("semantix_error:inbox_invalid_state"), "zh"),
   "取消失败：当前状态下无法操作这条收件箱指令",
   "cancel failures localize both context and stable code",
 );

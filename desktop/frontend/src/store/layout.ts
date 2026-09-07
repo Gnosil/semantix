@@ -18,7 +18,7 @@ import { loadLayoutSize, loadOptionalLayoutSize, saveLayoutSize } from "../lib/l
 
 import { applySetState } from "./setState";
 
-const SIDEBAR_COLLAPSED_KEY = "reasonix.sidebar.collapsed";
+const SIDEBAR_COLLAPSED_KEY = "semantix.sidebar.collapsed";
 const SIDEBAR_DEFAULT_WIDTH = 264;
 export const SIDEBAR_MIN_WIDTH = 264;
 export const CREATION_SIDEBAR_MIN_WIDTH = 236;
@@ -40,7 +40,7 @@ export const RIGHT_DOCK_MIN_RENDER_WIDTH = 280;
 // Creation tree mode may render below the classic 280 floor when the viewport squeezes.
 export const CREATION_RIGHT_DOCK_MIN_RENDER_WIDTH = 236;
 export const RIGHT_DOCK_MAX_WIDTH = 860;
-const WORKSPACE_PANEL_OPEN_KEY = "reasonix.workspacePanel.open";
+const WORKSPACE_PANEL_OPEN_KEY = "semantix.workspacePanel.open";
 // First-launch default when no preference is stored (matches post-#6371 UX).
 const WORKSPACE_PANEL_DEFAULT_OPEN = true;
 
@@ -143,7 +143,7 @@ export type RightDockMode = "context" | "files" | "changed" | "remote";
 // terminalPanelOpen is independent from rightDockMode — the terminal is a
 // bottom drawer that coexists with the workspace panel, not a mode of it.
 // Persisted to localStorage so it survives restart.
-const TERMINAL_PANEL_OPEN_KEY = "reasonix.terminalPanel.open";
+const TERMINAL_PANEL_OPEN_KEY = "semantix.terminalPanel.open";
 const TERMINAL_PANEL_DEFAULT_OPEN = false;
 
 function loadTerminalPanelOpen(): boolean {
@@ -169,7 +169,7 @@ export const TERMINAL_DEFAULT_HEIGHT = 280;
 export const TERMINAL_MIN_HEIGHT = 120;
 export const TERMINAL_MAX_HEIGHT_RATIO = 0.5; // max 50% of viewport height
 
-const TERMINAL_HEIGHT_KEY = "reasonix.terminalPanel.height";
+const TERMINAL_HEIGHT_KEY = "semantix.terminalPanel.height";
 
 function loadTerminalHeight(): number {
   if (typeof window === "undefined") return TERMINAL_DEFAULT_HEIGHT;

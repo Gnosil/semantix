@@ -1,6 +1,6 @@
 import { escapeRefPath, refTokenRe, unescapeRefPath } from "./refToken";
 
-const attachmentRefRe = /@(\.reasonix\/attachments\/[^\s]+)/g;
+const attachmentRefRe = /@(\.semantix\/attachments\/[^\s]+)/g;
 const namedAttachmentRefRe = /(^|\s)@\[([^\]\r\n]+)\]\(([^)\s]+)\)/g;
 const trailingPunctuationRe = /[.,;!?)\]}，。；！？）】]+$/;
 
@@ -132,14 +132,14 @@ export function sortDisplayAttachments<T extends { kind: "image" | "file" | "fol
 }
 
 function isDisplayReference(path: string): boolean {
-  if (path.startsWith(".reasonix/attachments/")) return true;
+  if (path.startsWith(".semantix/attachments/")) return true;
   if (path.endsWith("/")) return true;
   if (path.includes("/")) return true;
   return attachmentExt(path) !== "";
 }
 
 function displayAttachment(path: string, name: string): DisplayAttachment {
-  if (path.startsWith(".reasonix/attachments/")) {
+  if (path.startsWith(".semantix/attachments/")) {
     const kind = isImageAttachmentRef(path) ? "image" : "file";
     return {
       path,

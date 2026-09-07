@@ -35,7 +35,7 @@ func TestInboxWailsErrorsUseStableCodes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := inboxWailsError(tt.err)
-			if got.Error() != "reasonix_error:"+tt.code {
+			if got.Error() != "semantix_error:"+tt.code {
 				t.Fatalf("error = %q, want stable code %q", got, tt.code)
 			}
 			if !errors.Is(got, tt.err) {
@@ -66,10 +66,10 @@ func TestSteerInboxItemPausedReturnsStableCode(t *testing.T) {
 		t.Fatal(err)
 	}
 	failedReceipt, err := app.SteerInboxItem("test", receipt.ItemID)
-	if err == nil || err.Error() != "reasonix_error:inbox_paused" {
+	if err == nil || err.Error() != "semantix_error:inbox_paused" {
 		t.Fatalf("SteerInboxItem error = %v, want stable paused code", err)
 	}
-	if failedReceipt.Error != "reasonix_error:inbox_paused" {
+	if failedReceipt.Error != "semantix_error:inbox_paused" {
 		t.Fatalf("SteerInboxItem receipt error = %q, want stable paused code", failedReceipt.Error)
 	}
 }

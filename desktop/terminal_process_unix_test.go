@@ -31,7 +31,7 @@ func TestUnixTerminalProcessPTYSmoke(t *testing.T) {
 		t.Fatalf("resize PTY: %v", err)
 	}
 
-	const marker = "reasonix-pty-smoke"
+	const marker = "semantix-pty-smoke"
 	readResult := make(chan error, 1)
 	markerSeen := make(chan struct{})
 	go func() {

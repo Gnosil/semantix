@@ -256,7 +256,7 @@ const providerUrlLabel = Array.from(rootEl.querySelectorAll<HTMLLabelElement>("l
   (label) => label.htmlFor === providerUrlInput?.id,
 );
 ok(Boolean(providerUrlLabel) && providerUrlInput?.getAttribute("aria-describedby") !== null, "provider URL input has a programmatic label and description");
-ok(rootEl.textContent?.includes("Reasonix uses it unchanged.") === true, "provider URL helper explains exact request behavior");
+ok(rootEl.textContent?.includes("Semantix uses it unchanged.") === true, "provider URL helper explains exact request behavior");
 
 await act(async () => {
   root.render(<div />);

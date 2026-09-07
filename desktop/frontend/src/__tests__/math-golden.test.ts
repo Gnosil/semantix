@@ -12,7 +12,7 @@ import ReactMarkdown from "react-markdown";
 import katex from "katex";
 import { latexNormalizeForKatex, stripMathDelimiters } from "../components/latexNormalize";
 import { classifyInlineMath, isLikelyInlineMath } from "../components/mathClassify";
-import { reasonixRehypePlugins, reasonixRemarkPlugins } from "../components/markdownRemarkPlugins";
+import { semantixRehypePlugins, semantixRemarkPlugins } from "../components/markdownRemarkPlugins";
 import {
   normalizeMath,
   resolveProtectedInlineMathSource,
@@ -489,7 +489,7 @@ for (const { src, expected, label } of passthrough) {
 }
 
 // ── remark-math render boundary ────────────────────────────────────────────────
-// These cases cross the real react-markdown → remark-math → Reasonix AST
+// These cases cross the real react-markdown → remark-math → Semantix AST
 // policy → rehype-katex boundary. The policy restores literal nodes after
 // parsing, so rejected content cannot be reparsed as math.
 
@@ -498,8 +498,8 @@ console.log("\nnormalizeMath → remark-math render boundary");
 function renderHtml(src: string): string {
   return renderToStaticMarkup(
     createElement(ReactMarkdown, {
-      remarkPlugins: reasonixRemarkPlugins,
-      rehypePlugins: reasonixRehypePlugins,
+      remarkPlugins: semantixRemarkPlugins,
+      rehypePlugins: semantixRehypePlugins,
       children: normalizeMath(src),
     }),
   );
@@ -675,7 +675,7 @@ check("inline Young diagrams preserve their authored macro source", () => {
   const html = renderHtml("before $V=\\yng(2,1)$ after");
   return html.includes("katex")
     && !html.includes("katex-error")
-    && !html.includes("reasonixInternal")
+    && !html.includes("semantixInternal")
     && html.includes('data-latex-source="V=\\yng(2,1)"')
     && html.includes('encoding="application/x-tex">V=\\yng(2,1)</annotation>');
 });
@@ -683,7 +683,7 @@ check("display Young tableaux preserve their authored macro source", () => {
   const html = renderHtml("$$\\young(ab,c)$$");
   return html.includes("katex-display")
     && !html.includes("katex-error")
-    && !html.includes("reasonixInternal")
+    && !html.includes("semantixInternal")
     && html.includes('data-latex-source="\\young(ab,c)"')
     && html.includes('encoding="application/x-tex">\\young(ab,c)</annotation>');
 });
@@ -692,7 +692,7 @@ check("Young source survives nested pipe protection without cross-assignment", (
   const source = "V=\\yng(2,1) | x + \\young(ab,c)";
   return html.includes("katex")
     && !html.includes("katex-error")
-    && !html.includes("reasonixInternal")
+    && !html.includes("semantixInternal")
     && html.includes(`data-latex-source="${source}"`)
     && html.includes(`encoding="application/x-tex">${source}</annotation>`);
 });
@@ -738,7 +738,7 @@ check("\\yng(2,1) in prose (no $ delimiters) gets wrapped and rendered", () => {
   const html = renderHtml("The partition \\yng(2,1) is symmetric.");
   return html.includes("katex")
     && !html.includes("katex-error")
-    && !html.includes("reasonixInternal")
+    && !html.includes("semantixInternal")
     && html.includes('data-latex-source="\\yng(2,1)"');
 });
 check("\\yng inside \\(...\\) does not get double-wrapped", () => {
@@ -789,7 +789,7 @@ check("\\yng (2,1) with a space before parens gets wrapped and rendered", () => 
   const html = renderHtml("The partition \\yng (2,1) is symmetric.");
   return html.includes("katex")
     && !html.includes("katex-error")
-    && !html.includes("reasonixInternal")
+    && !html.includes("semantixInternal")
     && html.includes('data-latex-source="\\yng (2,1)"');
 });
 check("\\yng(3,2,1) renders as (3,2,1) Young diagram", () => {
@@ -808,7 +808,7 @@ check("\\young(ab,c) labelled youngtab syntax renders labels", () => {
   const html = renderHtml("$$\\young(ab,c)$$");
   return html.includes("katex-display")
     && !html.includes("katex-error")
-    && !html.includes("reasonixInternal")
+    && !html.includes("semantixInternal")
     && html.includes('data-latex-source="\\young(ab,c)"')
     && ["a", "b", "c"].every((label) => html.includes(label));
 });

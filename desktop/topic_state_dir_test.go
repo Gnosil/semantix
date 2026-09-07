@@ -27,7 +27,7 @@ func TestTopicStateWritesSkipDeletedWorkspaceRoot(t *testing.T) {
 }
 
 func TestTopicStateWritesStillCreateGlobalDir(t *testing.T) {
-	t.Setenv("REASONIX_HOME", t.TempDir())
+	t.Setenv("SEMANTIX_HOME", t.TempDir())
 
 	if err := saveTopicTitles("", map[string]string{"topic_1": "global"}); err != nil {
 		t.Fatalf("global topic titles must still be writable: %v", err)

@@ -35,11 +35,11 @@ func repairDesktopIconIntegration() error {
 	if err != nil || installRoot == "" {
 		return nil
 	}
-	launcher := filepath.Join(installRoot, "reasonix-launcher.exe")
+	launcher := filepath.Join(installRoot, "semantix-launcher.exe")
 	if info, err := os.Lstat(launcher); err != nil || !info.Mode().IsRegular() {
 		return nil
 	}
-	paths, err := reasonixWindowsShortcutPaths()
+	paths, err := semantixWindowsShortcutPaths()
 	if err != nil {
 		return err
 	}
@@ -49,15 +49,15 @@ func repairDesktopIconIntegration() error {
 	)
 }
 
-func reasonixWindowsShortcutPaths() ([]string, error) {
+func semantixWindowsShortcutPaths() ([]string, error) {
 	desktop, desktopErr := windowsKnownFolderPath(windows.FOLDERID_Desktop, windows.KF_FLAG_DEFAULT)
 	programs, programsErr := windowsKnownFolderPath(windows.FOLDERID_Programs, windows.KF_FLAG_DEFAULT)
 	if desktopErr != nil || programsErr != nil {
 		return nil, errors.Join(desktopErr, programsErr)
 	}
 	return []string{
-		filepath.Join(desktop, "Reasonix.lnk"),
-		filepath.Join(programs, "Reasonix.lnk"),
+		filepath.Join(desktop, "Semantix.lnk"),
+		filepath.Join(programs, "Semantix.lnk"),
 	}, nil
 }
 
@@ -124,7 +124,7 @@ func repairWindowsShortcut(shortcutPath, launcher string) (bool, error) {
 	}
 	target := targetValue.ToString()
 	_ = targetValue.Clear()
-	if !reasonixWindowsShortcutTarget(target, launcher) {
+	if !semantixWindowsShortcutTarget(target, launcher) {
 		return false, nil
 	}
 	iconValue, err := oleutil.GetProperty(shortcut, "IconLocation")
@@ -138,7 +138,7 @@ func repairWindowsShortcut(shortcutPath, launcher string) (bool, error) {
 		return false, nil
 	}
 	if repointTarget {
-		// A version-scoped target points into versions/<v>/reasonix-desktop.exe,
+		// A version-scoped target points into versions/<v>/semantix-desktop.exe,
 		// which the updater deletes when it switches or prunes versions. Repoint
 		// it at the stable launcher so the shortcut survives updates.
 		result, err := oleutil.PutProperty(shortcut, "TargetPath", launcher)
@@ -172,7 +172,7 @@ func repairWindowsShortcut(shortcutPath, launcher string) (bool, error) {
 	return err == nil, err
 }
 
-func reasonixWindowsShortcutTarget(target, launcher string) bool {
+func semantixWindowsShortcutTarget(target, launcher string) bool {
 	target = filepath.Clean(strings.TrimSpace(target))
 	launcher = filepath.Clean(strings.TrimSpace(launcher))
 	if target == "." || launcher == "." {
@@ -181,21 +181,21 @@ func reasonixWindowsShortcutTarget(target, launcher string) bool {
 	root := filepath.Dir(launcher)
 	for _, owned := range []string{
 		launcher,
-		filepath.Join(root, "Reasonix.exe"),
-		filepath.Join(root, "reasonix-desktop.exe"),
+		filepath.Join(root, "Semantix.exe"),
+		filepath.Join(root, "semantix-desktop.exe"),
 	} {
 		if strings.EqualFold(target, owned) {
 			return true
 		}
 	}
-	return reasonixWindowsVersionedTarget(target, launcher)
+	return semantixWindowsVersionedTarget(target, launcher)
 }
 
-// reasonixWindowsVersionedTarget reports whether target points into this
-// install's versions/<version>/reasonix-desktop.exe, a version-scoped path
+// semantixWindowsVersionedTarget reports whether target points into this
+// install's versions/<version>/semantix-desktop.exe, a version-scoped path
 // that the updater deletes when it switches or prunes versions. Such targets
 // dangle after an update, so repair must repoint them at the stable launcher.
-func reasonixWindowsVersionedTarget(target, launcher string) bool {
+func semantixWindowsVersionedTarget(target, launcher string) bool {
 	root := filepath.Dir(filepath.Clean(strings.TrimSpace(launcher)))
 	rel, err := filepath.Rel(root, filepath.Clean(strings.TrimSpace(target)))
 	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
@@ -203,7 +203,7 @@ func reasonixWindowsVersionedTarget(target, launcher string) bool {
 	}
 	parts := strings.Split(rel, string(filepath.Separator))
 	return len(parts) == 3 && strings.EqualFold(parts[0], "versions") &&
-		strings.EqualFold(parts[2], "reasonix-desktop.exe")
+		strings.EqualFold(parts[2], "semantix-desktop.exe")
 }
 
 // repairWindowsShortcutPlan decides which owned-shortcut properties need
@@ -212,17 +212,17 @@ func reasonixWindowsVersionedTarget(target, launcher string) bool {
 // after the versioned layout is active; fixIcon applies the same policy to
 // IconLocation. Flat installs keep their live root-level binary untouched.
 func repairWindowsShortcutPlan(target, iconLocation, launcher string, versionedLayout bool) (repointTarget, fixIcon bool) {
-	repointTarget = reasonixWindowsVersionedTarget(target, launcher) ||
-		reasonixWindowsFlatDesktopTarget(target, launcher, versionedLayout)
-	return repointTarget, reasonixWindowsStaleIcon(iconLocation, launcher, versionedLayout)
+	repointTarget = semantixWindowsVersionedTarget(target, launcher) ||
+		semantixWindowsFlatDesktopTarget(target, launcher, versionedLayout)
+	return repointTarget, semantixWindowsStaleIcon(iconLocation, launcher, versionedLayout)
 }
 
-// reasonixWindowsFlatDesktopTarget reports whether target points at the legacy
+// semantixWindowsFlatDesktopTarget reports whether target points at the legacy
 // root-level desktop binary after versioned layout activation or after the file
 // disappeared. A valid current.json is the commit point, so a leftover flat
 // binary is not a live flat install when best-effort cleanup could not remove it.
-func reasonixWindowsFlatDesktopTarget(target, launcher string, versionedLayout bool) bool {
-	flat := filepath.Join(filepath.Dir(filepath.Clean(strings.TrimSpace(launcher))), "reasonix-desktop.exe")
+func semantixWindowsFlatDesktopTarget(target, launcher string, versionedLayout bool) bool {
+	flat := filepath.Join(filepath.Dir(filepath.Clean(strings.TrimSpace(launcher))), "semantix-desktop.exe")
 	if !strings.EqualFold(filepath.Clean(strings.TrimSpace(target)), flat) {
 		return false
 	}
@@ -233,7 +233,7 @@ func reasonixWindowsFlatDesktopTarget(target, launcher string, versionedLayout b
 	return os.IsNotExist(err)
 }
 
-func reasonixWindowsStaleIcon(iconLocation, launcher string, versionedLayout bool) bool {
+func semantixWindowsStaleIcon(iconLocation, launcher string, versionedLayout bool) bool {
 	iconPath := strings.TrimSpace(iconLocation)
 	if comma := strings.LastIndex(iconPath, ","); comma >= 0 {
 		if _, err := strconv.Atoi(strings.TrimSpace(iconPath[comma+1:])); err == nil {
@@ -251,13 +251,13 @@ func reasonixWindowsStaleIcon(iconLocation, launcher string, versionedLayout boo
 	}
 	parts := strings.Split(rel, string(filepath.Separator))
 	if len(parts) == 3 && strings.EqualFold(parts[0], "versions") &&
-		strings.EqualFold(parts[2], "reasonix-desktop.exe") {
+		strings.EqualFold(parts[2], "semantix-desktop.exe") {
 		return true
 	}
 	// Legacy root-level icon: stale once the versioned layout is committed, even
 	// if best-effort cleanup left the old binary behind. Without current.json,
 	// require the file to be gone so a live flat install keeps its working icon.
-	if len(parts) == 1 && strings.EqualFold(parts[0], "reasonix-desktop.exe") {
+	if len(parts) == 1 && strings.EqualFold(parts[0], "semantix-desktop.exe") {
 		if versionedLayout {
 			return true
 		}

@@ -200,14 +200,14 @@ func TestHistoryMessagesDoNotReplayMemoryCompilerContract(t *testing.T) {
 }
 
 func TestHistoryMessagesRestoreCompiledSkillInvocationWithoutContract(t *testing.T) {
-	raw := historyMemoryCompilerContract(t, "/reasonix-develop ship the refactor")
+	raw := historyMemoryCompilerContract(t, "/semantix-develop ship the refactor")
 	msgs := []provider.Message{{Role: provider.RoleUser, Content: raw}}
 
 	got := historyMessages(msgs, func(string) string { return "ship the refactor" })
 	if len(got) != 1 {
 		t.Fatalf("history length = %d, want 1: %+v", len(got), got)
 	}
-	if got[0].Content != "ship the refactor" || got[0].SubmitText != "/reasonix-develop ship the refactor" {
+	if got[0].Content != "ship the refactor" || got[0].SubmitText != "/semantix-develop ship the refactor" {
 		t.Fatalf("compiled skill history = %+v", got[0])
 	}
 	assertNoHistoryMemoryContract(t, got[0].Content)
@@ -404,7 +404,7 @@ func TestHistoryForTabRestoresPlannerDisplayAfterReload(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "session.jsonl")
 	handoff := strings.Join([]string{
-		"# Reasonix executor handoff",
+		"# Semantix executor handoff",
 		"",
 		"You are the executor now.",
 		"",

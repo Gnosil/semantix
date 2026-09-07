@@ -8,7 +8,7 @@
 # Debian version ordering: stable X.Y.Z, prereleases as X.Y.Z~rc.N / X.Y.Z~canary.N
 # so they sort below the matching stable package. DEB_ARCH is the Go arch name,
 # which already matches Debian's (amd64, arm64).
-name: "reasonix-desktop"
+name: "semantix-desktop"
 arch: "${DEB_ARCH}"
 platform: "linux"
 version: "${DEB_VERSION}"
@@ -16,9 +16,9 @@ section: "utils"
 priority: "optional"
 maintainer: "esengine <esengine@users.noreply.github.com>"
 description: |
-  Reasonix desktop — a Wails shell around the Go kernel.
-vendor: "Reasonix Contributors"
-homepage: "https://github.com/esengine/DeepSeek-Reasonix"
+  Semantix desktop — a Wails shell around the Go kernel.
+vendor: "Semantix Contributors"
+homepage: "https://github.com/Gnosil/semantix"
 license: "MIT"
 scripts:
   postinstall: ./build/linux/postinstall.sh
@@ -30,69 +30,69 @@ depends:
   - libwebkit2gtk-4.1-0
   - pkexec
 contents:
-  - src: ./build/bin/reasonix-desktop
-    dst: /usr/bin/reasonix-desktop
+  - src: ./build/bin/semantix-desktop
+    dst: /usr/bin/semantix-desktop
     file_info:
       mode: 0755
-  - src: ./build/bin/reasonix-launcher
-    dst: /usr/bin/reasonix-launcher
+  - src: ./build/bin/semantix-launcher
+    dst: /usr/bin/semantix-launcher
     file_info:
       mode: 0755
-  - src: ./build/bin/reasonix
-    dst: /usr/bin/reasonix
+  - src: ./build/bin/semantix
+    dst: /usr/bin/semantix
     file_info:
       mode: 0755
-  - src: ./build/bin/reasonix-update-helper
-    dst: /usr/lib/reasonix/reasonix-update-helper
+  - src: ./build/bin/semantix-update-helper
+    dst: /usr/lib/semantix/semantix-update-helper
     file_info:
       mode: 0755
-  - src: ./build/linux/io.reasonix.desktop.update.policy
-    dst: /usr/share/polkit-1/actions/io.reasonix.desktop.update.policy
+  - src: ./build/linux/io.semantix.desktop.update.policy
+    dst: /usr/share/polkit-1/actions/io.semantix.desktop.update.policy
     file_info:
       mode: 0644
-  - src: ./build/linux/reasonix.desktop
-    dst: /usr/share/applications/reasonix.desktop
+  - src: ./build/linux/semantix.desktop
+    dst: /usr/share/applications/semantix.desktop
     file_info:
       mode: 0644
   # appicon.png is 1024x1024 — not a standard hicolor size dir, so install it under
-  # the size-agnostic pixmaps path that the .desktop's `Icon=reasonix-desktop` finds.
+  # the size-agnostic pixmaps path that the .desktop's `Icon=semantix-desktop` finds.
   - src: ./build/appicon.png
-    dst: /usr/share/pixmaps/reasonix-desktop.png
+    dst: /usr/share/pixmaps/semantix-desktop.png
     file_info:
       mode: 0644
-  - src: ./build/linux/icons/hicolor/16x16/apps/reasonix-desktop.png
-    dst: /usr/share/icons/hicolor/16x16/apps/reasonix-desktop.png
+  - src: ./build/linux/icons/hicolor/16x16/apps/semantix-desktop.png
+    dst: /usr/share/icons/hicolor/16x16/apps/semantix-desktop.png
     file_info:
       mode: 0644
-  - src: ./build/linux/icons/hicolor/24x24/apps/reasonix-desktop.png
-    dst: /usr/share/icons/hicolor/24x24/apps/reasonix-desktop.png
+  - src: ./build/linux/icons/hicolor/24x24/apps/semantix-desktop.png
+    dst: /usr/share/icons/hicolor/24x24/apps/semantix-desktop.png
     file_info:
       mode: 0644
-  - src: ./build/linux/icons/hicolor/32x32/apps/reasonix-desktop.png
-    dst: /usr/share/icons/hicolor/32x32/apps/reasonix-desktop.png
+  - src: ./build/linux/icons/hicolor/32x32/apps/semantix-desktop.png
+    dst: /usr/share/icons/hicolor/32x32/apps/semantix-desktop.png
     file_info:
       mode: 0644
-  - src: ./build/linux/icons/hicolor/48x48/apps/reasonix-desktop.png
-    dst: /usr/share/icons/hicolor/48x48/apps/reasonix-desktop.png
+  - src: ./build/linux/icons/hicolor/48x48/apps/semantix-desktop.png
+    dst: /usr/share/icons/hicolor/48x48/apps/semantix-desktop.png
     file_info:
       mode: 0644
-  - src: ./build/linux/icons/hicolor/64x64/apps/reasonix-desktop.png
-    dst: /usr/share/icons/hicolor/64x64/apps/reasonix-desktop.png
+  - src: ./build/linux/icons/hicolor/64x64/apps/semantix-desktop.png
+    dst: /usr/share/icons/hicolor/64x64/apps/semantix-desktop.png
     file_info:
       mode: 0644
-  - src: ./build/linux/icons/hicolor/128x128/apps/reasonix-desktop.png
-    dst: /usr/share/icons/hicolor/128x128/apps/reasonix-desktop.png
+  - src: ./build/linux/icons/hicolor/128x128/apps/semantix-desktop.png
+    dst: /usr/share/icons/hicolor/128x128/apps/semantix-desktop.png
     file_info:
       mode: 0644
-  - src: ./build/linux/icons/hicolor/256x256/apps/reasonix-desktop.png
-    dst: /usr/share/icons/hicolor/256x256/apps/reasonix-desktop.png
+  - src: ./build/linux/icons/hicolor/256x256/apps/semantix-desktop.png
+    dst: /usr/share/icons/hicolor/256x256/apps/semantix-desktop.png
     file_info:
       mode: 0644
-  - src: ./build/linux/icons/hicolor/512x512/apps/reasonix-desktop.png
-    dst: /usr/share/icons/hicolor/512x512/apps/reasonix-desktop.png
+  - src: ./build/linux/icons/hicolor/512x512/apps/semantix-desktop.png
+    dst: /usr/share/icons/hicolor/512x512/apps/semantix-desktop.png
     file_info:
       mode: 0644
-  - src: ./build/linux/icons/hicolor/scalable/apps/reasonix-desktop.svg
-    dst: /usr/share/icons/hicolor/scalable/apps/reasonix-desktop.svg
+  - src: ./build/linux/icons/hicolor/scalable/apps/semantix-desktop.svg
+    dst: /usr/share/icons/hicolor/scalable/apps/semantix-desktop.svg
     file_info:
       mode: 0644

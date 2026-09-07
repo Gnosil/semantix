@@ -10,11 +10,11 @@ import (
 )
 
 func TestNormalizeLocalOpenPathPreservesUnixRoot(t *testing.T) {
-	got, err := normalizeLocalOpenPath("file:///tmp/reasonix-report.md")
+	got, err := normalizeLocalOpenPath("file:///tmp/semantix-report.md")
 	if err != nil {
 		t.Fatalf("Unix file URL rejected: %v", err)
 	}
-	if got != "/tmp/reasonix-report.md" {
+	if got != "/tmp/semantix-report.md" {
 		t.Fatalf("Unix file URL = %q, want rooted path", got)
 	}
 }

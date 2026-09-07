@@ -215,7 +215,7 @@ export function useRenderedMarkdownText(text: string, streaming: boolean, holdId
       cancelFinalizationRef.current = null;
       finalizingTextRef.current = null;
       if (finalizationStartedAtRef.current > 0) {
-        performance.measure("reasonix:markdown-finalize", {
+        performance.measure("semantix:markdown-finalize", {
           start: finalizationStartedAtRef.current,
           end: performance.now(),
           detail: { textLength: finalizationLengthRef.current },
@@ -348,7 +348,7 @@ export const Markdown = memo(function Markdown({
   }, [streaming, legacyMode, text]);
   const handleWorkerParsed = useCallback(() => {
     if (finalizeStartRef.current === 0) return;
-    performance.measure("reasonix:markdown-finalize", {
+    performance.measure("semantix:markdown-finalize", {
       start: finalizeStartRef.current,
       end: performance.now(),
       detail: { textLength: finalizeLengthRef.current },

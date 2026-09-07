@@ -5,10 +5,10 @@ import (
 	"time"
 )
 
-// reasonixRecoveryState binds one renderer failure to the navigation started by
+// semantixRecoveryState binds one renderer failure to the navigation started by
 // its native Reload call. Navigation events may overlap, so completion is only
 // accepted after the matching navigation ID has been observed.
-type reasonixRecoveryState[T any] struct {
+type semantixRecoveryState[T any] struct {
 	mu              sync.Mutex
 	pending         *T
 	navigationID    uint64
@@ -17,7 +17,7 @@ type reasonixRecoveryState[T any] struct {
 	timer           *time.Timer
 }
 
-func (s *reasonixRecoveryState[T]) begin(
+func (s *semantixRecoveryState[T]) begin(
 	value T,
 	now time.Time,
 	cooldown time.Duration,
@@ -43,13 +43,13 @@ func (s *reasonixRecoveryState[T]) begin(
 	return true
 }
 
-func (s *reasonixRecoveryState[T]) hasPending() bool {
+func (s *semantixRecoveryState[T]) hasPending() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.pending != nil
 }
 
-func (s *reasonixRecoveryState[T]) bindNavigation(id uint64) bool {
+func (s *semantixRecoveryState[T]) bindNavigation(id uint64) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.pending == nil || s.navigationBound {
@@ -60,7 +60,7 @@ func (s *reasonixRecoveryState[T]) bindNavigation(id uint64) bool {
 	return true
 }
 
-func (s *reasonixRecoveryState[T]) completeNavigation(id uint64) (T, bool) {
+func (s *semantixRecoveryState[T]) completeNavigation(id uint64) (T, bool) {
 	s.mu.Lock()
 	if s.pending == nil || !s.navigationBound || s.navigationID != id {
 		var zero T
@@ -70,7 +70,7 @@ func (s *reasonixRecoveryState[T]) completeNavigation(id uint64) (T, bool) {
 	return s.finishLocked()
 }
 
-func (s *reasonixRecoveryState[T]) finish() (T, bool) {
+func (s *semantixRecoveryState[T]) finish() (T, bool) {
 	s.mu.Lock()
 	if s.pending == nil {
 		var zero T
@@ -80,7 +80,7 @@ func (s *reasonixRecoveryState[T]) finish() (T, bool) {
 	return s.finishLocked()
 }
 
-func (s *reasonixRecoveryState[T]) finishLocked() (T, bool) {
+func (s *semantixRecoveryState[T]) finishLocked() (T, bool) {
 	value := *s.pending
 	s.pending = nil
 	s.navigationID = 0

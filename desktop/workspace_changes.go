@@ -121,7 +121,7 @@ func (a *App) WorkspaceChanges(tabID string) WorkspaceChangesView {
 		if acc.hasSession {
 			acc.view.Sources = append(acc.view.Sources, "session")
 			// Session-owned files with a recorded preimage can one-click revert
-			// to the first Reasonix touch (not Git HEAD).
+			// to the first Semantix touch (not Git HEAD).
 			if ctrl != nil {
 				if state, ok := ctrl.CheckpointFileState(acc.view.Path); ok && state.Owned {
 					acc.view.CanSessionRevert = true
@@ -170,7 +170,7 @@ func (a *App) workspaceBaseForTab(tabID string) (string, error) {
 // WorkspaceChangeDetail returns the current patch for one file in the
 // requested tab. Git is authoritative when available because HEAD -> worktree
 // includes both staged and unstaged edits. Session checkpoints provide a
-// git-free fallback and cover files edited by Reasonix before Git notices them.
+// git-free fallback and cover files edited by Semantix before Git notices them.
 func (a *App) WorkspaceChangeDetail(tabID, path string) (WorkspaceChangeDetailView, error) {
 	workspaceRoot, ctrl, ok := a.workspaceChangesTarget(strings.TrimSpace(tabID))
 	if !ok {

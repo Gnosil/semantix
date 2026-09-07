@@ -25,7 +25,7 @@ export type RegionTypography = {
 
 export type TypographyPreferences = Record<TypographyRegion, RegionTypography>;
 
-export const TYPOGRAPHY_STORAGE_KEY = "reasonix-region-typography-v1";
+export const TYPOGRAPHY_STORAGE_KEY = "semantix-region-typography-v1";
 
 export const TYPOGRAPHY_REGION_META: Record<TypographyRegion, { baseSize: number; min: number; max: number }> = {
   interface: { baseSize: 14, min: 11, max: 20 },

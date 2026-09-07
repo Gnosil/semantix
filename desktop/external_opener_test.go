@@ -264,7 +264,7 @@ func TestCopyLocalPathAsReplacesDestinationWithoutChangingSource(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, entry := range entries {
-		if strings.HasPrefix(entry.Name(), ".target.md.reasonix-copy-") {
+		if strings.HasPrefix(entry.Name(), ".target.md.semantix-copy-") {
 			t.Fatalf("temporary copy was not cleaned up: %s", entry.Name())
 		}
 	}

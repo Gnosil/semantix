@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "official-spark-notebook",
   "name": "Spark Notebook",
-  "author": "Reasonix Contributors",
+  "author": "Semantix Contributors",
   "description": "Off-white notebook grid with teal, yellow and coral stationery around an original anime adult.",
   "license": "MIT",
   "baseStyle": "aurora",

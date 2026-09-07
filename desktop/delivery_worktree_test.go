@@ -24,9 +24,9 @@ func TestDeliveryWorktreeAvailabilityDelegatesWithoutRequiringGit(t *testing.T) 
 
 func TestCreateDeliveryWorktreeRegistersAndOpensManagedProject(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
-	t.Setenv("REASONIX_STATE_HOME", home)
-	t.Setenv("REASONIX_CACHE_HOME", filepath.Join(home, "cache"))
+	t.Setenv("SEMANTIX_HOME", home)
+	t.Setenv("SEMANTIX_STATE_HOME", home)
+	t.Setenv("SEMANTIX_CACHE_HOME", filepath.Join(home, "cache"))
 	managed := config.DeliveryWorktreeDir()
 	isolatedRoot := filepath.Join(managed, "repo", "id", "project")
 	if err := os.MkdirAll(isolatedRoot, 0o755); err != nil {
@@ -46,7 +46,7 @@ func TestCreateDeliveryWorktreeRegistersAndOpensManagedProject(t *testing.T) {
 			WorkspaceRoot: isolatedRoot,
 			WorktreeRoot:  filepath.Dir(isolatedRoot),
 			SourceRoot:    "source-project",
-			Branch:        "reasonix/delivery-test",
+			Branch:        "semantix/delivery-test",
 			SourceDirty:   true,
 		}, nil
 	}
@@ -57,7 +57,7 @@ func TestCreateDeliveryWorktreeRegistersAndOpensManagedProject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.WorkspaceRoot != isolatedRoot || result.Branch != "reasonix/delivery-test" || !result.SourceDirty {
+	if result.WorkspaceRoot != isolatedRoot || result.Branch != "semantix/delivery-test" || !result.SourceDirty {
 		t.Fatalf("result = %+v", result)
 	}
 	if result.Tab.WorkspaceRoot != isolatedRoot || !result.Tab.IsolatedWorktree || !result.Tab.Active || result.Tab.TokenMode != "delivery" {

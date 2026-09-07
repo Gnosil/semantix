@@ -59,7 +59,7 @@ export function approvalToolLabel(tool: string, t: Translator): string {
 
 const sandboxEscapeEnglishSubjectFallback = "run shell command unconfined once";
 const sandboxEscapeEnglishSubjectPrefix = "run unconfined once: ";
-const configWriteEnglishSubjectPrefix = "write Reasonix config: ";
+const configWriteEnglishSubjectPrefix = "write Semantix config: ";
 const planModeBashEnglishSubject = /^Trust (.+) as a read-only command prefix while planning\r?\nCommand: ([\s\S]+)$/;
 
 function localizeApprovalSubject(tool: string, subject: string, t: Translator): string {
@@ -110,7 +110,7 @@ function localizeApprovalReason(tool: string, reason: string | undefined, t: Tra
     localized = t("approval.dynamicBashReason");
   }
   if (tool === "config_write") {
-    localized = !trimmed || trimmed.includes("Reasonix-managed configuration file") ? t("approval.configWriteReason") : trimmed;
+    localized = !trimmed || trimmed.includes("Semantix-managed configuration file") ? t("approval.configWriteReason") : trimmed;
   }
   if (tool === "sandbox_escape") {
     if (trimmed.includes("could not wrap this command") || trimmed.includes("does not provide an OS-level Bash sandbox")) {

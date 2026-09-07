@@ -8,7 +8,7 @@ type HastNode = {
   children?: HastNode[];
 };
 
-const SOURCE_MARKER = "reasonix-latex-source:";
+const SOURCE_MARKER = "semantix-latex-source:";
 
 function markLatexSources(node: HastNode, sources: string[]): void {
   const children = node.children;
@@ -94,7 +94,7 @@ function restoreLatexSources(node: HastNode, sources: string[]): void {
  * Render the normalised TeX with KaTeX, then restore the original source into
  * the generated MathML annotation so selection-copy can round-trip user input.
  */
-export function rehypeReasonixKatex() {
+export function rehypeSemantixKatex() {
   const renderKatex = rehypeKatex();
   return (
     tree: Parameters<typeof renderKatex>[0],
@@ -107,4 +107,4 @@ export function rehypeReasonixKatex() {
   };
 }
 
-export const reasonixRehypePlugins = [rehypeReasonixKatex];
+export const semantixRehypePlugins = [rehypeSemantixKatex];

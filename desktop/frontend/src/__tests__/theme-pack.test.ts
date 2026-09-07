@@ -242,7 +242,7 @@ ok(
   "base stylesheet installs complete root and Creation code palettes",
 );
 
-ok(isSafeBackgroundURL("/__reasonix_theme_asset/my-theme/abc/background.png"), "asset URL allowed");
+ok(isSafeBackgroundURL("/__semantix_theme_asset/my-theme/abc/background.png"), "asset URL allowed");
 ok(isSafeBackgroundURL("data:image/png;base64,aaa"), "data URL allowed");
 ok(!isSafeBackgroundURL("https://evil.example/bg.png"), "remote URL rejected");
 const bundledOfficialBackground = "http://127.0.0.1:5197/@fs/workspace/desktop/themes/official/official-rose-dawn/background.webp";
@@ -265,7 +265,7 @@ const draft = draftPackView({
     overlayStrength: 0.5,
     paneOpacity: 0.50,
   },
-  backgroundUrl: "/__reasonix_theme_asset/preview-pack/deadbeef/background.png",
+  backgroundUrl: "/__semantix_theme_asset/preview-pack/deadbeef/background.png",
 });
 
 const tokenOnlyPreview = draftPackView({
@@ -282,15 +282,15 @@ applyThemePack(draft);
 ok(attrs.get("data-theme-pack") === "preview-pack", "sets data-theme-pack");
 ok(attrs.get("data-theme-has-bg") === "true", "marks background present");
 ok(styleProps.has("--theme-bg-image"), "sets background image var");
-ok(styleText("reasonix-theme-pack-overlay").includes("--accent:#ff0000"), "injects dark accent override");
-ok(styleText("reasonix-theme-pack-overlay").includes("--code-bg:#101115"), "injects an opaque code readability island");
-ok(styleText("reasonix-theme-pack-overlay").includes("--hl-comment:"), "injects contrast-checked syntax roles");
-ok(styleText("reasonix-theme-pack-overlay").includes("--r:14px"), "applies round corners recipe");
+ok(styleText("semantix-theme-pack-overlay").includes("--accent:#ff0000"), "injects dark accent override");
+ok(styleText("semantix-theme-pack-overlay").includes("--code-bg:#101115"), "injects an opaque code readability island");
+ok(styleText("semantix-theme-pack-overlay").includes("--hl-comment:"), "injects contrast-checked syntax roles");
+ok(styleText("semantix-theme-pack-overlay").includes("--r:14px"), "applies round corners recipe");
 
 const twoSceneDraft = draftPackView({
   ...draft,
   taskBackground: { focusX: 0.8, focusY: 0.3, safeArea: "right", opacity: 0.35, overlayStrength: 0.7, paneOpacity: 0.68 },
-  taskBackgroundUrl: "/__reasonix_theme_asset/preview-pack/deadbeef/background-task.png",
+  taskBackgroundUrl: "/__semantix_theme_asset/preview-pack/deadbeef/background-task.png",
 });
 applyThemePack(twoSceneDraft);
 ok(styleProps.get("--theme-bg-task-image")?.includes("background-task.png") === true, "sets independent task image var");
@@ -335,7 +335,7 @@ ok(
   ].every((property) => !styleProps.has(property)),
   "clearing a pack removes every extended pane opacity tier",
 );
-ok(styleText("reasonix-base-code-readability").includes("--code-add-bg:"), "applyTheme installs the base code readability stylesheet");
+ok(styleText("semantix-base-code-readability").includes("--code-add-bg:"), "applyTheme installs the base code readability stylesheet");
 beginThemePreview(draft);
 ok(attrs.get("data-theme-pack") === "preview-pack", "preview applies pack");
 cancelThemePreview();
@@ -434,7 +434,7 @@ ok(
 );
 
 // Density recipe must land in overlay CSS and have stylesheet consumers.
-ok(styleText("reasonix-theme-pack-overlay").includes("--theme-density-pad") || packSource.includes("--theme-density-pad:6px"), "compact density vars defined in pack builder");
+ok(styleText("semantix-theme-pack-overlay").includes("--theme-density-pad") || packSource.includes("--theme-density-pad:6px"), "compact density vars defined in pack builder");
 const compactDraft = draftPackView({
   id: "dense",
   name: "Dense",
@@ -443,8 +443,8 @@ const compactDraft = draftPackView({
   recipes: { density: "compact", corners: "soft" },
 });
 applyThemePack(compactDraft);
-ok(styleText("reasonix-theme-pack-overlay").includes("--theme-density-pad:6px"), "compact density injected");
-ok(styleText("reasonix-theme-pack-overlay").includes("--theme-row-h:28px"), "compact row height injected");
+ok(styleText("semantix-theme-pack-overlay").includes("--theme-density-pad:6px"), "compact density injected");
+ok(styleText("semantix-theme-pack-overlay").includes("--theme-row-h:28px"), "compact row height injected");
 ok(stylesSource.includes("padding: var(--theme-density-pad"), "density pad consumed by cards");
 ok(stylesSource.includes("gap: var(--theme-density-gap"), "density gap consumed");
 ok(stylesSource.includes("--list-row-height: var(--theme-row-h)"), "density maps to list row height");
@@ -482,18 +482,18 @@ ok(
 );
 ok(librarySource.includes("needsReplace"), "import handles needsReplace result");
 
-// Theme confirmations stay inside the Reasonix UI instead of opening native
+// Theme confirmations stay inside the Semantix UI instead of opening native
 // browser/system prompts.
 ok(!gallerySource.includes("window.confirm"), "ThemeGallery does not use native confirm dialogs");
 ok(!librarySource.includes("window.confirm"), "ThemeLibrary does not use native confirm dialogs");
-ok(gallerySource.includes("useConfirmDialog") && librarySource.includes("useConfirmDialog"), "theme flows share the Reasonix confirm dialog");
+ok(gallerySource.includes("useConfirmDialog") && librarySource.includes("useConfirmDialog"), "theme flows share the Semantix confirm dialog");
 ok(confirmDialogSource.includes('role="dialog"') && confirmDialogSource.includes('aria-modal="true"'), "confirm dialog exposes accessible modal semantics");
 ok(confirmDialogSource.includes('request.tone === "danger"') && confirmDialogSource.includes("btn--danger"), "destructive confirmations use danger styling");
 ok(confirmDialogSource.includes('event.key === "Escape"') && confirmDialogSource.includes("restoreFocusRef"), "confirm dialog supports Escape and focus restoration");
 ok(gallerySource.includes("moreActionsRef") && gallerySource.includes("moreActionsRef.current?.focus()"), "gallery cancellation restores focus after closing its overflow menu");
 
 // Source contracts
-ok(packSource.includes("reasonix-theme-pack-overlay"), "overlay style id stable");
+ok(packSource.includes("semantix-theme-pack-overlay"), "overlay style id stable");
 ok(packSource.includes("appendChild(el)"), "overlay style appended last for priority");
 ok(packSource.includes("baseAppearance"), "tracks base appearance for restore");
 ok(stylesSource.includes(".theme-bg"), "background layer CSS present");

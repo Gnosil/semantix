@@ -142,7 +142,7 @@ const warningTurn: Item[] = [
 
 // ── Phase 2: keep-expanded fold preference ────────────────────────────────────
 {
-  const harness = await createTranscriptHarness({ storage: { "reasonix-process-fold": "expanded" } });
+  const harness = await createTranscriptHarness({ storage: { "semantix-process-fold": "expanded" } });
   const container = harness.container;
   try {
     // Assistant content is model output addressed to the user — every message
@@ -249,7 +249,7 @@ const warningTurn: Item[] = [
 // ── Phase 3: summaries disabled ─────────────────────────────────────────────
 {
   const harness = await createTranscriptHarness({
-    storage: { "reasonix-process-fold": "expanded", "reasonix-reasoning-summary": "0" },
+    storage: { "semantix-process-fold": "expanded", "semantix-reasoning-summary": "0" },
   });
   try {
     await render(harness, [

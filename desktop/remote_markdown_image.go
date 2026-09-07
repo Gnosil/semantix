@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	remoteMarkdownImagePath     = "/__reasonix_remote_markdown_image"
+	remoteMarkdownImagePath     = "/__semantix_remote_markdown_image"
 	remoteMarkdownImageMaxBytes = 10 * 1024 * 1024
 	remoteMarkdownImageTimeout  = 20 * time.Second
 )
@@ -178,7 +178,7 @@ func resolveRemoteMarkdownImageAddresses(ctx context.Context, host string, looku
 }
 
 // remoteMarkdownImageMiddleware keeps external images out of the WebView2
-// network stack. The backend fetches them with Reasonix's proxy configuration,
+// network stack. The backend fetches them with Semantix's proxy configuration,
 // validates the response, sanitizes SVG, and serves only bounded image bytes
 // from the local Wails origin.
 func (a *App) remoteMarkdownImageMiddleware() func(http.Handler) http.Handler {

@@ -310,7 +310,7 @@ const effortNotice = controller?.state.items.find((item) => item.kind === "notic
 eq(effortCalls, 1, "SetEffortForTab is called once");
 ok(Boolean(effortNotice), "busy effort switch surfaces a non-failure warning notice");
 
-cancelInboxError = new Error("reasonix_error:inbox_invalid_state");
+cancelInboxError = new Error("semantix_error:inbox_invalid_state");
 await act(async () => {
   controller?.cancel(["queued-guidance"]);
   await flushPromises();
@@ -320,7 +320,7 @@ const inboxCancelNotice = controller?.state.items.find((item) =>
 );
 eq(cancelInboxCalls, 1, "CancelTabWithInboxItems is called for durable guidance");
 ok(Boolean(inboxCancelNotice), "cancel failure formats the stable inbox code for the active locale");
-ok(inboxCancelNotice?.kind === "notice" && !inboxCancelNotice.text.includes("reasonix_error:"), "cancel failure never renders the stable transport code");
+ok(inboxCancelNotice?.kind === "notice" && !inboxCancelNotice.text.includes("semantix_error:"), "cancel failure never renders the stable transport code");
 
 await act(async () => {
   root.unmount();

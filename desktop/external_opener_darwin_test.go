@@ -26,7 +26,7 @@ func TestDarwinExternalOpenersUseNativeApplicationMetadata(t *testing.T) {
 	if ghostty, installed := externalOpenerByID(specs, "ghostty"); installed && ghostty.LaunchMode != "ghostty" {
 		t.Fatalf("Ghostty launch mode = %q, want working-directory aware mode", ghostty.LaunchMode)
 	} else if installed {
-		path := "/tmp/reasonix workspace"
+		path := "/tmp/semantix workspace"
 		want := []string{"/usr/bin/open", "-na", ghostty.Target, "--args", "--working-directory=" + path}
 		if got := darwinExternalOpenerCommand(ghostty, path).Args; !reflect.DeepEqual(got, want) {
 			t.Fatalf("Ghostty command = %#v, want %#v", got, want)

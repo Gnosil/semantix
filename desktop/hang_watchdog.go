@@ -133,7 +133,7 @@ func mainThreadHangReport(age time.Duration, lastHeartbeat, observedAt time.Time
 	age = age.Round(time.Second)
 	message := fmt.Sprintf(`[%s]
 
-Reasonix detected that the %s UI-thread heartbeat stopped for %s.
+Semantix detected that the %s UI-thread heartbeat stopped for %s.
 
 --- watchdog context ---
 last heartbeat: %s

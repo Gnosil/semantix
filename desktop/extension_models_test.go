@@ -97,7 +97,7 @@ func TestModelsForTabIncludesExtensionProviders(t *testing.T) {
 // TestSetModelForTabPluginRefReachesBoot: with a controller whose merged
 // catalog declares the plugin ref, SetModelForTab's config gate accepts the
 // ref and hands it to boot — which is the resolver of record (here it fails
-// only because no sidecar is installed in this test's REASONIX_HOME). A
+// only because no sidecar is installed in this test's SEMANTIX_HOME). A
 // non-plugin unknown ref must still fail at the desktop gate, before boot.
 func TestSetModelForTabPluginRefReachesBoot(t *testing.T) {
 	dir := reloadRuntimeFixture(t)

@@ -9,7 +9,7 @@ import (
 	"semantix/harness/sessioninbox"
 )
 
-const inboxWailsErrorPrefix = "reasonix_error:"
+const inboxWailsErrorPrefix = "semantix_error:"
 
 type inboxCodedError struct {
 	code  string

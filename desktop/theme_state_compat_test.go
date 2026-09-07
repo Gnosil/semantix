@@ -16,7 +16,7 @@ import (
 
 func TestLegacyThemeStateV1MigratesToV2(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 
 	path := themeStatePath()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -56,7 +56,7 @@ func TestLegacyThemeStateV1MigratesToV2(t *testing.T) {
 
 func TestLegacyThemeStateGarbageFallsBack(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 
 	path := themeStatePath()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -73,7 +73,7 @@ func TestLegacyThemeStateGarbageFallsBack(t *testing.T) {
 
 func TestLegacyThemeStateBaseStyleNeverPersisted(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 
 	if err := saveThemeDesktopState(ThemeDesktopState{ActiveThemeID: "graphite"}); err != nil {
 		t.Fatalf("saveThemeDesktopState: %v", err)

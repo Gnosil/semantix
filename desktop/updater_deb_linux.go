@@ -26,7 +26,7 @@ var (
 )
 
 // helperPhasePrefix must match desktop/cmd/update-helper phasePrefix.
-const helperPhasePrefix = "REASONIX_UPDATE_PHASE="
+const helperPhasePrefix = "SEMANTIX_UPDATE_PHASE="
 
 // applyDebLinux asks Polkit (via pkexec) to run the root-owned helper against the
 // cached .deb + signature. The helper re-verifies the signature and runs apt.

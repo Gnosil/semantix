@@ -249,7 +249,7 @@ console.log("\ncomposer inbox recovery");
   };
   installBridgeApp({
     InboxSnapshot: async () => snapshot,
-    SteerInboxItem: async () => { throw new Error("reasonix_error:inbox_paused"); },
+    SteerInboxItem: async () => { throw new Error("semantix_error:inbox_paused"); },
   });
   const { root } = await renderComposer({ running: true });
 

@@ -12,16 +12,16 @@ import (
 
 const (
 	WindowsPayloadManifestSchemaVersion = 1
-	WindowsPayloadManifestName          = "reasonix-payload.json"
+	WindowsPayloadManifestName          = "semantix-payload.json"
 	WindowsPayloadSignatureName         = WindowsPayloadManifestName + ".minisig"
 )
 
 var windowsPayloadFileNames = [...]string{
-	"reasonix-desktop.exe",
-	"reasonix-guard.exe",
-	"reasonix-launcher.exe",
-	"reasonix-update-helper.exe",
-	"reasonix-cli.exe",
+	"semantix-desktop.exe",
+	"semantix-guard.exe",
+	"semantix-launcher.exe",
+	"semantix-update-helper.exe",
+	"semantix-cli.exe",
 }
 
 type WindowsPayloadManifest struct {

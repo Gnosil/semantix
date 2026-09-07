@@ -23,7 +23,7 @@ type Dict = Record<DictKey, string>;
 
 const DICTS: Partial<Record<Locale, Dict>> = { en };
 const localeLoads = new Map<Locale, Promise<void>>();
-const STORAGE_KEY = "reasonix-lang";
+const STORAGE_KEY = "semantix-lang";
 
 // currentLocale mirrors the active locale for callers outside React (lib/tools.ts).
 let currentLocale: Locale = "en";

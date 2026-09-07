@@ -7,14 +7,14 @@ import (
 )
 
 func TestSaveTabsWriteNoLongerSkippedBySafeModeEnv(t *testing.T) {
-	// v1.20+ ignores REASONIX_SAFE_MODE: tab persistence stays available.
+	// v1.20+ ignores SEMANTIX_SAFE_MODE: tab persistence stays available.
 	isolateDesktopUserDirs(t)
 	dir := desktopConfigDir()
 	entries := []desktopTabEntry{{ID: "t1", Scope: "global"}}
 
-	t.Setenv("REASONIX_SAFE_MODE", "1")
+	t.Setenv("SEMANTIX_SAFE_MODE", "1")
 	(&App{}).saveTabsWrite(dir, entries, "t1", 1)
 	if _, err := os.Stat(filepath.Join(dir, tabsFileName)); err != nil {
-		t.Fatalf("tabs must still write when REASONIX_SAFE_MODE is set: %v", err)
+		t.Fatalf("tabs must still write when SEMANTIX_SAFE_MODE is set: %v", err)
 	}
 }

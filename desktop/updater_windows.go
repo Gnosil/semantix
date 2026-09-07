@@ -34,7 +34,7 @@ func resolveWindowsUpdateHelperSource(installDir string) string {
 	return filepath.Join(installDir, windowsUpdateHelperFileName)
 }
 
-const windowsUpdateHelperFileName = "reasonix-update-helper.exe"
+const windowsUpdateHelperFileName = "semantix-update-helper.exe"
 
 var claimWindowsUpdateHelperExecutionFn = claimVerifiedWindowsUpdateHelperExecution
 
@@ -195,7 +195,7 @@ func prepareVersionedWindowsUpdateHelper(installDir string) (string, [sha256.Siz
 }
 
 func stageWindowsUpdateHelperCopy(dir string, data []byte) (string, error) {
-	staged, err := os.CreateTemp(dir, "reasonix-update-helper-*.exe")
+	staged, err := os.CreateTemp(dir, "semantix-update-helper-*.exe")
 	if err != nil {
 		return "", err
 	}

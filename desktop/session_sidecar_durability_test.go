@@ -104,8 +104,8 @@ func TestSetSessionTitleHonorsSidecarLock(t *testing.T) {
 }
 
 func TestRecordSessionDisplayExternalLockUsesShortBudget(t *testing.T) {
-	if os.Getenv("REASONIX_DISPLAY_LOCK_HELPER") != "" {
-		dir := os.Getenv("REASONIX_DISPLAY_LOCK_DIR")
+	if os.Getenv("SEMANTIX_DISPLAY_LOCK_HELPER") != "" {
+		dir := os.Getenv("SEMANTIX_DISPLAY_LOCK_DIR")
 		release, err := filelock.Acquire(context.Background(), sessionDisplayPath(dir)+".lock")
 		if err != nil {
 			t.Fatalf("acquire external display lock: %v", err)
@@ -124,8 +124,8 @@ func TestRecordSessionDisplayExternalLockUsesShortBudget(t *testing.T) {
 	var output strings.Builder
 	cmd := exec.Command(os.Args[0], "-test.run=^TestRecordSessionDisplayExternalLockUsesShortBudget$")
 	cmd.Env = append(os.Environ(),
-		"REASONIX_DISPLAY_LOCK_HELPER=1",
-		"REASONIX_DISPLAY_LOCK_DIR="+dir,
+		"SEMANTIX_DISPLAY_LOCK_HELPER=1",
+		"SEMANTIX_DISPLAY_LOCK_DIR="+dir,
 	)
 	cmd.Stdout = &output
 	cmd.Stderr = &output

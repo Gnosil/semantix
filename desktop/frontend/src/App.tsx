@@ -4838,7 +4838,7 @@ export default function App() {
             enabled={startupUpdateChecksEnabled === true}
             onShowReleaseNotes={(latest) => {
               const version = latest.replace(/^(?:desktop-)?v/, "");
-              void openExternal(`https://reasonix.io/changelog/v${version}/`);
+              void openExternal(`https://semantix.ensureok.ai/changelog/v${version}/`);
             }}
           />
 

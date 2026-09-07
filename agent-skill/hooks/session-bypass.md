@@ -30,7 +30,7 @@ semantix extract --input ~/.semantix/sessions/<sessionID>.jsonl --scope user --p
 
 ### B. 事件旁路（实时，semantix-agent 参考实现）
 
-Semantix（Gnosil/DeepSeek-Reasonix）已在 H1 挂载 `HarnessSink`
+Semantix Agent 已在 H1 挂载 `HarnessSink`
 （`internal/semantix/sink.go`）：harness 事件流 → turn 级 JSONL
 自动写 `~/.semantix/sessions/`，配置 `[semantix] enabled=true` 即开。
 

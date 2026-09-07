@@ -30,7 +30,7 @@ eq(layout.useLayoutStore.getState().rightDockTreeWidth, 300, "shared store start
 layout.applyLayoutStyleDefaults("creation");
 eq(layout.useLayoutStore.getState().sidebarWidth, 236, "Creation applies its sidebar default after style hydration");
 eq(layout.useLayoutStore.getState().rightDockTreeWidth, 252, "Creation applies its dock default after style hydration");
-eq(dom.window.localStorage.getItem("reasonix.layoutPreferences.v1"), null, "applying defaults does not overwrite user preferences");
+eq(dom.window.localStorage.getItem("semantix.layoutPreferences.v1"), null, "applying defaults does not overwrite user preferences");
 
 layout.applyLayoutStyleDefaults("workbench");
 eq(layout.useLayoutStore.getState().sidebarWidth, 300, "switching to workbench restores its responsive sidebar default");

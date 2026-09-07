@@ -327,7 +327,7 @@ console.log("\ncomposer run strip");
   const ticker = strip?.querySelector(".composer-run-strip__text");
   eq(ticker?.getAttribute("aria-hidden"), "true", "ticking spinner text stays out of the accessibility tree");
   const live = strip?.querySelector(".sr-only[role=\"status\"]");
-  eq(live?.textContent, "Reasonix is working", "live region announces the stable state text only");
+  eq(live?.textContent, "Semantix is working", "live region announces the stable state text only");
   ok(document.querySelector(".composer-card--running") !== null, "running card keeps its running modifier");
 
   const stop = document.querySelector(".composer__btn--stop") as HTMLButtonElement | null;

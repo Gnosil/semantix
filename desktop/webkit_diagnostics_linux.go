@@ -40,12 +40,12 @@ func installWebKitProcessObserver(app *App, enabled bool) {
 				recordDroppedWebRuntimeEvents(app, "webkitgtk", &webKitObserverState.dropped)
 			}
 		}()
-		C.reasonix_install_webkit_observer()
+		C.semantix_install_webkit_observer()
 	})
 }
 
-//export reasonixWebKitRuntimeReady
-func reasonixWebKitRuntimeReady(major, minor, micro C.int, gpuMode C.int) {
+//export semantixWebKitRuntimeReady
+func semantixWebKitRuntimeReady(major, minor, micro C.int, gpuMode C.int) {
 	mode := "unknown"
 	switch int(gpuMode) {
 	case 0:
@@ -62,8 +62,8 @@ func reasonixWebKitRuntimeReady(major, minor, micro C.int, gpuMode C.int) {
 	})
 }
 
-//export reasonixWebKitProcessTerminated
-func reasonixWebKitProcessTerminated(reason, recovery C.int, generation C.ulonglong) {
+//export semantixWebKitProcessTerminated
+func semantixWebKitProcessTerminated(reason, recovery C.int, generation C.ulonglong) {
 	event := webKitNativeEvent{
 		reason: int(reason), recovery: int(recovery), generation: uint64(generation),
 		runtimeContext: webRuntimeContextForTelemetry(0),

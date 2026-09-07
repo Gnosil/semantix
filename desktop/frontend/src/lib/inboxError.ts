@@ -1,6 +1,6 @@
 import type { Locale } from "./i18n";
 
-const CODE_PREFIX = "reasonix_error:";
+const CODE_PREFIX = "semantix_error:";
 
 // Message arrays share one stable code-to-index table so the three localized
 // copies do not repeat object keys in the initial desktop bundle.

@@ -132,7 +132,7 @@ func (c *lifecycleSSHClient) SFTP() (*sftpfs.FS, error) { return nil, errors.New
 func seedLifecycleHost(t *testing.T, hostID string) {
 	t.Helper()
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	t.Setenv("HOME", home)
 	if err := editUserConfig(func(c *config.Config) error {
 		return c.UpsertRemoteHost(config.RemoteHostEntry{Name: hostID, Host: "127.0.0.1", Port: 22, User: "tester"})
@@ -317,13 +317,13 @@ func TestDesktopCLIBinaryPathFallsBackToPATH(t *testing.T) {
 
 func TestDesktopCLIBinaryNamesAvoidWindowsPortableEntryCollision(t *testing.T) {
 	packaged, command := desktopCLIBinaryNames("windows")
-	if packaged != "reasonix-cli.exe" || command != "reasonix.exe" {
+	if packaged != "semantix-cli.exe" || command != "semantix.exe" {
 		t.Fatalf("Windows CLI names = (%q, %q)", packaged, command)
 	}
-	if strings.EqualFold(packaged, "Reasonix.exe") {
+	if strings.EqualFold(packaged, "Semantix.exe") {
 		t.Fatalf("packaged CLI %q collides with the desktop entry point", packaged)
 	}
-	if packaged, command := desktopCLIBinaryNames("linux"); packaged != "reasonix" || command != "reasonix" {
+	if packaged, command := desktopCLIBinaryNames("linux"); packaged != "semantix" || command != "semantix" {
 		t.Fatalf("Linux CLI names = (%q, %q)", packaged, command)
 	}
 }

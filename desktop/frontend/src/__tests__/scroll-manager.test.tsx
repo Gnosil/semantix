@@ -248,7 +248,7 @@ eq(api!.stick.current, true, "custom scrollbar drag to the physical bottom resto
 
 // Gesture lock: virtualizer/stream must not rewrite scrollTop mid-gesture.
 const writes: Array<[string, number]> = [];
-window.__REASONIX_TRANSCRIPT_SCROLL_WRITE__ = (owner, top) => {
+window.__SEMANTIX_TRANSCRIPT_SCROLL_WRITE__ = (owner, top) => {
   writes.push([owner, top]);
 };
 scrollTop = 400;
@@ -264,7 +264,7 @@ await act(async () => {
 });
 eq(scrollTop, 400, "scrollTop stays put when compensating owners fire mid-gesture");
 eq(writes.length, 0, "no compensating scroll writes are emitted mid-gesture");
-window.__REASONIX_TRANSCRIPT_SCROLL_WRITE__ = undefined;
+window.__SEMANTIX_TRANSCRIPT_SCROLL_WRITE__ = undefined;
 
 // scrollend deterministically releases ownership and notifies idle subscribers.
 let idleFires = 0;

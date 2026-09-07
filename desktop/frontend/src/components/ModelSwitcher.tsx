@@ -65,8 +65,8 @@ export function ModelSwitcher({
 
   useEffect(() => {
     const refresh = () => void loadModels();
-    window.addEventListener("reasonix:model-catalog-changed", refresh);
-    return () => window.removeEventListener("reasonix:model-catalog-changed", refresh);
+    window.addEventListener("semantix:model-catalog-changed", refresh);
+    return () => window.removeEventListener("semantix:model-catalog-changed", refresh);
   }, [loadModels]);
 
   useEffect(() => {

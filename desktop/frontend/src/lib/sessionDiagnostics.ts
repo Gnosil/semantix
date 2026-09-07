@@ -4,7 +4,7 @@
 // durations, byte/entry counts, closed-class labels) — never message text —
 // matching the crash/metrics privacy posture. crash.ts folds a snapshot into
 // the performance-report context; the bench harness reads the same state via
-// the window.__reasonixPerf hook (see installPerfDebugHook).
+// the window.__semantixPerf hook (see installPerfDebugHook).
 //
 // This module must stay dependency-free: it sits at the bottom of the import
 // graph so crash.ts (eager) and the lazy markdown-worker chunk can both use

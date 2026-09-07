@@ -18,12 +18,12 @@ import (
 )
 
 func TestInstallerCommandShowsUpdateProgressAndPassesUnquotedDFlagLast(t *testing.T) {
-	cmd := installerCommand(`C:\Temp\reasonix-update-1.exe`, `D:\Tools\Reasonix App`)
+	cmd := installerCommand(`C:\Temp\semantix-update-1.exe`, `D:\Tools\Semantix App`)
 	if cmd.SysProcAttr == nil {
 		t.Fatal("expected a raw command line forcing the install dir")
 	}
 	got := cmd.SysProcAttr.CmdLine
-	want := `"C:\Temp\reasonix-update-1.exe" /REASONIXUPDATE=1 /REASONIXSTAGE=1 /D=D:\Tools\Reasonix App`
+	want := `"C:\Temp\semantix-update-1.exe" /SEMANTIXUPDATE=1 /SEMANTIXSTAGE=1 /D=D:\Tools\Semantix App`
 	if got != want {
 		t.Fatalf("CmdLine = %q, want %q", got, want)
 	}
@@ -33,12 +33,12 @@ func TestInstallerCommandShowsUpdateProgressAndPassesUnquotedDFlagLast(t *testin
 }
 
 func TestInstallerCommandWithoutDirSkipsDFlag(t *testing.T) {
-	cmd := installerCommand(`C:\Temp\reasonix-update-1.exe`, "")
+	cmd := installerCommand(`C:\Temp\semantix-update-1.exe`, "")
 	if cmd.SysProcAttr == nil {
 		t.Fatal("expected a raw command line for visible updater installs")
 	}
 	got := cmd.SysProcAttr.CmdLine
-	want := `"C:\Temp\reasonix-update-1.exe" /REASONIXUPDATE=1 /REASONIXSTAGE=1`
+	want := `"C:\Temp\semantix-update-1.exe" /SEMANTIXUPDATE=1 /SEMANTIXSTAGE=1`
 	if got != want {
 		t.Fatalf("CmdLine = %q, want %q", got, want)
 	}
@@ -94,7 +94,7 @@ func TestWindowsPEMachineMatchesSupportedArchitectures(t *testing.T) {
 }
 
 func TestClaimVerifiedWindowsUpdateHelperExecutionFreezesPath(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "reasonix-update-helper.exe")
+	path := filepath.Join(t.TempDir(), "semantix-update-helper.exe")
 	content := []byte("verified-helper")
 	if err := os.WriteFile(path, content, 0o700); err != nil {
 		t.Fatal(err)
@@ -120,7 +120,7 @@ func TestClaimVerifiedWindowsUpdateHelperExecutionFreezesPath(t *testing.T) {
 }
 
 func TestClaimVerifiedWindowsUpdateHelperExecutionRejectsHashDrift(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "reasonix-update-helper.exe")
+	path := filepath.Join(t.TempDir(), "semantix-update-helper.exe")
 	if err := os.WriteFile(path, []byte("tampered"), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +159,7 @@ func TestPreparedWindowsUpdateHelperSHA256BindsReleaseUnitMember(t *testing.T) {
 	prepared := &repair.UpdateTransaction{
 		SchemaVersion: 1,
 		TargetKind:    "file",
-		TargetPath:    filepath.Join(installDir, "reasonix-desktop.exe"),
+		TargetPath:    filepath.Join(installDir, "semantix-desktop.exe"),
 		ToVersion:     "v2",
 		Platform:      "windows/amd64",
 		CreatedAt:     "2026-07-29T00:00:00Z",

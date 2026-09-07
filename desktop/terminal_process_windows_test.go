@@ -36,7 +36,7 @@ func TestWindowsTerminalProcessConPTYSmoke(t *testing.T) {
 		t.Fatalf("resize ConPTY: %v", err)
 	}
 
-	const marker = "reasonix-conpty-smoke"
+	const marker = "semantix-conpty-smoke"
 	readResult := make(chan error, 1)
 	go func() {
 		var output bytes.Buffer

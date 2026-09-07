@@ -281,7 +281,7 @@ ok(
   /const WORKSPACE_PANEL_DEFAULT_OPEN = true;/.test(layoutStoreSource) &&
     /workspacePanelOpen:\s*loadWorkspacePanelOpen\(\)/.test(layoutStoreSource) &&
     /export function saveWorkspacePanelOpen\(open: boolean\)/.test(layoutStoreSource) &&
-    /reasonix\.workspacePanel\.open/.test(layoutStoreSource),
+    /semantix\.workspacePanel\.open/.test(layoutStoreSource),
   "right dock open state is restored from localStorage with expanded first-launch default",
 );
 

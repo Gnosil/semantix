@@ -9,30 +9,30 @@ import (
 	"testing"
 )
 
-func writeReasonixTestBundle(t *testing.T, path string) {
+func writeSemantixTestBundle(t *testing.T, path string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Join(path, "Contents"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	plist := `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict><key>CFBundleIdentifier</key><string>com.wails.reasonix-desktop</string></dict></plist>`
+<plist version="1.0"><dict><key>CFBundleIdentifier</key><string>com.wails.semantix-desktop</string></dict></plist>`
 	if err := os.WriteFile(filepath.Join(path, "Contents", "Info.plist"), []byte(plist), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestRepairMacDesktopAliasesRetargetsBrokenReasonixAlias(t *testing.T) {
+func TestRepairMacDesktopAliasesRetargetsBrokenSemantixAlias(t *testing.T) {
 	root := t.TempDir()
 	desktop := filepath.Join(root, "Desktop")
 	if err := os.Mkdir(desktop, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	oldApp := filepath.Join(root, "Reasonix.app.reasonix-update-backup")
-	currentApp := filepath.Join(root, "Reasonix.app")
-	writeReasonixTestBundle(t, oldApp)
-	writeReasonixTestBundle(t, currentApp)
-	alias := filepath.Join(desktop, "Reasonix")
+	oldApp := filepath.Join(root, "Semantix.app.semantix-update-backup")
+	currentApp := filepath.Join(root, "Semantix.app")
+	writeSemantixTestBundle(t, oldApp)
+	writeSemantixTestBundle(t, currentApp)
+	alias := filepath.Join(desktop, "Semantix")
 	if err := writeMacAlias(oldApp, alias); err != nil {
 		t.Fatal(err)
 	}
@@ -63,9 +63,9 @@ func TestRepairMacDesktopAliasesPreservesUnrelatedBrokenAlias(t *testing.T) {
 		t.Fatal(err)
 	}
 	oldTarget := filepath.Join(root, "Other.app")
-	currentApp := filepath.Join(root, "Reasonix.app")
-	writeReasonixTestBundle(t, oldTarget)
-	writeReasonixTestBundle(t, currentApp)
+	currentApp := filepath.Join(root, "Semantix.app")
+	writeSemantixTestBundle(t, oldTarget)
+	writeSemantixTestBundle(t, currentApp)
 	alias := filepath.Join(desktop, "Other")
 	if err := writeMacAlias(oldTarget, alias); err != nil {
 		t.Fatal(err)
@@ -97,11 +97,11 @@ func TestRepairMacDesktopAliasesPreservesUnrelatedHealthyAlias(t *testing.T) {
 		t.Fatal(err)
 	}
 	otherApp := filepath.Join(root, "Other.app")
-	currentApp := filepath.Join(root, "Reasonix.app")
+	currentApp := filepath.Join(root, "Semantix.app")
 	if err := os.MkdirAll(filepath.Join(otherApp, "Contents"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeReasonixTestBundle(t, currentApp)
+	writeSemantixTestBundle(t, currentApp)
 	alias := filepath.Join(desktop, "Other")
 	if err := writeMacAlias(otherApp, alias); err != nil {
 		t.Fatal(err)
@@ -123,15 +123,15 @@ func TestRepairMacDesktopAliasesPreservesUnrelatedHealthyAlias(t *testing.T) {
 	}
 }
 
-func TestRepairMacDesktopAliasesPreservesOrdinaryReasonixFile(t *testing.T) {
+func TestRepairMacDesktopAliasesPreservesOrdinarySemantixFile(t *testing.T) {
 	root := t.TempDir()
 	desktop := filepath.Join(root, "Desktop")
 	if err := os.Mkdir(desktop, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	currentApp := filepath.Join(root, "Reasonix.app")
-	writeReasonixTestBundle(t, currentApp)
-	ordinary := filepath.Join(desktop, "Reasonix")
+	currentApp := filepath.Join(root, "Semantix.app")
+	writeSemantixTestBundle(t, currentApp)
+	ordinary := filepath.Join(desktop, "Semantix")
 	const content = "user-owned file"
 	if err := os.WriteFile(ordinary, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
@@ -145,19 +145,19 @@ func TestRepairMacDesktopAliasesPreservesOrdinaryReasonixFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	if string(got) != content {
-		t.Fatalf("ordinary Reasonix file changed to %q", got)
+		t.Fatalf("ordinary Semantix file changed to %q", got)
 	}
 }
 
-func TestRepairMacDesktopAliasesPreservesHealthyReasonixAlias(t *testing.T) {
+func TestRepairMacDesktopAliasesPreservesHealthySemantixAlias(t *testing.T) {
 	root := t.TempDir()
 	desktop := filepath.Join(root, "Desktop")
 	if err := os.Mkdir(desktop, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	currentApp := filepath.Join(root, "Reasonix.app")
-	writeReasonixTestBundle(t, currentApp)
-	alias := filepath.Join(desktop, "Reasonix")
+	currentApp := filepath.Join(root, "Semantix.app")
+	writeSemantixTestBundle(t, currentApp)
+	alias := filepath.Join(desktop, "Semantix")
 	if err := writeMacAlias(currentApp, alias); err != nil {
 		t.Fatal(err)
 	}
@@ -184,11 +184,11 @@ func TestRepairMacDesktopAliasesRetargetsCustomNamedInstalledAlias(t *testing.T)
 	if err := os.Mkdir(desktop, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	oldApp := filepath.Join(root, "Reasonix-old.app")
-	currentApp := filepath.Join(root, "Reasonix.app")
-	writeReasonixTestBundle(t, oldApp)
-	writeReasonixTestBundle(t, currentApp)
-	alias := filepath.Join(desktop, "My Reasonix")
+	oldApp := filepath.Join(root, "Semantix-old.app")
+	currentApp := filepath.Join(root, "Semantix.app")
+	writeSemantixTestBundle(t, oldApp)
+	writeSemantixTestBundle(t, currentApp)
+	alias := filepath.Join(desktop, "My Semantix")
 	if err := writeMacAlias(oldApp, alias); err != nil {
 		t.Fatal(err)
 	}
@@ -210,24 +210,24 @@ func TestRepairMacDesktopAliasesRetargetsCustomNamedInstalledAlias(t *testing.T)
 }
 
 func TestMacBundleOwnershipRejectsNonFileURL(t *testing.T) {
-	owned, err := macURLReferencesReasonixBundle("https://example.com/Reasonix.app")
+	owned, err := macURLReferencesSemantixBundle("https://example.com/Semantix.app")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if owned {
-		t.Fatal("non-file URL was classified as a Reasonix application bundle")
+		t.Fatal("non-file URL was classified as a Semantix application bundle")
 	}
 }
 
-func TestMacBundleOwnershipRecognizesInstalledReasonixBundle(t *testing.T) {
-	app := filepath.Join(t.TempDir(), "Reasonix.app")
-	writeReasonixTestBundle(t, app)
-	owned, err := macURLReferencesReasonixBundle((&url.URL{Scheme: "file", Path: app}).String())
+func TestMacBundleOwnershipRecognizesInstalledSemantixBundle(t *testing.T) {
+	app := filepath.Join(t.TempDir(), "Semantix.app")
+	writeSemantixTestBundle(t, app)
+	owned, err := macURLReferencesSemantixBundle((&url.URL{Scheme: "file", Path: app}).String())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !owned {
-		t.Fatal("installed Reasonix application bundle was not recognized")
+		t.Fatal("installed Semantix application bundle was not recognized")
 	}
 }
 
@@ -237,8 +237,8 @@ func TestRepairMacDesktopAliasesAllowsEmptyFirstInstallDesktop(t *testing.T) {
 	if err := os.Mkdir(desktop, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	currentApp := filepath.Join(root, "Reasonix.app")
-	writeReasonixTestBundle(t, currentApp)
+	currentApp := filepath.Join(root, "Semantix.app")
+	writeSemantixTestBundle(t, currentApp)
 
 	if err := repairMacDesktopAliases(desktop, currentApp); err != nil {
 		t.Fatal(err)
@@ -254,8 +254,8 @@ func TestRepairMacDesktopAliasesAllowsEmptyFirstInstallDesktop(t *testing.T) {
 
 func TestRepairMacDesktopAliasesAllowsMissingFirstInstallDesktop(t *testing.T) {
 	root := t.TempDir()
-	currentApp := filepath.Join(root, "Reasonix.app")
-	writeReasonixTestBundle(t, currentApp)
+	currentApp := filepath.Join(root, "Semantix.app")
+	writeSemantixTestBundle(t, currentApp)
 
 	if err := repairMacDesktopAliases(filepath.Join(root, "Desktop"), currentApp); err != nil {
 		t.Fatal(err)

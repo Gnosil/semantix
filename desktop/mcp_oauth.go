@@ -65,7 +65,7 @@ var (
 	}
 )
 
-// AuthenticateMCPServer authorizes a remote MCP in private Reasonix state and
+// AuthenticateMCPServer authorizes a remote MCP in private Semantix state and
 // reconnects every controller sharing the active host.
 func (a *App) AuthenticateMCPServer(name string) error {
 	_, ctrl, root := a.activeMCPRuntime()
@@ -100,7 +100,7 @@ func (a *App) AuthenticateMCPServer(name string) error {
 	return a.ReconnectMCPServer(name)
 }
 
-// ClearMCPServerAuthentication removes Reasonix-owned auth state without
+// ClearMCPServerAuthentication removes Semantix-owned auth state without
 // signing out the third-party browser session or removing the server.
 func (a *App) ClearMCPServerAuthentication(name string) error {
 	defer a.lockMCPMutation("clear-auth")()

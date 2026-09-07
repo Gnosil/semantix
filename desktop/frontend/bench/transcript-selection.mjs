@@ -10,7 +10,7 @@ process.env.PLAYWRIGHT_BROWSERS_PATH = !process.env.PLAYWRIGHT_BROWSERS_PATH || 
   ? path.join(frontendDir, ".pw-browsers")
   : process.env.PLAYWRIGHT_BROWSERS_PATH;
 const { chromium } = await import("playwright");
-const port = Number(process.env.REASONIX_TRANSCRIPT_BROWSER_PORT ?? 4618);
+const port = Number(process.env.SEMANTIX_TRANSCRIPT_BROWSER_PORT ?? 4618);
 const url = `http://127.0.0.1:${port}/?mock=bench&bench=1`;
 
 function assert(condition, message) {
@@ -125,7 +125,7 @@ try {
 
   await page.evaluate(() => {
     window.__transcriptProgrammaticWrites = [];
-    window.__REASONIX_TRANSCRIPT_SCROLL_WRITE__ = (owner, top) => {
+    window.__SEMANTIX_TRANSCRIPT_SCROLL_WRITE__ = (owner, top) => {
       window.__transcriptProgrammaticWrites.push({ owner, top });
     };
   });
@@ -286,7 +286,7 @@ try {
 
   await page.waitForTimeout(100);
   const after = await page.evaluate(() => {
-    window.__REASONIX_TRANSCRIPT_SCROLL_WRITE__ = undefined;
+    window.__SEMANTIX_TRANSCRIPT_SCROLL_WRITE__ = undefined;
     return {
       collapsed: document.getSelection()?.isCollapsed ?? true,
       rows: document.querySelectorAll(".transcript__row").length,
@@ -326,7 +326,7 @@ try {
   await page.evaluate(() => {
     window.__transcriptProgrammaticWrites = [];
     window.__logicalClipboardText = null;
-    window.__REASONIX_TRANSCRIPT_SCROLL_WRITE__ = (owner, top) => {
+    window.__SEMANTIX_TRANSCRIPT_SCROLL_WRITE__ = (owner, top) => {
       window.__transcriptProgrammaticWrites.push({ owner, top });
     };
   });
@@ -356,7 +356,7 @@ try {
   await page.waitForFunction(() => document.querySelectorAll(".transcript-selection-overlay__rect").length === 0);
   const retainedSelectionBytes = Math.max(0, (await retainedHeap()) - selectionHeapBaseline);
   assert(retainedSelectionBytes <= 2 * 1024 * 1024, `cleared logical selection retains at most 2MiB (${(retainedSelectionBytes / 1024 / 1024).toFixed(2)}MiB)`);
-  await page.evaluate(() => { window.__REASONIX_TRANSCRIPT_SCROLL_WRITE__ = undefined; });
+  await page.evaluate(() => { window.__SEMANTIX_TRANSCRIPT_SCROLL_WRITE__ = undefined; });
 } finally {
   await browser?.close();
   preview.kill("SIGTERM");

@@ -37,13 +37,13 @@ import (
 )
 
 // platforms are the manifest keys we publish. A built artifact is matched to a key
-// by substring (file names embed the key, e.g. Reasonix-darwin-arm64.zip), so the
+// by substring (file names embed the key, e.g. Semantix-darwin-arm64.zip), so the
 // generator and the updater agree on update.PlatformKey output.
 var platforms = []string{"darwin-arm64", "darwin-amd64", "windows-amd64", "windows-arm64", "linux-amd64"}
 
 var websiteDownloads = map[string]struct{}{
-	"Reasonix-darwin-universal.dmg": {},
-	"Reasonix-windows-amd64.zip":    {},
+	"Semantix-darwin-universal.dmg": {},
+	"Semantix-windows-amd64.zip":    {},
 }
 
 func main() {
@@ -136,7 +136,7 @@ func verifyFile(path string) error {
 }
 
 // genKey generates a fresh minisign key pair, writing the encrypted private key
-// (reasonix.key) and the public key (reasonix.pub) into dir. The password comes
+// (semantix.key) and the public key (semantix.pub) into dir. The password comes
 // from $MINISIGN_PASSWORD. The public key is printed — it's safe to publish; embed
 // it in internal/update/verify.go. The private key never leaves dir.
 func genKey(dir string) error {
@@ -155,8 +155,8 @@ func genKey(dir string) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
-	keyPath := filepath.Join(dir, "reasonix.key")
-	pubPath := filepath.Join(dir, "reasonix.pub")
+	keyPath := filepath.Join(dir, "semantix.key")
+	pubPath := filepath.Join(dir, "semantix.pub")
 	if err := os.WriteFile(keyPath, enc, 0o600); err != nil {
 		return err
 	}
@@ -193,7 +193,7 @@ func signFiles(files []string) error {
 			return err
 		}
 		sig := minisign.SignWithComments(priv, data,
-			"file:"+filepath.Base(f), "Reasonix desktop release")
+			"file:"+filepath.Base(f), "Semantix desktop release")
 		out := f + ".minisig"
 		if err := os.WriteFile(out, sig, 0o644); err != nil {
 			return err
@@ -212,8 +212,8 @@ func signFiles(files []string) error {
 // tarball under platforms["linux-amd64"].
 func genManifest(dir, version, tag string, notesVersions ...string) error {
 	repo := os.Getenv("GITHUB_REPOSITORY")
-	if repo == "" || repo == "esengine/reasonix" {
-		repo = "esengine/DeepSeek-Reasonix"
+	if repo == "" {
+		repo = "Gnosil/semantix"
 	}
 	notesVersion := version
 	if len(notesVersions) > 1 {
@@ -224,8 +224,8 @@ func genManifest(dir, version, tag string, notesVersions ...string) error {
 	}
 	m := update.Manifest{
 		Version:         version,
-		DownloadPage:    "https://reasonix.io/?download=desktop#start",
-		ReleaseNotesURL: "https://reasonix.io/changelog/" + notesVersion + "/",
+		DownloadPage:    "https://semantix.ensureok.ai/?download=desktop#start",
+		ReleaseNotesURL: "https://semantix.ensureok.ai/changelog/" + notesVersion + "/",
 		Platforms:       map[string]update.Asset{},
 		NativePackages:  map[string]update.Asset{},
 		Downloads:       map[string]update.Asset{},

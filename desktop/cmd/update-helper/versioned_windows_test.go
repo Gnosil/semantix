@@ -17,10 +17,10 @@ func TestPreferVersionedWindowsActivation(t *testing.T) {
 		t.Fatal("empty staging must not prefer versioned")
 	}
 	for _, name := range []string{
-		"reasonix-desktop.exe",
-		"reasonix-cli.exe",
-		"reasonix-update-helper.exe",
-		"reasonix-launcher.exe",
+		"semantix-desktop.exe",
+		"semantix-cli.exe",
+		"semantix-update-helper.exe",
+		"semantix-launcher.exe",
 	} {
 		if err := os.WriteFile(filepath.Join(staging, name), []byte(name), 0o700); err != nil {
 			t.Fatal(err)
@@ -35,21 +35,21 @@ func TestActivateVersionedWindowsFromStaging(t *testing.T) {
 	installDir := t.TempDir()
 	staging := t.TempDir()
 	for _, name := range []string{
-		"reasonix-desktop.exe",
-		"reasonix-cli.exe",
-		"reasonix-update-helper.exe",
-		"reasonix-launcher.exe",
-		"reasonix-guard.exe",
+		"semantix-desktop.exe",
+		"semantix-cli.exe",
+		"semantix-update-helper.exe",
+		"semantix-launcher.exe",
+		"semantix-guard.exe",
 	} {
 		if err := os.WriteFile(filepath.Join(staging, name), []byte("payload:"+name), 0o700); err != nil {
 			t.Fatal(err)
 		}
 	}
 	// Seed a flat desktop so cleanup is observable.
-	if err := os.WriteFile(filepath.Join(installDir, "reasonix-desktop.exe"), []byte("old"), 0o700); err != nil {
+	if err := os.WriteFile(filepath.Join(installDir, "semantix-desktop.exe"), []byte("old"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(installDir, "reasonix-guard.exe"), []byte("old-guard"), 0o700); err != nil {
+	if err := os.WriteFile(filepath.Join(installDir, "semantix-guard.exe"), []byte("old-guard"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 
@@ -57,7 +57,7 @@ func TestActivateVersionedWindowsFromStaging(t *testing.T) {
 		SchemaVersion: 1,
 		ToVersion:     "v1.20.0",
 		TargetKind:    "file",
-		TargetPath:    filepath.Join(installDir, "reasonix-desktop.exe"),
+		TargetPath:    filepath.Join(installDir, "semantix-desktop.exe"),
 		CreatedAt:     "2026-01-01T00:00:00Z",
 	}
 	if err := activateVersionedWindowsFromStaging(claimed, staging); err != nil {
@@ -75,21 +75,21 @@ func TestActivateVersionedWindowsFromStaging(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(desktop)
-	if err != nil || string(raw) != "payload:reasonix-desktop.exe" {
+	if err != nil || string(raw) != "payload:semantix-desktop.exe" {
 		t.Fatalf("desktop payload = %q err=%v", raw, err)
 	}
-	for _, name := range []string{"reasonix-launcher.exe", "Reasonix.exe", "reasonix-cli.exe"} {
+	for _, name := range []string{"semantix-launcher.exe", "Semantix.exe", "semantix-cli.exe"} {
 		if _, err := os.Stat(filepath.Join(installDir, name)); err != nil {
 			t.Fatalf("root entry %s: %v", name, err)
 		}
 	}
-	if _, err := os.Stat(filepath.Join(installDir, "reasonix-desktop.exe")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(installDir, "semantix-desktop.exe")); !os.IsNotExist(err) {
 		t.Fatal("flat desktop should be removed")
 	}
-	if _, err := os.Stat(filepath.Join(installDir, "reasonix-guard.exe")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(installDir, "semantix-guard.exe")); !os.IsNotExist(err) {
 		t.Fatal("flat guard should be removed")
 	}
-	if prefer := preferRelaunchPath("", installDir); filepath.Base(prefer) != "reasonix-launcher.exe" {
+	if prefer := preferRelaunchPath("", installDir); filepath.Base(prefer) != "semantix-launcher.exe" {
 		t.Fatalf("prefer relaunch = %s", prefer)
 	}
 }
@@ -98,11 +98,11 @@ func TestInstallStagedWindowsReleaseUnitPrefersVersioned(t *testing.T) {
 	installDir := t.TempDir()
 	staging := t.TempDir()
 	for _, name := range []string{
-		"reasonix-desktop.exe",
-		"reasonix-cli.exe",
-		"reasonix-update-helper.exe",
-		"reasonix-launcher.exe",
-		"reasonix-guard.exe",
+		"semantix-desktop.exe",
+		"semantix-cli.exe",
+		"semantix-update-helper.exe",
+		"semantix-launcher.exe",
+		"semantix-guard.exe",
 	} {
 		if err := os.WriteFile(filepath.Join(staging, name), []byte("p:"+name), 0o700); err != nil {
 			t.Fatal(err)
@@ -113,7 +113,7 @@ func TestInstallStagedWindowsReleaseUnitPrefersVersioned(t *testing.T) {
 		SchemaVersion: 1,
 		ToVersion:     "v1.20.0",
 		TargetKind:    "file",
-		TargetPath:    filepath.Join(installDir, "reasonix-desktop.exe"),
+		TargetPath:    filepath.Join(installDir, "semantix-desktop.exe"),
 		CreatedAt:     "2026-01-01T00:00:00Z",
 	}
 	started, receipts, err := installStagedWindowsReleaseUnit(claimed, staging)

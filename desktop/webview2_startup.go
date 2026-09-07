@@ -12,9 +12,9 @@ const windowsWebView2StartupFallbackDelay = 15 * time.Second
 
 const windowsWebView2StartupFallbackMessage = "The desktop interface did not become ready within 15 seconds. " +
 	"An unavailable Windows system proxy or a WebView2 failure may be blocking startup. " +
-	"Check the system proxy, then restart Reasonix. If the problem continues, repair Microsoft Edge WebView2 Runtime or reinstall Reasonix.\n\n" +
+	"Check the system proxy, then restart Semantix. If the problem continues, repair Microsoft Edge WebView2 Runtime or reinstall Semantix.\n\n" +
 	"桌面界面在 15 秒内未能就绪。不可用的 Windows 系统代理或 WebView2 故障可能阻塞了启动。" +
-	"请检查系统代理后重启 Reasonix；如果问题仍然存在，请修复 Microsoft Edge WebView2 Runtime 或重新安装 Reasonix。"
+	"请检查系统代理后重启 Semantix；如果问题仍然存在，请修复 Microsoft Edge WebView2 Runtime 或重新安装 Semantix。"
 
 // startWindowsWebView2StartupFallback prevents StartHidden from turning a slow
 // or failed WebView2 navigation into an apparently missing application. Proxy
@@ -39,7 +39,7 @@ func (a *App) startWindowsWebView2StartupFallback(ctx context.Context) {
 		}
 		_, _ = runtime.MessageDialog(ctx, runtime.MessageDialogOptions{
 			Type:          runtime.WarningDialog,
-			Title:         "Reasonix startup delayed / Reasonix 启动延迟",
+			Title:         "Semantix startup delayed / Semantix 启动延迟",
 			Message:       windowsWebView2StartupFallbackMessage,
 			Buttons:       []string{"OK"},
 			DefaultButton: "OK",

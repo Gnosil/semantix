@@ -304,14 +304,14 @@ console.log("\napproval modal file references");
       id: "plan-mode-read-only-command-zh",
       tool: "plan_mode_read_only_command",
       subject: "Trust \"gh issue view\" as a read-only command prefix while planning\nCommand: gh issue view 5867 --json title",
-      reason: "This bash command is not in Reasonix's built-in read-only set. Confirm only if this exact prefix is read-only for planning and research. Auto/YOLO approval cannot answer this trust prompt.",
+      reason: "This bash command is not in Semantix's built-in read-only set. Confirm only if this exact prefix is read-only for planning and research. Auto/YOLO approval cannot answer this trust prompt.",
     },
   });
 
   const text = document.body.textContent ?? "";
   ok(text.includes("计划模式只读命令"), "plan-mode read-only command approval localizes tool label in Chinese UI");
   ok(text.includes("在计划模式中信任 \"gh issue view\" 为只读命令前缀"), "plan-mode read-only command approval localizes subject in Chinese UI");
-  ok(text.includes("不在 Reasonix 内置只读集合中"), "plan-mode read-only command approval localizes reason in Chinese UI");
+  ok(text.includes("不在 Semantix 内置只读集合中"), "plan-mode read-only command approval localizes reason in Chinese UI");
 
   await act(async () => {
     root.unmount();

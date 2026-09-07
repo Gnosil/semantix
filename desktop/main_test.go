@@ -74,18 +74,18 @@ func TestLifecycleDiagnosticsUsePreWailsOwnershipGate(t *testing.T) {
 
 // TestMain isolates user config/state/cache dirs for the whole package. Without
 // this, tests that persist desktop state, sessions, cache, or CLI-style config
-// can leak into the developer's real Reasonix directories.
+// can leak into the developer's real Semantix directories.
 func TestMain(m *testing.M) {
-	dir, err := os.MkdirTemp("", "reasonix-desktop-test")
+	dir, err := os.MkdirTemp("", "semantix-desktop-test")
 	if err != nil {
 		os.Exit(1)
 	}
 	os.Setenv("HOME", dir)
-	os.Setenv("REASONIX_CREDENTIALS_STORE", "file")
+	os.Setenv("SEMANTIX_CREDENTIALS_STORE", "file")
 	os.Setenv("USERPROFILE", dir)
 	os.Setenv("XDG_CONFIG_HOME", dir+"/config")
-	os.Setenv("REASONIX_STATE_HOME", dir+"/state")
-	os.Setenv("REASONIX_CACHE_HOME", dir+"/cache")
+	os.Setenv("SEMANTIX_STATE_HOME", dir+"/state")
+	os.Setenv("SEMANTIX_CACHE_HOME", dir+"/cache")
 	os.Setenv("AppData", dir)
 	// Tests fail closed for telemetry. Any test that expects a request must
 	// replace the relevant endpoint with an httptest.Server explicitly.
@@ -109,7 +109,7 @@ func TestDesktopTestTelemetryEndpointsAreFailClosed(t *testing.T) {
 		"ping":    pingEndpoint,
 		"metrics": metricsEndpoint,
 	} {
-		if strings.Contains(endpoint, "crash.reasonix.io") {
+		if strings.Contains(endpoint, "crash.semantix.ensureok.ai") {
 			t.Fatalf("%s test endpoint targets production: %s", name, endpoint)
 		}
 	}

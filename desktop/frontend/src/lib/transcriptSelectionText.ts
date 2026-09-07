@@ -9,8 +9,8 @@ import { historyEntryIdForItemId, type TranscriptRow } from "./transcriptRows";
 import type { LiveStream } from "./useController";
 import type { TranscriptSelectableRow } from "./transcriptSelectionStore";
 
-const IM_SOURCE_START = "[[reasonix-im]]";
-const IM_SOURCE_END = "[[/reasonix-im]]";
+const IM_SOURCE_START = "[[semantix-im]]";
+const IM_SOURCE_END = "[[/semantix-im]]";
 
 function imMessageBody(text: string): string {
   if (!text.startsWith(IM_SOURCE_START)) return text;

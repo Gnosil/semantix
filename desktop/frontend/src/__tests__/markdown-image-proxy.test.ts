@@ -31,7 +31,7 @@ eq(
   "native shell routes protocol-relative images through the backend endpoint",
 );
 eq(markdownImageSource("data:image/png;base64,AAAA", true), "data:image/png;base64,AAAA", "data images stay local");
-eq(markdownImageSource("/__reasonix_workspace_media/token/a.png", true), "/__reasonix_workspace_media/token/a.png", "workspace images stay local");
+eq(markdownImageSource("/__semantix_workspace_media/token/a.png", true), "/__semantix_workspace_media/token/a.png", "workspace images stay local");
 eq(markdownImageSource("https://cdn.example.com/a.png", false), "https://cdn.example.com/a.png", "browser development keeps direct image URLs");
 
 const testDir = dirname(fileURLToPath(import.meta.url));
