@@ -9,7 +9,7 @@ func installerCommandLine(installer, dir string) string {
 	// Keep this in sync with cmd/update-helper/args.go. The desktop uses it for
 	// its Windows command invariant tests; the copied helper extracts to a
 	// transaction-owned staging directory after the desktop exits.
-	line := fmt.Sprintf(`"%s" /REASONIXUPDATE=1 /REASONIXSTAGE=1`, installer)
+	line := fmt.Sprintf(`"%s" /SEMANTIXUPDATE=1 /SEMANTIXSTAGE=1`, installer)
 	if dir != "" {
 		line += " /D=" + dir
 	}

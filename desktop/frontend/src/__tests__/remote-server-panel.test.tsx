@@ -86,8 +86,8 @@ await act(async () => {
 
 ok(document.body.textContent?.includes("Open Remote Web") === true, "server tab shows the unified Open Remote Web entry");
 ok(
-  document.body.textContent?.includes("Models, API keys, and sessions are managed by the Reasonix configuration on the remote server.") === true,
-  "server tab states that providers, API keys, and sessions are managed by the remote Reasonix configuration",
+  document.body.textContent?.includes("Models, API keys, and sessions are managed by the Semantix configuration on the remote server.") === true,
+  "server tab states that providers, API keys, and sessions are managed by the remote Semantix configuration",
 );
 
 // Serve progress: remote:server events drive the busy state and label.

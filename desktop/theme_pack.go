@@ -25,7 +25,7 @@ const (
 	themePackMaxNameLen       = 80
 	themePackMaxTextLen       = 240
 	themePackManifestName     = "theme.json"
-	themePackExt              = ".reasonix-theme"
+	themePackExt              = ".semantix-theme"
 	themeStateFileName        = "desktop-theme-state.json"
 	// Schema v2: activeThemeId may only reference official, user or plugin
 	// packs. Base style ids (graphite/…) live exclusively in desktop.theme_style.
@@ -547,7 +547,7 @@ func builtinThemePacks() []ThemePackManifest {
 			SchemaVersion: themePackSchemaVersion,
 			ID:            id,
 			Name:          names[id],
-			Author:        "Reasonix",
+			Author:        "Semantix",
 			Description:   "Built-in visual direction",
 			License:       "Apache-2.0",
 			BaseStyle:     id,

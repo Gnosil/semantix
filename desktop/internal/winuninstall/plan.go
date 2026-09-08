@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	CurrentKeyName = "ReasonixReasonix"
+	CurrentKeyName = "SemantixSemantix"
 	LegacyKeyName  = "Reasonix"
 )
 
@@ -29,7 +29,7 @@ type ReconcilePlan struct {
 }
 
 // Plan returns the safe per-user uninstall-registration mutation for an
-// installed Reasonix tree. Portable trees have no owned registration and no
+// installed Semantix tree. Portable trees have no owned registration and no
 // root uninstaller, so they deliberately produce a no-op plan.
 func Plan(current, legacy *Registration, installRoot, version string, uninstallerPresent bool) (ReconcilePlan, error) {
 	root := cleanWindowsPath(installRoot)
@@ -47,8 +47,8 @@ func Plan(current, legacy *Registration, installRoot, version string, uninstalle
 		return ReconcilePlan{}, nil
 	}
 
-	currentOwned := registrationOwnsRoot(current, root)
-	legacyOwned := registrationOwnsRoot(legacy, root)
+	currentOwned := registrationOwnsRoot(current, root, "Semantix")
+	legacyOwned := registrationOwnsRoot(legacy, root, "Reasonix")
 	// A legacy-only key may still point at the Tauri 0.53 uninstaller. The full
 	// signed installer replaces that binary before migrating the key; the
 	// update helper must not promote it into the current Wails identity.
@@ -60,11 +60,11 @@ func Plan(current, legacy *Registration, installRoot, version string, uninstalle
 	return ReconcilePlan{
 		Managed: true,
 		Desired: Registration{
-			DisplayName:          "Reasonix",
+			DisplayName:          "Semantix",
 			DisplayVersion:       strings.TrimPrefix(version, "v"),
-			Publisher:            "Reasonix",
+			Publisher:            "Semantix",
 			InstallLocation:      root,
-			DisplayIcon:          joinWindowsPath(root, "reasonix-launcher.exe"),
+			DisplayIcon:          joinWindowsPath(root, "semantix-launcher.exe"),
 			UninstallString:      quoteWindowsPath(uninstaller),
 			QuietUninstallString: quoteWindowsPath(uninstaller) + " /S",
 		},
@@ -72,8 +72,8 @@ func Plan(current, legacy *Registration, installRoot, version string, uninstalle
 	}, nil
 }
 
-func registrationOwnsRoot(reg *Registration, root string) bool {
-	if reg == nil || !strings.EqualFold(strings.TrimSpace(reg.DisplayName), "Reasonix") {
+func registrationOwnsRoot(reg *Registration, root, displayName string) bool {
+	if reg == nil || !strings.EqualFold(strings.TrimSpace(reg.DisplayName), displayName) {
 		return false
 	}
 	if sameWindowsPath(reg.InstallLocation, root) {

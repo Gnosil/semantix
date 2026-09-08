@@ -3,8 +3,8 @@ import { useSyncExternalStore } from "react";
 export type ReasoningDisplayMode = "hidden" | "summary" | "auto";
 export type ResolvedReasoningDisplayMode = ReasoningDisplayMode | "legacy-collapsed" | "pending";
 
-const LEGACY_SUMMARY_KEY = "reasonix-reasoning-summary";
-const DISPLAY_EVENT = "reasonix:reasoning-display-mode";
+const LEGACY_SUMMARY_KEY = "semantix-reasoning-summary";
+const DISPLAY_EVENT = "semantix:reasoning-display-mode";
 
 let currentMode: ResolvedReasoningDisplayMode = "auto";
 let currentModeExplicit = false;

@@ -23,8 +23,8 @@ type stagedFileUpdateMember struct {
 }
 
 // loadWindowsStagedReleaseUnit validates and reads the complete NSIS payload
-// before any live release-unit member is moved. An existing Reasonix.exe is the
-// portable alias of reasonix-launcher.exe and reuses those staged bytes; an
+// before any live release-unit member is moved. An existing Semantix.exe is the
+// portable alias of semantix-launcher.exe and reuses those staged bytes; an
 // installed package that did not have the alias remains unchanged.
 func loadWindowsStagedReleaseUnit(claimed *repair.UpdateTransaction, stagingDir string) ([]stagedFileUpdateMember, error) {
 	if claimed == nil || claimed.TargetKind != "file" || len(claimed.Files) == 0 {
@@ -62,7 +62,7 @@ func loadWindowsStagedReleaseUnit(claimed *repair.UpdateTransaction, stagingDir 
 			return nil, fmt.Errorf("load staged release unit: duplicate target %s", filepath.Base(targetPath))
 		}
 		seenTargets[targetKey] = struct{}{}
-		if strings.EqualFold(filepath.Base(targetPath), "Reasonix.exe") && file.MissingBefore {
+		if strings.EqualFold(filepath.Base(targetPath), "Semantix.exe") && file.MissingBefore {
 			continue
 		}
 
@@ -108,16 +108,16 @@ func loadWindowsStagedReleaseUnit(claimed *repair.UpdateTransaction, stagingDir 
 
 func validateWindowsClaimedReleaseUnit(claimed *repair.UpdateTransaction) error {
 	if claimed == nil ||
-		!strings.EqualFold(filepath.Base(claimed.TargetPath), "reasonix-desktop.exe") {
+		!strings.EqualFold(filepath.Base(claimed.TargetPath), "semantix-desktop.exe") {
 		return fmt.Errorf("claimed release unit primary executable is invalid")
 	}
 	required := map[string]bool{
-		"reasonix-desktop.exe":       false,
-		"reasonix-guard.exe":         false,
-		"reasonix-launcher.exe":      false,
-		"reasonix-update-helper.exe": false,
-		"reasonix-cli.exe":           false,
-		"reasonix.exe":               false,
+		"semantix-desktop.exe":       false,
+		"semantix-guard.exe":         false,
+		"semantix-launcher.exe":      false,
+		"semantix-update-helper.exe": false,
+		"semantix-cli.exe":           false,
+		"semantix.exe":               false,
 	}
 	installDir := filepath.Clean(filepath.Dir(claimed.TargetPath))
 	for _, file := range claimed.Files {
@@ -201,18 +201,18 @@ func readWindowsPayloadMetadata(path string) ([]byte, error) {
 
 func windowsStagedSourceName(targetBase string) (string, error) {
 	switch strings.ToLower(strings.TrimSpace(targetBase)) {
-	case "reasonix-desktop.exe":
-		return "reasonix-desktop.exe", nil
-	case "reasonix-guard.exe":
-		return "reasonix-guard.exe", nil
-	case "reasonix-launcher.exe":
-		return "reasonix-launcher.exe", nil
-	case "reasonix-update-helper.exe":
-		return "reasonix-update-helper.exe", nil
-	case "reasonix-cli.exe":
-		return "reasonix-cli.exe", nil
-	case "reasonix.exe":
-		return "reasonix-launcher.exe", nil
+	case "semantix-desktop.exe":
+		return "semantix-desktop.exe", nil
+	case "semantix-guard.exe":
+		return "semantix-guard.exe", nil
+	case "semantix-launcher.exe":
+		return "semantix-launcher.exe", nil
+	case "semantix-update-helper.exe":
+		return "semantix-update-helper.exe", nil
+	case "semantix-cli.exe":
+		return "semantix-cli.exe", nil
+	case "semantix.exe":
+		return "semantix-launcher.exe", nil
 	default:
 		return "", fmt.Errorf("load staged release unit: unsupported target %q", targetBase)
 	}

@@ -31,7 +31,7 @@ func seedLegacyWorkbenchData(t *testing.T, trust bool) {
 
 func TestScanRemoteLegacyWorkbenchDataReadsCountsOnly(t *testing.T) {
 
-	t.Setenv("REASONIX_STATE_HOME", t.TempDir())
+	t.Setenv("SEMANTIX_STATE_HOME", t.TempDir())
 	seedLegacyWorkbenchData(t, true)
 	a := &App{}
 	view := a.ScanRemoteLegacyWorkbenchData()
@@ -54,7 +54,7 @@ func TestScanRemoteLegacyWorkbenchDataReadsCountsOnly(t *testing.T) {
 
 func TestScanRemoteLegacyWorkbenchDataEmptyWhenAbsent(t *testing.T) {
 
-	t.Setenv("REASONIX_STATE_HOME", t.TempDir())
+	t.Setenv("SEMANTIX_STATE_HOME", t.TempDir())
 	a := &App{}
 	view := a.ScanRemoteLegacyWorkbenchData()
 	if view.MirrorCount != 0 || view.MirrorBytes != 0 || view.TrustFile {
@@ -64,7 +64,7 @@ func TestScanRemoteLegacyWorkbenchDataEmptyWhenAbsent(t *testing.T) {
 
 func TestCleanRemoteLegacyWorkbenchDataRemovesMirrorsOnly(t *testing.T) {
 
-	t.Setenv("REASONIX_STATE_HOME", t.TempDir())
+	t.Setenv("SEMANTIX_STATE_HOME", t.TempDir())
 	seedLegacyWorkbenchData(t, true)
 	a := &App{}
 	if err := a.CleanRemoteLegacyWorkbenchData("mirrors"); err != nil {
@@ -87,7 +87,7 @@ func TestCleanRemoteLegacyWorkbenchDataRemovesMirrorsOnly(t *testing.T) {
 
 func TestCleanRemoteLegacyWorkbenchDataRejectsUnknownAndEscapeTargets(t *testing.T) {
 
-	t.Setenv("REASONIX_STATE_HOME", t.TempDir())
+	t.Setenv("SEMANTIX_STATE_HOME", t.TempDir())
 	a := &App{}
 	if err := a.CleanRemoteLegacyWorkbenchData("everything"); err == nil {
 		t.Fatal("unknown target accepted")
@@ -102,8 +102,8 @@ func TestCleanRemoteLegacyWorkbenchDataRejectsUnknownAndEscapeTargets(t *testing
 
 func TestCleanRemoteLegacyWorkbenchDataRejectsSymlinkedMirrorDir(t *testing.T) {
 
-	t.Setenv("REASONIX_STATE_HOME", t.TempDir())
-	if os.Getenv("REASONIX_LEGACY_CLEANUP_NO_SYMLINK") != "" {
+	t.Setenv("SEMANTIX_STATE_HOME", t.TempDir())
+	if os.Getenv("SEMANTIX_LEGACY_CLEANUP_NO_SYMLINK") != "" {
 		t.Skip("environment does not allow symlinks")
 	}
 	dir := config.MemoryUserDir()
@@ -128,7 +128,7 @@ func TestCleanRemoteLegacyWorkbenchDataRejectsSymlinkedMirrorDir(t *testing.T) {
 
 func TestCleanRemoteLegacyWorkbenchDataIdempotentWhenAbsent(t *testing.T) {
 
-	t.Setenv("REASONIX_STATE_HOME", t.TempDir())
+	t.Setenv("SEMANTIX_STATE_HOME", t.TempDir())
 	a := &App{}
 	if err := a.CleanRemoteLegacyWorkbenchData("mirrors"); err != nil {
 		t.Fatalf("cleanup of absent mirrors = %v", err)
@@ -138,15 +138,15 @@ func TestCleanRemoteLegacyWorkbenchDataIdempotentWhenAbsent(t *testing.T) {
 	}
 }
 
-func TestWithinReasonixPrivateDirRejectsEscapes(t *testing.T) {
+func TestWithinSemantixPrivateDirRejectsEscapes(t *testing.T) {
 
-	t.Setenv("REASONIX_STATE_HOME", t.TempDir())
+	t.Setenv("SEMANTIX_STATE_HOME", t.TempDir())
 	dir := config.MemoryUserDir()
 	for _, path := range []string{
 		filepath.Join(dir, "remote-mirrors"),
 		filepath.Join(dir, "nested", "remote-provider-trust.json"),
 	} {
-		if !withinReasonixPrivateDir(path) {
+		if !withinSemantixPrivateDir(path) {
 			t.Fatalf("legitimate path rejected: %q", path)
 		}
 	}
@@ -156,7 +156,7 @@ func TestWithinReasonixPrivateDirRejectsEscapes(t *testing.T) {
 		filepath.Join(dir, "remote-mirrors", "..", "..", "escape"),
 		"/etc/passwd",
 	} {
-		if withinReasonixPrivateDir(path) {
+		if withinSemantixPrivateDir(path) {
 			t.Fatalf("escape path accepted: %q", path)
 		}
 	}

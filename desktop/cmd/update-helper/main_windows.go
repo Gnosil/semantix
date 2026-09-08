@@ -47,14 +47,14 @@ func main() {
 func run(args []string) int {
 	var parentPID uint
 	var installer, installerSHA256, installDir, relaunch, toVersion, createdAt, transactionID, installLayout string
-	fs := flag.NewFlagSet("reasonix-update-helper", flag.ContinueOnError)
+	fs := flag.NewFlagSet("semantix-update-helper", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
-	fs.UintVar(&parentPID, "parent-pid", 0, "Reasonix process id to wait for before installing")
+	fs.UintVar(&parentPID, "parent-pid", 0, "Semantix process id to wait for before installing")
 	fs.StringVar(&installer, "installer", "", "verified NSIS installer path")
 	fs.StringVar(&installerSHA256, "installer-sha256", "", "expected SHA-256 of the verified NSIS installer")
-	fs.StringVar(&installDir, "install-dir", "", "Reasonix installation directory")
-	fs.StringVar(&relaunch, "relaunch", "", "Reasonix executable to start after the installer succeeds")
-	fs.StringVar(&toVersion, "to-version", "", "Reasonix version being installed")
+	fs.StringVar(&installDir, "install-dir", "", "Semantix installation directory")
+	fs.StringVar(&relaunch, "relaunch", "", "Semantix executable to start after the installer succeeds")
+	fs.StringVar(&toVersion, "to-version", "", "Semantix version being installed")
 	fs.StringVar(&createdAt, "created-at", "", "pending update creation timestamp")
 	fs.StringVar(&transactionID, "transaction-id", "", "complete pending update identity")
 	fs.StringVar(&installLayout, "install-layout", "", "installation layout contract")
@@ -114,7 +114,7 @@ func run(args []string) int {
 	// the complete transaction identity and exact release-unit path set while it
 	// acquires the pending + target locks.
 	claimTargets := windowsReleaseUnitPaths(installDir)
-	claimLauncher := filepath.Join(installDir, "reasonix-desktop.exe")
+	claimLauncher := filepath.Join(installDir, "semantix-desktop.exe")
 	// The old desktop may acquire the pending lock during its normal shutdown.
 	// Wait for that exact process first, then claim the transaction and hold both
 	// pending and target locks across the installer replacement window.
@@ -153,7 +153,7 @@ func run(args []string) int {
 			logger.Printf("preserving update installer staging: %v", cleanupErr)
 		}
 	}()
-	stagingDir, err := os.MkdirTemp("", "reasonix-update-stage-*")
+	stagingDir, err := os.MkdirTemp("", "semantix-update-stage-*")
 	if err != nil {
 		logger.Printf("create update staging: %v", err)
 		return recoverUnstarted()
@@ -254,7 +254,7 @@ func runVersionedWindowsUpdate(logger *log.Logger, installer, installerSHA256, i
 			logger.Printf("preserving update installer staging: %v", cleanupErr)
 		}
 	}()
-	stagingDir, err := os.MkdirTemp("", "reasonix-update-stage-*")
+	stagingDir, err := os.MkdirTemp("", "semantix-update-stage-*")
 	if err != nil {
 		logger.Printf("create versioned update staging: %v", err)
 		return recoverExisting()
@@ -284,7 +284,7 @@ func runVersionedWindowsUpdate(logger *log.Logger, installer, installerSHA256, i
 		SchemaVersion: 1,
 		ToVersion:     toVersion,
 		TargetKind:    "file",
-		TargetPath:    filepath.Join(installDir, "reasonix-desktop.exe"),
+		TargetPath:    filepath.Join(installDir, "semantix-desktop.exe"),
 	}
 	if err := activateVersionedWindowsFromStaging(claimed, stagingDir); err != nil {
 		logger.Printf("activate versioned release: %v", err)
@@ -308,7 +308,7 @@ func runVersionedWindowsUpdate(logger *log.Logger, installer, installerSHA256, i
 // preferRelaunchPath chooses the thin launcher when present so post-update
 // restarts use the permanent entry point, not a flat desktop binary.
 func preferRelaunchPath(relaunch, installDir string) string {
-	for _, name := range []string{"reasonix-launcher.exe", "Reasonix.exe"} {
+	for _, name := range []string{"semantix-launcher.exe", "Semantix.exe"} {
 		path := filepath.Join(installDir, name)
 		if info, err := os.Lstat(path); err == nil && info.Mode().IsRegular() {
 			return path
@@ -337,7 +337,7 @@ func stageVerifiedInstaller(sourcePath, expectedSHA256 string) (string, func() e
 	if !sourceInfo.Mode().IsRegular() {
 		return "", nil, fmt.Errorf("installer is not a regular file")
 	}
-	dir, err := os.MkdirTemp("", "reasonix-update-installer-*")
+	dir, err := os.MkdirTemp("", "semantix-update-installer-*")
 	if err != nil {
 		return "", nil, err
 	}
@@ -357,7 +357,7 @@ func stageVerifiedInstaller(sourcePath, expectedSHA256 string) (string, func() e
 		return fail(err)
 	}
 	defer source.Close()
-	stagedPath := filepath.Join(dir, "reasonix-installer.exe")
+	stagedPath := filepath.Join(dir, "semantix-installer.exe")
 	staged, err := os.OpenFile(stagedPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o700)
 	if err != nil {
 		return fail(err)
@@ -470,12 +470,12 @@ func windowsReleaseUnitPaths(installDir string) []string {
 		return nil
 	}
 	names := []string{
-		"reasonix-desktop.exe",
-		"reasonix-guard.exe",
-		"reasonix-launcher.exe",
-		"reasonix-update-helper.exe",
-		"reasonix-cli.exe",
-		"Reasonix.exe",
+		"semantix-desktop.exe",
+		"semantix-guard.exe",
+		"semantix-launcher.exe",
+		"semantix-update-helper.exe",
+		"semantix-cli.exe",
+		"Semantix.exe",
 	}
 	paths := make([]string, 0, len(names))
 	for _, name := range names {
@@ -487,7 +487,7 @@ func windowsReleaseUnitPaths(installDir string) []string {
 func newLogger() *log.Logger {
 	dir, err := os.UserCacheDir()
 	if err == nil {
-		dir = filepath.Join(dir, "Reasonix", "updates")
+		dir = filepath.Join(dir, "Semantix", "updates")
 		if err := os.MkdirAll(dir, 0o700); err == nil {
 			if f, err := os.OpenFile(filepath.Join(dir, "update-helper.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600); err == nil {
 				return log.New(f, "", log.LstdFlags)
@@ -524,7 +524,7 @@ func waitForProcessExit(pid uint32, timeout time.Duration) error {
 func runInstaller(installer, installDir string) error {
 	cmd := exec.Command(installer)
 	// Keep the helper itself hidden, but let the NSIS update-progress window be
-	// visible. /REASONIXSTAGE makes the signed installer extract only; the helper
+	// visible. /SEMANTIXSTAGE makes the signed installer extract only; the helper
 	// performs every live replacement through the claimed transaction.
 	cmd.SysProcAttr = &syscall.SysProcAttr{CmdLine: installerCommandLine(installer, installDir)}
 	return cmd.Run()
@@ -535,7 +535,7 @@ func cleanupOwnedWindowsUpdateDirectory(path string, owner os.FileInfo) error {
 		return fmt.Errorf("Windows update cleanup identity is incomplete")
 	}
 	for attempt := range 16 {
-		cleanup := fmt.Sprintf("%s.reasonix-cleanup-%d-%d", path, time.Now().UTC().UnixNano(), attempt)
+		cleanup := fmt.Sprintf("%s.semantix-cleanup-%d-%d", path, time.Now().UTC().UnixNano(), attempt)
 		from, err := windows.UTF16PtrFromString(path)
 		if err != nil {
 			return err

@@ -201,7 +201,7 @@ func TestStopRemoteRuntimeClosesKernel(t *testing.T) {
 // inputs and an edit that does not model forwards must not wipe those fields.
 func TestUpdateHostPreservesHiddenFields(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	t.Setenv("HOME", home)
 
 	mgr := newDesktopRemoteManager(&App{})
@@ -241,9 +241,9 @@ func TestUpdateHostPreservesHiddenFields(t *testing.T) {
 	}
 }
 
-func TestSSHConfigReimportPreservesReasonixSettings(t *testing.T) {
+func TestSSHConfigReimportPreservesSemantixSettings(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	t.Setenv("HOME", home)
 	if err := editUserConfig(func(c *config.Config) error {
 		return c.UpsertRemoteHost(config.RemoteHostEntry{
@@ -279,7 +279,7 @@ func TestSSHConfigReimportPreservesReasonixSettings(t *testing.T) {
 
 func TestRemoteHostCredentialsStayOutOfConfigAndCanBeCleared(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	t.Setenv("HOME", home)
 
 	mgr := newDesktopRemoteManager(&App{})
@@ -359,7 +359,7 @@ func TestRemoteHostCredentialsStayOutOfConfigAndCanBeCleared(t *testing.T) {
 
 func TestClearRemoteHostCredentialDoesNotDeleteUserManagedEnv(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	t.Setenv("HOME", home)
 	const key = "TEAM_SHARED_SSH_PASSWORD"
 	if _, err := config.SetCredential(key, "shared-secret"); err != nil {
@@ -395,7 +395,7 @@ func TestClearRemoteHostCredentialDoesNotDeleteUserManagedEnv(t *testing.T) {
 
 func TestRemoteHostCredentialWriteRollsBackOnFailure(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	t.Setenv("HOME", home)
 
 	mgr := newDesktopRemoteManager(&App{})
@@ -428,7 +428,7 @@ func TestRemoteHostCredentialWriteRollsBackOnFailure(t *testing.T) {
 // encode as [] (not null), which the React import page iterates safely.
 func TestScanSSHConfigReturnsNonNil(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	t.Setenv("HOME", home) // no ~/.ssh/config here => empty result
 	t.Setenv("USERPROFILE", home)
 	mgr := newDesktopRemoteManager(&App{})
@@ -443,7 +443,7 @@ func TestScanSSHConfigReturnsNonNil(t *testing.T) {
 
 func TestScanSSHConfigPreservesAliasInsteadOfSnapshottingEffectiveFields(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
 	sshDir := filepath.Join(home, ".ssh")
@@ -476,7 +476,7 @@ func TestOpenRemoteWorkspacePersistsLastWorkspace(t *testing.T) {
 	// Persistence of last workspace is still via saveLastRemoteWorkspace after a
 	// successful connect; unit-test the persistence helper directly.
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	t.Setenv("HOME", home)
 	a := &App{ctx: context.Background()}
 	a.saveLastRemoteWorkspace("box", "/home/dev/app")

@@ -2,7 +2,7 @@ import { writeClipboardText } from "./clipboard";
 import { transcriptSelectionStore } from "./transcriptSelectionStore";
 
 const MESSAGE_SELECTION_SELECTOR = ".msg__body, .reasoning__body";
-export const TRANSCRIPT_COPY_FAILED_EVENT = "reasonix:transcript-copy-failed";
+export const TRANSCRIPT_COPY_FAILED_EVENT = "semantix:transcript-copy-failed";
 
 export interface MessageSelectionCopyState {
   text: string;

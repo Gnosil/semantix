@@ -20,12 +20,12 @@ function ok(value: unknown, message: string) {
   const rootEl = document.getElementById("root");
   if (!rootEl) throw new Error("missing root");
   const root = createRoot(rootEl);
-  const meta: Meta = { label: "test", ready: true, eventChannel: "mcp-registry-channel", cwd: "/tmp/reasonix-test", workspaceRoot: "/tmp/reasonix-test" };
+  const meta: Meta = { label: "test", ready: true, eventChannel: "mcp-registry-channel", cwd: "/tmp/semantix-test", workspaceRoot: "/tmp/semantix-test" };
   const tabs: TabMeta[] = [{
     id: "tab-mcp-registry",
     scope: "project",
-    workspaceRoot: "/tmp/reasonix-test",
-    workspaceName: "reasonix-test",
+    workspaceRoot: "/tmp/semantix-test",
+    workspaceName: "semantix-test",
     topicId: "topic-mcp-registry",
     topicTitle: "Registry",
     label: "Registry",
@@ -34,7 +34,7 @@ function ok(value: unknown, message: string) {
     mode: "normal",
     toolApprovalMode: "auto",
     active: true,
-    cwd: "/tmp/reasonix-test",
+    cwd: "/tmp/semantix-test",
   }];
   let servers: ServerView[] = [];
   let installed: MCPServerInput | null = null;
@@ -389,12 +389,12 @@ console.log("capabilities panel MCP actions");
   const rootEl = document.getElementById("root");
   if (!rootEl) throw new Error("missing root");
   const root = createRoot(rootEl);
-  const meta: Meta = { label: "test", ready: true, eventChannel: "test-channel", cwd: "/tmp/reasonix-test", workspaceRoot: "/tmp/reasonix-test" };
+  const meta: Meta = { label: "test", ready: true, eventChannel: "test-channel", cwd: "/tmp/semantix-test", workspaceRoot: "/tmp/semantix-test" };
   const tabs: TabMeta[] = [{
     id: "tab-1",
     scope: "project",
-    workspaceRoot: "/tmp/reasonix-test",
-    workspaceName: "reasonix-test",
+    workspaceRoot: "/tmp/semantix-test",
+    workspaceName: "semantix-test",
     topicId: "topic-1",
     topicTitle: "Test",
     label: "Test",
@@ -403,7 +403,7 @@ console.log("capabilities panel MCP actions");
     mode: "normal",
     toolApprovalMode: "auto",
     active: true,
-    cwd: "/tmp/reasonix-test",
+    cwd: "/tmp/semantix-test",
   }];
   let servers: ServerView[] = [{
     name: "github",
@@ -467,12 +467,12 @@ console.log("capabilities panel MCP actions");
   const rootEl = document.getElementById("root");
   if (!rootEl) throw new Error("missing root");
   const root = createRoot(rootEl);
-  const meta: Meta = { label: "test", ready: true, eventChannel: "authorize-mcp-channel", cwd: "/tmp/reasonix-test", workspaceRoot: "/tmp/reasonix-test" };
+  const meta: Meta = { label: "test", ready: true, eventChannel: "authorize-mcp-channel", cwd: "/tmp/semantix-test", workspaceRoot: "/tmp/semantix-test" };
   const tabs: TabMeta[] = [{
     id: "tab-authorize-mcp",
     scope: "project",
-    workspaceRoot: "/tmp/reasonix-test",
-    workspaceName: "reasonix-test",
+    workspaceRoot: "/tmp/semantix-test",
+    workspaceName: "semantix-test",
     topicId: "topic-authorize-mcp",
     topicTitle: "Authorize MCP",
     label: "Authorize MCP",
@@ -481,7 +481,7 @@ console.log("capabilities panel MCP actions");
     mode: "normal",
     toolApprovalMode: "auto",
     active: true,
-    cwd: "/tmp/reasonix-test",
+    cwd: "/tmp/semantix-test",
   }];
   let servers: ServerView[] = [{
     name: "github",
@@ -490,7 +490,7 @@ console.log("capabilities panel MCP actions");
     runtimeState: "ready",
     configured: true,
     source: "project",
-    configSource: "reasonix.toml",
+    configSource: "semantix.toml",
     autoStart: true,
     tools: 3,
     prompts: 0,
@@ -538,7 +538,7 @@ console.log("capabilities panel MCP actions");
   await waitFor("trusted project MCP", () => Boolean(document.querySelector('[data-status="connected"]')));
   ok(document.body.textContent?.includes("This project"), "project MCP is grouped under This project");
   ok(document.body.textContent?.includes("Global MCP"), "user-installed MCP is grouped by its global scope");
-  ok(document.body.textContent?.includes("Install once and use automatically in every Reasonix project."), "global MCP explains its cross-project availability");
+  ok(document.body.textContent?.includes("Install once and use automatically in every Semantix project."), "global MCP explains its cross-project availability");
   ok(document.body.textContent?.includes("Project"), "project MCP row shows a project source badge");
   ok(document.body.textContent?.includes("Declared by this project and available automatically."), "project MCP explains zero-confirmation availability");
   ok(!findButton("Install and use"), "trusted project MCP has no install confirmation");
@@ -584,7 +584,7 @@ console.log("capabilities panel MCP actions");
     await flush();
   });
   await waitFor("connected project server detail", () => Boolean(document.querySelector(".cap-mcp-subpage")));
-  ok(document.body.textContent?.includes("Current project · reasonix.toml"), "project MCP details show their configuration source");
+  ok(document.body.textContent?.includes("Current project · semantix.toml"), "project MCP details show their configuration source");
   ok(!findButton("Review changes"), "a trusted connected project server does not show a change alarm");
   ok(!findButton("Revoke trust"), "normal MCP details do not expose a second authorization-management workflow");
 
@@ -599,12 +599,12 @@ console.log("capabilities panel MCP actions");
   const rootEl = document.getElementById("root");
   if (!rootEl) throw new Error("missing root");
   const root = createRoot(rootEl);
-  const meta: Meta = { label: "test", ready: true, eventChannel: "managed-mcp-channel", cwd: "/tmp/reasonix-test", workspaceRoot: "/tmp/reasonix-test" };
+  const meta: Meta = { label: "test", ready: true, eventChannel: "managed-mcp-channel", cwd: "/tmp/semantix-test", workspaceRoot: "/tmp/semantix-test" };
   const tabs: TabMeta[] = [{
     id: "tab-managed-mcp",
     scope: "project",
-    workspaceRoot: "/tmp/reasonix-test",
-    workspaceName: "reasonix-test",
+    workspaceRoot: "/tmp/semantix-test",
+    workspaceName: "semantix-test",
     topicId: "topic-managed-mcp",
     topicTitle: "Managed MCP",
     label: "Managed MCP",
@@ -613,7 +613,7 @@ console.log("capabilities panel MCP actions");
     mode: "normal",
     toolApprovalMode: "auto",
     active: true,
-    cwd: "/tmp/reasonix-test",
+    cwd: "/tmp/semantix-test",
   }];
   const servers: ServerView[] = [{
     name: "helper",
@@ -671,12 +671,12 @@ console.log("capabilities panel MCP actions");
   const rootEl = document.getElementById("root");
   if (!rootEl) throw new Error("missing root");
   const root = createRoot(rootEl);
-  const meta: Meta = { label: "test", ready: true, eventChannel: "runtime-mcp-channel", cwd: "/tmp/reasonix-test", workspaceRoot: "/tmp/reasonix-test" };
+  const meta: Meta = { label: "test", ready: true, eventChannel: "runtime-mcp-channel", cwd: "/tmp/semantix-test", workspaceRoot: "/tmp/semantix-test" };
   const tabs: TabMeta[] = [{
     id: "tab-runtime-mcp",
     scope: "project",
-    workspaceRoot: "/tmp/reasonix-test",
-    workspaceName: "reasonix-test",
+    workspaceRoot: "/tmp/semantix-test",
+    workspaceName: "semantix-test",
     topicId: "topic-runtime-mcp",
     topicTitle: "Runtime MCP",
     label: "Runtime MCP",
@@ -685,7 +685,7 @@ console.log("capabilities panel MCP actions");
     mode: "normal",
     toolApprovalMode: "auto",
     active: true,
-    cwd: "/tmp/reasonix-test",
+    cwd: "/tmp/semantix-test",
   }];
   const servers: ServerView[] = [{
     name: "runtime-only",
@@ -733,12 +733,12 @@ console.log("capabilities panel MCP actions");
   const rootEl = document.getElementById("root");
   if (!rootEl) throw new Error("missing root");
   const root = createRoot(rootEl);
-  const meta: Meta = { label: "test", ready: true, eventChannel: "mcp-editor-channel", cwd: "/tmp/reasonix-test", workspaceRoot: "/tmp/reasonix-test" };
+  const meta: Meta = { label: "test", ready: true, eventChannel: "mcp-editor-channel", cwd: "/tmp/semantix-test", workspaceRoot: "/tmp/semantix-test" };
   const tabs: TabMeta[] = [{
     id: "tab-mcp-editor",
     scope: "project",
-    workspaceRoot: "/tmp/reasonix-test",
-    workspaceName: "reasonix-test",
+    workspaceRoot: "/tmp/semantix-test",
+    workspaceName: "semantix-test",
     topicId: "topic-mcp-editor",
     topicTitle: "MCP editor",
     label: "MCP editor",
@@ -747,7 +747,7 @@ console.log("capabilities panel MCP actions");
     mode: "normal",
     toolApprovalMode: "auto",
     active: true,
-    cwd: "/tmp/reasonix-test",
+    cwd: "/tmp/semantix-test",
   }];
   let addedInput: MCPServerInput | undefined;
   let servers: ServerView[] = [
@@ -867,12 +867,12 @@ console.log("capabilities panel plugin actions");
   const rootEl = document.getElementById("root");
   if (!rootEl) throw new Error("missing root");
   const root = createRoot(rootEl);
-  const meta: Meta = { label: "test", ready: true, eventChannel: "plugin-channel", cwd: "/tmp/reasonix-test", workspaceRoot: "/tmp/reasonix-test" };
+  const meta: Meta = { label: "test", ready: true, eventChannel: "plugin-channel", cwd: "/tmp/semantix-test", workspaceRoot: "/tmp/semantix-test" };
   const tabs: TabMeta[] = [{
     id: "tab-plugin",
     scope: "project",
-    workspaceRoot: "/tmp/reasonix-test",
-    workspaceName: "reasonix-test",
+    workspaceRoot: "/tmp/semantix-test",
+    workspaceName: "semantix-test",
     topicId: "topic-plugin",
     topicTitle: "Plugins",
     label: "Plugins",
@@ -881,7 +881,7 @@ console.log("capabilities panel plugin actions");
     mode: "normal",
     toolApprovalMode: "auto",
     active: true,
-    cwd: "/tmp/reasonix-test",
+    cwd: "/tmp/semantix-test",
   }];
   let planCalls = 0;
   let installCalls = 0;
@@ -897,8 +897,8 @@ console.log("capabilities panel plugin actions");
     version: "0.1.0",
     description: "Shared agent skills and hooks.",
     source: "git:github.com/obra/superpowers",
-    root: "~/.reasonix/plugins/superpowers",
-    manifestKind: "reasonix",
+    root: "~/.semantix/plugins/superpowers",
+    manifestKind: "semantix",
     enabled: true,
     skills: 2,
     hooks: 1,
@@ -933,8 +933,8 @@ console.log("capabilities panel plugin actions");
             version: "0.1.1",
             description: "Shared agent skills and hooks.",
             source,
-            root: "~/.reasonix/plugins/superpowers",
-            manifestKind: "reasonix",
+            root: "~/.semantix/plugins/superpowers",
+            manifestKind: "semantix",
             enabled: true,
             skills: 3,
             commands: 2,

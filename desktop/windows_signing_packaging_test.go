@@ -50,9 +50,9 @@ func TestWindowsWebView2SmokeUsesExternalProductionBinaryContract(t *testing.T) 
 	script := readTestFile(t, "../scripts/test-webview2-native-smoke.ps1")
 	for _, want := range []string{
 		`Resolve-Path $ExecutablePath`,
-		`$env:REASONIX_HOME = $smokeHome`,
-		`$env:REASONIX_STATE_HOME = $smokeState`,
-		`$env:REASONIX_CACHE_HOME = $smokeCache`,
+		`$env:SEMANTIX_HOME = $smokeHome`,
+		`$env:SEMANTIX_STATE_HOME = $smokeState`,
+		`$env:SEMANTIX_CACHE_HOME = $smokeCache`,
 		`close_behavior = "quit"`,
 		`$Process.MainWindowHandle`,
 		`$_.Name -ieq "msedgewebview2.exe"`,
@@ -77,11 +77,11 @@ func TestWindowsWebView2SmokeUsesExternalProductionBinaryContract(t *testing.T) 
 		}
 	}
 	for _, forbidden := range []string{
-		"REASONIX_WEBVIEW2_APPROVAL_SMOKE",
+		"SEMANTIX_WEBVIEW2_APPROVAL_SMOKE",
 		"mock-tool-approval",
 		"Element.prototype.animate",
 		"WebView2ApprovalSmokeBridge",
-		"Reasonix lost its main window or WebView2 renderer during the health window",
+		"Semantix lost its main window or WebView2 renderer during the health window",
 	} {
 		if strings.Contains(script, forbidden) {
 			t.Errorf("Windows WebView2 smoke still contains production instrumentation %q", forbidden)
@@ -123,7 +123,7 @@ func TestWindowsReleaseSignsPayloadBeforeRepackaging(t *testing.T) {
 		`artifact-configuration-slug: windows-installer-v2`,
 		`path: desktop/build/windows/signing-payload/*.exe`,
 		`path: desktop/build/windows/installer-signing-bundle/*.exe`,
-		`github.repository == 'esengine/DeepSeek-Reasonix'`,
+		`github.repository == 'Gnosil/semantix'`,
 		`SIGNPATH_API_TOKEN is required for public Windows Preview and Stable releases`,
 		`SIGNPATH_RELEASE_SIGNING_ATTESTATION does not match the current protected signing contract`,
 		`signing-policy-slug: release-signing`,
@@ -135,9 +135,9 @@ func TestWindowsReleaseSignsPayloadBeforeRepackaging(t *testing.T) {
 		`scripts/complete-signpath-request.ps1`,
 		`-WaitForExternalApproval:$waitForExternalApproval`,
 		`go run ./cmd/sign windows-payload ../signed-payload "${{ needs.resolve.outputs.version }}"`,
-		`go run ./cmd/sign sign ../signed-payload/reasonix-payload.json`,
-		`go run ./cmd/sign verify ../signed-payload/reasonix-payload.json`,
-		`REASONIX_REQUIRE_PAYLOAD_MANIFEST: "1"`,
+		`go run ./cmd/sign sign ../signed-payload/semantix-payload.json`,
+		`go run ./cmd/sign verify ../signed-payload/semantix-payload.json`,
+		`SEMANTIX_REQUIRE_PAYLOAD_MANIFEST: "1"`,
 		`ref: ${{ github.workflow_sha }}`,
 		`path: release-control`,
 		`./release-control/scripts/test-webview2-native-smoke.ps1`,
@@ -180,8 +180,8 @@ func TestWindowsReleaseSignsPayloadBeforeRepackaging(t *testing.T) {
 		`rm -f -- "$INSTALLER_DIR/$PAYLOAD_MANIFEST" "$INSTALLER_DIR/$PAYLOAD_SIGNATURE"`,
 		`cp "$PAYLOAD/$PAYLOAD_MANIFEST" "$INSTALLER_DIR/$PAYLOAD_MANIFEST"`,
 		`cp "$PAYLOAD/$PAYLOAD_SIGNATURE" "$INSTALLER_DIR/$PAYLOAD_SIGNATURE"`,
-		`REASONIX_REQUIRE_PAYLOAD_MANIFEST`,
-		`"-DARG_REASONIX_SIGNED_UNINSTALLER=${uninstaller_path}"`,
+		`SEMANTIX_REQUIRE_PAYLOAD_MANIFEST`,
+		`"-DARG_SEMANTIX_SIGNED_UNINSTALLER=${uninstaller_path}"`,
 		`cp "$PAYLOAD/$LAUNCHERNAME.exe" "$portable_staging/$APPNAME.exe"`,
 		`"$ROOT/scripts/verify-windows-portable.sh" "$portable_staging"`,
 	} {
@@ -198,8 +198,8 @@ func TestWindowsReleaseSignsPayloadBeforeRepackaging(t *testing.T) {
 		"Expand-Archive",
 		`Get-ChildItem -LiteralPath $extractRoot -Recurse -File -Filter "*.exe"`,
 		`$activeDir.Replace("\", "/") -ne "versions/$activeVersion"`,
-		`Portable = (Join-Path $activeDir "reasonix-desktop.exe")`,
-		`Portable = "reasonix-desktop.exe"`,
+		`Portable = (Join-Path $activeDir "semantix-desktop.exe")`,
+		`Portable = "semantix-desktop.exe"`,
 		"Portable archive must contain exactly 6 executables",
 		"Get-FileHash -Algorithm SHA256",
 	} {
@@ -243,29 +243,29 @@ func TestWindowsPackagerRejectsMissingOrPartialRequiredPayloadManifest(t *testin
 		t.Run(tc.name, func(t *testing.T) {
 			payload := t.TempDir()
 			for _, name := range []string{
-				"reasonix-desktop.exe",
-				"reasonix-guard.exe",
-				"reasonix-launcher.exe",
-				"reasonix-update-helper.exe",
-				"reasonix-cli.exe",
-				"reasonix-uninstall.exe",
+				"semantix-desktop.exe",
+				"semantix-guard.exe",
+				"semantix-launcher.exe",
+				"semantix-update-helper.exe",
+				"semantix-cli.exe",
+				"semantix-uninstall.exe",
 			} {
 				if err := os.WriteFile(filepath.Join(payload, name), []byte(name), 0o600); err != nil {
 					t.Fatal(err)
 				}
 			}
 			if tc.manifest {
-				if err := os.WriteFile(filepath.Join(payload, "reasonix-payload.json"), []byte("{}"), 0o600); err != nil {
+				if err := os.WriteFile(filepath.Join(payload, "semantix-payload.json"), []byte("{}"), 0o600); err != nil {
 					t.Fatal(err)
 				}
 			}
 			if tc.signature {
-				if err := os.WriteFile(filepath.Join(payload, "reasonix-payload.json.minisig"), []byte("sig"), 0o600); err != nil {
+				if err := os.WriteFile(filepath.Join(payload, "semantix-payload.json.minisig"), []byte("sig"), 0o600); err != nil {
 					t.Fatal(err)
 				}
 			}
 			cmd := exec.Command("bash", "../scripts/package-windows-desktop.sh", "amd64", payload)
-			cmd.Env = append(os.Environ(), "REASONIX_REQUIRE_PAYLOAD_MANIFEST=1")
+			cmd.Env = append(os.Environ(), "SEMANTIX_REQUIRE_PAYLOAD_MANIFEST=1")
 			output, err := cmd.CombinedOutput()
 			if err == nil || !strings.Contains(string(output), tc.want) {
 				t.Fatalf("packager error = %v, output = %q, want %q", err, output, tc.want)
@@ -322,12 +322,12 @@ func TestProductionSigningRunsOnlyFromProtectedControlPlane(t *testing.T) {
 
 func TestSignPathConfigurationsCoverExactWindowsPayload(t *testing.T) {
 	expected := map[string]bool{
-		"reasonix-desktop.exe":       true,
-		"reasonix-guard.exe":         true,
-		"reasonix-launcher.exe":      true,
-		"reasonix-update-helper.exe": true,
-		"reasonix-cli.exe":           true,
-		"reasonix-uninstall.exe":     true,
+		"semantix-desktop.exe":       true,
+		"semantix-guard.exe":         true,
+		"semantix-launcher.exe":      true,
+		"semantix-update-helper.exe": true,
+		"semantix-cli.exe":           true,
+		"semantix-uninstall.exe":     true,
 	}
 
 	payload := parseSignPathConfiguration(t, "windows-payload.xml")

@@ -17,7 +17,7 @@ import (
 // reports are sent on an explicit user click. Native fatal/lifecycle reports are
 // queued locally and sent on a later launch only when desktop telemetry is on.
 
-var crashEndpoint = "https://crash.reasonix.io/v1/report"
+var crashEndpoint = "https://crash.semantix.ensureok.ai/v1/report"
 
 const maxCrashDetailBytes = 16 << 10
 const maxCrashStackBytes = 8 << 10

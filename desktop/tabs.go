@@ -2451,7 +2451,7 @@ func (a *App) openTopicTabWithActivation(scope, workspaceRoot, topicID, sessionP
 }
 
 // OpenGlobalTab opens a new global-scope tab (no project root). The global
-// workspace root is the reasonix user config directory.
+// workspace root is the semantix user config directory.
 func (a *App) OpenGlobalTab(topicID string) (TabMeta, error) {
 	return a.openGlobalTab(topicID)
 }
@@ -5775,28 +5775,28 @@ func topicTitlesPath(workspaceRoot string) string {
 	if workspaceRoot == "" {
 		return filepath.Join(desktopConfigDir(), "global", topicTitlesFile)
 	}
-	return filepath.Join(workspaceRoot, ".reasonix", topicTitlesFile)
+	return filepath.Join(workspaceRoot, ".semantix", topicTitlesFile)
 }
 
 func topicTitleSourcesPath(workspaceRoot string) string {
 	if workspaceRoot == "" {
 		return filepath.Join(desktopConfigDir(), "global", topicTitleSourcesFile)
 	}
-	return filepath.Join(workspaceRoot, ".reasonix", topicTitleSourcesFile)
+	return filepath.Join(workspaceRoot, ".semantix", topicTitleSourcesFile)
 }
 
 func topicCreatedAtsPath(workspaceRoot string) string {
 	if workspaceRoot == "" {
 		return filepath.Join(desktopConfigDir(), "global", topicCreatedAtsFile)
 	}
-	return filepath.Join(workspaceRoot, ".reasonix", topicCreatedAtsFile)
+	return filepath.Join(workspaceRoot, ".semantix", topicCreatedAtsFile)
 }
 
 func topicAutoTitleMetaPath(workspaceRoot string) string {
 	if workspaceRoot == "" {
 		return filepath.Join(desktopConfigDir(), "global", topicAutoTitlesFile)
 	}
-	return filepath.Join(workspaceRoot, ".reasonix", topicAutoTitlesFile)
+	return filepath.Join(workspaceRoot, ".semantix", topicAutoTitlesFile)
 }
 
 const topicFileReadTimeout = 200 * time.Millisecond
@@ -5944,7 +5944,7 @@ func loadTopicCreatedAtsForUpdate(workspaceRoot string) (map[string]int64, error
 
 // ensureTopicStateDir prepares the directory holding a topic-state file. A
 // project file lives under the workspace root, so the directory is only created
-// while that root still exists — otherwise deleting the folder outside Reasonix
+// while that root still exists — otherwise deleting the folder outside Semantix
 // resurrects it on the next launch (#4566).
 func ensureTopicStateDir(workspaceRoot, path string) error {
 	if root := strings.TrimSpace(workspaceRoot); root != "" && !existingDirectory(root) {

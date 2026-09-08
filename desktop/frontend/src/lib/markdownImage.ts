@@ -1,4 +1,4 @@
-export const REMOTE_MARKDOWN_IMAGE_PATH = "/__reasonix_remote_markdown_image";
+export const REMOTE_MARKDOWN_IMAGE_PATH = "/__semantix_remote_markdown_image";
 
 function runningInWailsShell(): boolean {
   return typeof window !== "undefined" && window.runtime != null;

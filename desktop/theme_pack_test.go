@@ -79,7 +79,7 @@ func TestParseThemePackManifestRejects(t *testing.T) {
 
 func TestThemePackV2IndependentSceneImagesRoundTrip(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	assets := t.TempDir()
 	homeImage := writeTestPNG(t, filepath.Join(assets, "home.png"), 32, 24)
 	taskImage := writeTestPNG(t, filepath.Join(assets, "task.png"), 40, 30)
@@ -107,7 +107,7 @@ func TestThemePackV2IndependentSceneImagesRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exportPath := filepath.Join(t.TempDir(), "two-scenes.reasonix-theme")
+	exportPath := filepath.Join(t.TempDir(), "two-scenes.semantix-theme")
 	if err := exportThemePackZIP(m.ID, exportPath); err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +227,7 @@ func TestPaneOpacityExplicitZeroJSONRoundTrip(t *testing.T) {
 
 func TestImportExportRoundTrip(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 
 	img := writeTestPNG(t, filepath.Join(t.TempDir(), "background.png"), 32, 24)
 	m := &ThemePackManifest{
@@ -253,7 +253,7 @@ func TestImportExportRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exportPath := filepath.Join(t.TempDir(), "out.reasonix-theme")
+	exportPath := filepath.Join(t.TempDir(), "out.semantix-theme")
 	if err := exportThemePackZIP(m.ID, exportPath); err != nil {
 		t.Fatal(err)
 	}
@@ -316,7 +316,7 @@ func TestImportRejectsOversizedAndDisallowedFiles(t *testing.T) {
 
 func TestDeleteActiveThemeFallsBack(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	app := NewApp()
 
 	m := &ThemePackManifest{
@@ -352,7 +352,7 @@ func TestDeleteActiveThemeFallsBack(t *testing.T) {
 
 func TestBuiltinCannotDeleteOrOverwrite(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	app := NewApp()
 	if err := app.DeleteThemePack("graphite"); err == nil {
 		t.Fatal("expected delete builtin error")
@@ -381,7 +381,7 @@ func TestBuiltinCannotDeleteOrOverwrite(t *testing.T) {
 
 func TestThemeAssetRouteValidatesAndRejectsEscape(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	app := NewApp()
 
 	img := writeTestPNG(t, filepath.Join(t.TempDir(), "background.png"), 16, 16)
@@ -458,7 +458,7 @@ func TestThemeAssetRouteValidatesAndRejectsEscape(t *testing.T) {
 
 func TestSameIDImportRequiresReplace(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	app := NewApp()
 	t.Cleanup(clearPendingThemeImport)
 
@@ -476,7 +476,7 @@ func TestSameIDImportRequiresReplace(t *testing.T) {
 	}
 
 	// Build a second zip with same id.
-	exportPath := filepath.Join(t.TempDir(), "v2.reasonix-theme")
+	exportPath := filepath.Join(t.TempDir(), "v2.semantix-theme")
 	m.Name = "V2"
 	if err := writeThemeZip(exportPath, m, nil); err != nil {
 		t.Fatal(err)
@@ -504,7 +504,7 @@ func TestSameIDImportRequiresReplace(t *testing.T) {
 
 func TestSaveThemePackRejectsSameIDWithoutReplace(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	app := NewApp()
 
 	first, err := app.SaveThemePack(ThemeSaveInput{
@@ -541,7 +541,7 @@ func TestSaveThemePackRejectsSameIDWithoutReplace(t *testing.T) {
 
 func TestCorruptActiveThemeFallsBack(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	app := NewApp()
 
 	// Point state at a missing theme.
@@ -563,7 +563,7 @@ func TestCorruptActiveThemeFallsBack(t *testing.T) {
 
 func TestListThemePacksIncludesBuiltins(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	app := NewApp()
 	list, err := app.ListThemePacks()
 	if err != nil {

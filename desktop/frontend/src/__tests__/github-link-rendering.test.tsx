@@ -29,36 +29,36 @@ function eq(actual: unknown, expected: unknown, label: string) {
 
 console.log("\ngithub link rendering");
 
-eq(parseGitHubLink("https://github.com/esengine/DeepSeek-Reasonix/issues/6856"), {
+eq(parseGitHubLink("https://github.com/Gnosil/semantix/issues/6856"), {
   kind: "issue",
   owner: "esengine",
-  repo: "DeepSeek-Reasonix",
+  repo: "semantix",
   value: "6856",
   compactLabel: "#6856",
 }, "recognizes GitHub issue links");
 
-eq(parseGitHubLink("https://github.com/esengine/DeepSeek-Reasonix/pull/123?diff=split"), {
+eq(parseGitHubLink("https://github.com/Gnosil/semantix/pull/123?diff=split"), {
   kind: "pull",
   owner: "esengine",
-  repo: "DeepSeek-Reasonix",
+  repo: "semantix",
   value: "123",
   compactLabel: "PR #123",
 }, "recognizes GitHub pull request links with query parameters");
 
-eq(parseGitHubLink("https://github.com/esengine/DeepSeek-Reasonix/commit/abcdef1234567890"), {
+eq(parseGitHubLink("https://github.com/Gnosil/semantix/commit/abcdef1234567890"), {
   kind: "commit",
   owner: "esengine",
-  repo: "DeepSeek-Reasonix",
+  repo: "semantix",
   value: "abcdef1234567890",
   compactLabel: "abcdef1",
 }, "recognizes GitHub commit links");
 
-eq(parseGitHubLink("https://github.com/esengine/DeepSeek-Reasonix"), null, "leaves repository links unchanged");
-eq(parseGitHubLink("http://github.com/esengine/DeepSeek-Reasonix/issues/1"), null, "rejects insecure GitHub links");
+eq(parseGitHubLink("https://github.com/Gnosil/semantix"), null, "leaves repository links unchanged");
+eq(parseGitHubLink("http://github.com/Gnosil/semantix/issues/1"), null, "rejects insecure GitHub links");
 eq(parseGitHubLink("https://example.com/issues/6856"), null, "leaves non-GitHub links unchanged");
 eq(parseGitHubLink("javascript:alert(1)"), null, "does not enhance unsafe links");
 
-eq(classifyLinkIcon("https://github.com/esengine/DeepSeek-Reasonix"), "github", "adds a GitHub icon to repository links");
+eq(classifyLinkIcon("https://github.com/Gnosil/semantix"), "github", "adds a GitHub icon to repository links");
 eq(classifyLinkIcon("https://example.com/docs"), "external", "adds an external-link icon to web links");
 eq(classifyLinkIcon("http://localhost:5173/docs"), "external", "adds an external-link icon to HTTP links");
 eq(classifyLinkIcon("mailto:hello@example.com"), "mail", "adds a mail icon to email links");
@@ -74,14 +74,14 @@ function renderLink(href: string, label: string = href) {
 }
 
 {
-  const href = "https://github.com/esengine/DeepSeek-Reasonix/pull/6976";
+  const href = "https://github.com/Gnosil/semantix/pull/6976";
   const link = renderLink(href);
   const label = link?.querySelector(".md-rich-link__label");
   eq(label?.textContent, href, "keeps the original GitHub URL in selectable DOM text");
   eq(label?.getAttribute("data-display-label"), "PR #6976", "exposes the compact visual PR label");
   eq(
     link?.getAttribute("aria-label"),
-    "GitHub esengine/DeepSeek-Reasonix pull request #6976",
+    "GitHub Gnosil/semantix pull request #6976",
     "gives compact PR links a contextual accessible name",
   );
   ok(link?.querySelector("svg[aria-hidden=\"true\"]"), "hides the decorative GitHub icon from assistive technology");
@@ -98,7 +98,7 @@ function renderLink(href: string, label: string = href) {
 
 {
   const link = renderLink(
-    "https://github.com/esengine/DeepSeek-Reasonix/issues/6856",
+    "https://github.com/Gnosil/semantix/issues/6856",
     "Readable issue title",
   );
   eq(link?.textContent, "Readable issue title", "preserves an explicit Markdown link label");

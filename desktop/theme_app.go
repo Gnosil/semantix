@@ -664,9 +664,9 @@ func (a *App) ImportThemePack(sourcePath string, replace bool) (ThemeImportResul
 			return ThemeImportResult{}, fmt.Errorf("no theme package selected")
 		}
 		picked, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
-			Title: "Import Reasonix Theme",
+			Title: "Import Semantix Theme",
 			Filters: []runtime.FileFilter{
-				{DisplayName: "Reasonix Theme (*.reasonix-theme)", Pattern: "*.reasonix-theme"},
+				{DisplayName: "Semantix Theme (*.semantix-theme)", Pattern: "*.semantix-theme"},
 				{DisplayName: "ZIP (*.zip)", Pattern: "*.zip"},
 			},
 		})
@@ -727,10 +727,10 @@ func (a *App) ExportThemePack(id, destPath string) (string, error) {
 		}
 		defaultName := id + themePackExt
 		picked, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
-			Title:           "Export Reasonix Theme",
+			Title:           "Export Semantix Theme",
 			DefaultFilename: defaultName,
 			Filters: []runtime.FileFilter{
-				{DisplayName: "Reasonix Theme (*.reasonix-theme)", Pattern: "*.reasonix-theme"},
+				{DisplayName: "Semantix Theme (*.semantix-theme)", Pattern: "*.semantix-theme"},
 			},
 		})
 		if err != nil {

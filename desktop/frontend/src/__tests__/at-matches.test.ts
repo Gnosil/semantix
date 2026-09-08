@@ -100,19 +100,19 @@ console.log("\nat-matches filter");
 // even when the submitted path is an opaque session token.
 {
   const entries: DirEntry[] = [];
-  const searchEntries = [externalEntry("__reasonix_external_folder/abc/Folder/src/outside.txt", "Folder With Spaces/src/outside.txt")];
+  const searchEntries = [externalEntry("__semantix_external_folder/abc/Folder/src/outside.txt", "Folder With Spaces/src/outside.txt")];
   const got = filterAtMatches(entries, searchEntries, "spaces");
   eq(
     got.map((e) => e.path),
-    ["__reasonix_external_folder/abc/Folder/src/outside.txt"],
+    ["__semantix_external_folder/abc/Folder/src/outside.txt"],
     "external display name participates in filtering while preserving token path",
   );
 }
 
 // 7. Dedup uses the submitted path when present.
 {
-  const entries = [externalEntry("__reasonix_external_folder/abc/Folder/src/outside.txt", "outside.txt")];
-  const searchEntries = [externalEntry("__reasonix_external_folder/abc/Folder/src/outside.txt", "Folder With Spaces/src/outside.txt")];
+  const entries = [externalEntry("__semantix_external_folder/abc/Folder/src/outside.txt", "outside.txt")];
+  const searchEntries = [externalEntry("__semantix_external_folder/abc/Folder/src/outside.txt", "Folder With Spaces/src/outside.txt")];
   const got = filterAtMatches(entries, searchEntries, "outside");
   eq(got.length, 1, "external entries with the same submitted path dedup to one");
 }

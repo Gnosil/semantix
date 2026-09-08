@@ -10,7 +10,7 @@ process.env.PLAYWRIGHT_BROWSERS_PATH = !process.env.PLAYWRIGHT_BROWSERS_PATH || 
   ? path.join(frontendDir, ".pw-browsers")
   : process.env.PLAYWRIGHT_BROWSERS_PATH;
 const { chromium } = await import("playwright");
-const port = Number(process.env.REASONIX_TRANSCRIPT_SCROLL_PORT ?? 4619);
+const port = Number(process.env.SEMANTIX_TRANSCRIPT_SCROLL_PORT ?? 4619);
 const url = `http://127.0.0.1:${port}/?mock=bench&bench=1`;
 
 function assert(condition, message) {
@@ -56,7 +56,7 @@ try {
     transcript.scrollTop = Math.max(0, transcript.scrollHeight - transcript.clientHeight * 2);
     window.__scrollWrites = [];
     window.__scrollGestureTrace = [];
-    window.__REASONIX_TRANSCRIPT_SCROLL_WRITE__ = (owner, top) => window.__scrollWrites.push({ owner, top });
+    window.__SEMANTIX_TRANSCRIPT_SCROLL_WRITE__ = (owner, top) => window.__scrollWrites.push({ owner, top });
     new MutationObserver(() => {
       window.__scrollGestureTrace.push(transcript.dataset.scrollGesture ?? "idle");
     }).observe(transcript, { attributes: true, attributeFilter: ["data-scroll-gesture"] });

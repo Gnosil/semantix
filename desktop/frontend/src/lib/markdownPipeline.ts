@@ -7,7 +7,7 @@
 //   normalizeMath pre-pass
 //   → remark-parse + remarkGfm + remarkMath + remarkMathPolicy + remarkLocalPathLinks
 //   → remark-rehype (allowDangerousHtml, same as react-markdown's default)
-//   → rehypeReasonixKatex
+//   → rehypeSemantixKatex
 //   → react-markdown's post-transform (raw → text, urlTransform on URL attrs)
 //
 // The document is parsed WHOLE so definitions, footnotes, and reference links
@@ -27,8 +27,8 @@ import { urlAttributes } from "html-url-attributes";
 import { visit } from "unist-util-visit";
 import type { Element as HastElement, Root as HastRoot, RootContent as HastRootContent } from "hast";
 import { normalizeMath } from "../components/mathNormalize";
-import { reasonixRemarkPlugins } from "../components/markdownRemarkPlugins";
-import { reasonixRehypePlugins } from "../components/rehypeReasonixKatex";
+import { semantixRemarkPlugins } from "../components/markdownRemarkPlugins";
+import { semantixRehypePlugins } from "../components/rehypeSemantixKatex";
 import {
   extractLargePlainMarkdownTables,
   type VirtualMarkdownTableData,
@@ -128,9 +128,9 @@ export function parseMarkdownToHast(text: string): HastRoot {
 function parseNormalizedMarkdownToHast(normalized: string): HastRoot {
   const processor = unified()
     .use(remarkParse)
-    .use(reasonixRemarkPlugins)
+    .use(semantixRemarkPlugins)
     .use(remarkRehype, { allowDangerousHtml: true })
-    .use(reasonixRehypePlugins);
+    .use(semantixRehypePlugins);
   // The same VFile must flow through parse and runSync: remarkMathPolicy
   // slices original math sources out of file.value by node position.
   const file = new VFile({ value: normalized });
@@ -139,7 +139,7 @@ function parseNormalizedMarkdownToHast(normalized: string): HastRoot {
   return tree;
 }
 
-const VIRTUAL_TABLE_TAG = "reasonix-virtual-table";
+const VIRTUAL_TABLE_TAG = "semantix-virtual-table";
 
 function injectVirtualTablePlaceholders(
   root: HastRoot,
@@ -161,7 +161,7 @@ function injectVirtualTablePlaceholders(
             node.children[index] = {
               type: "element",
               tagName: VIRTUAL_TABLE_TAG,
-              properties: { dataReasonixTableIndex: tableIndex },
+              properties: { dataSemantixTableIndex: tableIndex },
               children: [],
             };
             continue;
@@ -210,9 +210,9 @@ export function parseMarkdownToBlocks(text: string): MarkdownBlock[] {
 
   const processor = unified()
     .use(remarkParse)
-    .use(reasonixRemarkPlugins)
+    .use(semantixRemarkPlugins)
     .use(remarkRehype, { allowDangerousHtml: true })
-    .use(reasonixRehypePlugins);
+    .use(semantixRehypePlugins);
   const file = new VFile({ value: extracted.text });
   const tree = processor.runSync(processor.parse(file), file) as unknown as HastRoot;
   applyReactMarkdownTransforms(tree);
@@ -223,7 +223,7 @@ export function parseMarkdownToBlocks(text: string): MarkdownBlock[] {
       (child): child is HastElement => child.type === "element" && child.tagName === VIRTUAL_TABLE_TAG,
     );
     if (!placeholder) return block;
-    const index = Number(placeholder.properties.dataReasonixTableIndex);
+    const index = Number(placeholder.properties.dataSemantixTableIndex);
     return {
       ...block,
       children: block.children.filter((child) => child !== placeholder),

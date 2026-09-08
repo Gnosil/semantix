@@ -231,11 +231,11 @@ func isolateDesktopUserDirs(t *testing.T) string {
 		}
 	}
 	t.Setenv("HOME", home)
-	t.Setenv("REASONIX_CREDENTIALS_STORE", "file")
+	t.Setenv("SEMANTIX_CREDENTIALS_STORE", "file")
 	t.Setenv("USERPROFILE", home)
 	t.Setenv("XDG_CONFIG_HOME", xdg)
-	t.Setenv("REASONIX_STATE_HOME", filepath.Join(home, "state"))
-	t.Setenv("REASONIX_CACHE_HOME", filepath.Join(home, "cache"))
+	t.Setenv("SEMANTIX_STATE_HOME", filepath.Join(home, "state"))
+	t.Setenv("SEMANTIX_CACHE_HOME", filepath.Join(home, "cache"))
 	t.Setenv("AppData", appData)
 	// Process-local catalog projections pin SQLite files under cache. Close them
 	// before TempDir cleanup so Windows does not fail unlinkat on open handles.
@@ -285,7 +285,7 @@ func TestNeedsOnboardingIgnoresInheritedEnv(t *testing.T) {
 
 	app := NewApp()
 	if !app.NeedsOnboarding() {
-		t.Fatal("NeedsOnboarding should require a key saved in Reasonix global .env")
+		t.Fatal("NeedsOnboarding should require a key saved in Semantix global .env")
 	}
 	setDesktopTestCredential(t, onboardingKeyEnv, "saved-key")
 	if app.NeedsOnboarding() {
@@ -500,8 +500,8 @@ func TestCommandsDocsAccountsForHiddenCompatibilityAliases(t *testing.T) {
 func TestCommandsDocsDoesNotDisplaceQualifiedCustomCommands(t *testing.T) {
 	ctrl := control.New(control.Options{Commands: []command.Command{
 		{Name: "docs", Description: "custom docs"},
-		{Name: "reasonix:docs", Description: "qualified custom docs"},
-		{Name: "reasonix:builtin:docs", Description: "second qualified custom docs"},
+		{Name: "semantix:docs", Description: "qualified custom docs"},
+		{Name: "semantix:builtin:docs", Description: "second qualified custom docs"},
 	}})
 	defer ctrl.Close()
 	app := NewApp()
@@ -512,9 +512,9 @@ func TestCommandsDocsDoesNotDisplaceQualifiedCustomCommands(t *testing.T) {
 		kind string
 	}{
 		{name: "docs", kind: "custom"},
-		{name: "reasonix:docs", kind: "custom"},
-		{name: "reasonix:builtin:docs", kind: "custom"},
-		{name: "reasonix:builtin:docs:2", kind: "builtin"},
+		{name: "semantix:docs", kind: "custom"},
+		{name: "semantix:builtin:docs", kind: "custom"},
+		{name: "semantix:builtin:docs:2", kind: "builtin"},
 	} {
 		if command, ok := commandInfoByName(commands, want.name); !ok || command.Kind != want.kind {
 			t.Fatalf("command %q = %+v, %v; want kind %q", want.name, command, ok, want.kind)
@@ -1112,7 +1112,7 @@ func TestSettingsUsesUserDesktopPreferencesNotProjectConfig(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	project := robustTempDir(t)
-	if err := os.WriteFile(filepath.Join(project, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(project, "semantix.toml"), []byte(`
 [desktop]
 language = "zh"
 layout_style = "workbench"
@@ -1231,11 +1231,11 @@ func BenchmarkDesktopSettingsPayloads(b *testing.B) {
 		}
 	}
 	b.Setenv("HOME", home)
-	b.Setenv("REASONIX_CREDENTIALS_STORE", "file")
+	b.Setenv("SEMANTIX_CREDENTIALS_STORE", "file")
 	b.Setenv("USERPROFILE", home)
 	b.Setenv("XDG_CONFIG_HOME", xdg)
-	b.Setenv("REASONIX_STATE_HOME", filepath.Join(home, "state"))
-	b.Setenv("REASONIX_CACHE_HOME", filepath.Join(home, "cache"))
+	b.Setenv("SEMANTIX_STATE_HOME", filepath.Join(home, "state"))
+	b.Setenv("SEMANTIX_CACHE_HOME", filepath.Join(home, "cache"))
 	b.Setenv("AppData", appData)
 	b.Setenv("SHARED_PROVIDER_KEY", "sk-test")
 
@@ -1355,8 +1355,8 @@ func TestSettingsShowsGlobalCredentialWithoutMutatingWorkspaceEnv(t *testing.T) 
 		if p.Name != "settings-provider" {
 			continue
 		}
-		if !p.KeySet || !strings.Contains(p.KeySource, "Reasonix credentials") {
-			t.Fatalf("settings-provider key = set:%v source:%q, want Reasonix credentials: %+v", p.KeySet, p.KeySource, p)
+		if !p.KeySet || !strings.Contains(p.KeySource, "Semantix credentials") {
+			t.Fatalf("settings-provider key = set:%v source:%q, want Semantix credentials: %+v", p.KeySet, p.KeySource, p)
 		}
 		if env := os.Getenv("SHARED_SETTINGS_KEY"); env != "from-project" {
 			t.Fatalf("Settings mutated SHARED_SETTINGS_KEY = %q, want existing project env", env)
@@ -1370,7 +1370,7 @@ func TestSettingsSeedsMissingUserConfigFromLegacyProjectConfig(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	project := robustTempDir(t)
-	if err := os.WriteFile(filepath.Join(project, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(project, "semantix.toml"), []byte(`
 default_model = "legacy-provider/legacy-model"
 
 [desktop]
@@ -3236,7 +3236,7 @@ base_url = "https://api.deepseek.com"
 model = "deepseek-v4-flash"
 api_key_env = "DEEPSEEK_API_KEY"
 `
-	if err := os.WriteFile(filepath.Join(projectRoot, "reasonix.toml"), []byte(projectConfig), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(projectRoot, "semantix.toml"), []byte(projectConfig), 0o644); err != nil {
 		t.Fatalf("write project config: %v", err)
 	}
 
@@ -4166,8 +4166,8 @@ func TestEnsureTabControllerWorkspaceWarnsWhenPinnedSessionSwitchesWorkspace(t *
 }
 
 func TestDescribeSessionBindingWorkspaceKeepsWindowsPathReadable(t *testing.T) {
-	path := `C:\Users\Jane Doe\Reasonix`
-	want := `project workspace "C:\Users\Jane Doe\Reasonix"`
+	path := `C:\Users\Jane Doe\Semantix`
+	want := `project workspace "C:\Users\Jane Doe\Semantix"`
 	if got := describeSessionBindingWorkspace("project", path); got != want {
 		t.Fatalf("describeSessionBindingWorkspace = %q, want %q", got, want)
 	}
@@ -4215,7 +4215,7 @@ api_key_env = "OWNER_MODEL_KEY"
 supported_efforts = ["max"]
 default_effort = "max"
 `
-	if err := os.WriteFile(filepath.Join(projectA, "reasonix.toml"), []byte(ownerConfig), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(projectA, "semantix.toml"), []byte(ownerConfig), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	staleConfig := `default_model = "stale/stale-model"
@@ -4227,7 +4227,7 @@ model = "stale-model"
 api_key_env = "STALE_MODEL_KEY"
 reasoning_protocol = "none"
 `
-	if err := os.WriteFile(filepath.Join(projectB, "reasonix.toml"), []byte(staleConfig), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(projectB, "semantix.toml"), []byte(staleConfig), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -4501,13 +4501,13 @@ func TestSaveProviderPersistsReasoningProtocol(t *testing.T) {
 
 func TestDeleteProviderMigratesConfigAndOpenTabs(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	setDesktopTestCredential(t, "REASONIX_TEST_KEY", "sk-test")
+	setDesktopTestCredential(t, "SEMANTIX_TEST_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "prov-a/model-a2"
 	cfg.Providers = []config.ProviderEntry{
-		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", Models: []string{"model-a1", "model-a2"}, APIKeyEnv: "REASONIX_TEST_KEY"},
-		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "REASONIX_TEST_KEY"},
+		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", Models: []string{"model-a1", "model-a2"}, APIKeyEnv: "SEMANTIX_TEST_KEY"},
+		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "SEMANTIX_TEST_KEY"},
 	}
 	cfg.Agent.PlannerModel = "prov-a"
 	cfg.Desktop.ProviderAccess = []string{"prov-a", "prov-b"}
@@ -4568,13 +4568,13 @@ func assertTabBuildSuperseded(t *testing.T, app *App, tab *WorkspaceTab, generat
 
 func TestDeleteProviderSupersedesInFlightStartupBuild(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	setDesktopTestCredential(t, "REASONIX_TEST_KEY", "sk-test")
+	setDesktopTestCredential(t, "SEMANTIX_TEST_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "prov-b/model-b1"
 	cfg.Providers = []config.ProviderEntry{
-		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", APIKeyEnv: "REASONIX_TEST_KEY"},
-		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "REASONIX_TEST_KEY"},
+		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", APIKeyEnv: "SEMANTIX_TEST_KEY"},
+		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "SEMANTIX_TEST_KEY"},
 	}
 	cfg.Desktop.ProviderAccess = []string{"prov-a", "prov-b"}
 	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
@@ -4607,13 +4607,13 @@ func TestDeleteProviderSupersedesInFlightStartupBuild(t *testing.T) {
 
 func TestRemoveBuiltInProviderAccessSupersedesInFlightStartupBuild(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	setDesktopTestCredential(t, "REASONIX_TEST_KEY", "sk-test")
+	setDesktopTestCredential(t, "SEMANTIX_TEST_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "prov-b/model-b1"
 	cfg.Providers = []config.ProviderEntry{
-		{Name: "deepseek", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-chat", APIKeyEnv: "REASONIX_TEST_KEY"},
-		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "REASONIX_TEST_KEY"},
+		{Name: "deepseek", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-chat", APIKeyEnv: "SEMANTIX_TEST_KEY"},
+		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "SEMANTIX_TEST_KEY"},
 	}
 	cfg.Desktop.ProviderAccess = []string{"deepseek", "prov-b"}
 	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
@@ -4775,13 +4775,13 @@ func TestClearActiveSessionRuntimeReleasesResourcesWhenTabReplaced(t *testing.T)
 
 func TestDeleteProviderRejectsRunningAffectedTab(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	setDesktopTestCredential(t, "REASONIX_TEST_KEY", "sk-test")
+	setDesktopTestCredential(t, "SEMANTIX_TEST_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "prov-a/model-a1"
 	cfg.Providers = []config.ProviderEntry{
-		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", APIKeyEnv: "REASONIX_TEST_KEY"},
-		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "REASONIX_TEST_KEY"},
+		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", APIKeyEnv: "SEMANTIX_TEST_KEY"},
+		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "SEMANTIX_TEST_KEY"},
 	}
 	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
 		t.Fatalf("save config: %v", err)
@@ -4809,12 +4809,12 @@ func TestDeleteProviderRejectsRunningAffectedTab(t *testing.T) {
 
 func TestDeleteProviderRechecksWorkAfterWaitingForRuntimeMutation(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	setDesktopTestCredential(t, "REASONIX_TEST_KEY", "sk-test")
+	setDesktopTestCredential(t, "SEMANTIX_TEST_KEY", "sk-test")
 	cfg := config.Default()
 	cfg.DefaultModel = "prov-a/model-a1"
 	cfg.Providers = []config.ProviderEntry{
-		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", APIKeyEnv: "REASONIX_TEST_KEY"},
-		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "REASONIX_TEST_KEY"},
+		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", APIKeyEnv: "SEMANTIX_TEST_KEY"},
+		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "SEMANTIX_TEST_KEY"},
 	}
 	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
 		t.Fatalf("save config: %v", err)
@@ -4873,12 +4873,12 @@ func TestDeleteProviderRechecksWorkAfterWaitingForRuntimeMutation(t *testing.T) 
 
 func TestDeleteProviderReleasesAffectedTabSharedHostReference(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	setDesktopTestCredential(t, "REASONIX_TEST_KEY", "sk-test")
+	setDesktopTestCredential(t, "SEMANTIX_TEST_KEY", "sk-test")
 	cfg := config.Default()
 	cfg.DefaultModel = "prov-a/model-a1"
 	cfg.Providers = []config.ProviderEntry{
-		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", APIKeyEnv: "REASONIX_TEST_KEY"},
-		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "REASONIX_TEST_KEY"},
+		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", APIKeyEnv: "SEMANTIX_TEST_KEY"},
+		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "SEMANTIX_TEST_KEY"},
 	}
 	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
 		t.Fatalf("save config: %v", err)
@@ -4912,12 +4912,12 @@ func TestDeleteProviderReleasesAffectedTabSharedHostReference(t *testing.T) {
 
 func TestRemoveBuiltInProviderAccessReleasesAffectedTabSharedHostReference(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	setDesktopTestCredential(t, "REASONIX_TEST_KEY", "sk-test")
+	setDesktopTestCredential(t, "SEMANTIX_TEST_KEY", "sk-test")
 	cfg := config.Default()
 	cfg.DefaultModel = "deepseek/deepseek-chat"
 	cfg.Providers = []config.ProviderEntry{
-		{Name: "deepseek", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-chat", APIKeyEnv: "REASONIX_TEST_KEY"},
-		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "REASONIX_TEST_KEY"},
+		{Name: "deepseek", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-chat", APIKeyEnv: "SEMANTIX_TEST_KEY"},
+		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "SEMANTIX_TEST_KEY"},
 	}
 	cfg.Desktop.ProviderAccess = []string{"deepseek", "prov-b"}
 	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
@@ -4952,13 +4952,13 @@ func TestRemoveBuiltInProviderAccessReleasesAffectedTabSharedHostReference(t *te
 
 func TestDeleteProviderRejectsAffectedBackgroundJobs(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	setDesktopTestCredential(t, "REASONIX_TEST_KEY", "sk-test")
+	setDesktopTestCredential(t, "SEMANTIX_TEST_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "prov-a/model-a1"
 	cfg.Providers = []config.ProviderEntry{
-		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", APIKeyEnv: "REASONIX_TEST_KEY"},
-		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "REASONIX_TEST_KEY"},
+		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", APIKeyEnv: "SEMANTIX_TEST_KEY"},
+		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "SEMANTIX_TEST_KEY"},
 	}
 	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
 		t.Fatalf("save config: %v", err)
@@ -4990,13 +4990,13 @@ func TestDeleteProviderRejectsAffectedBackgroundJobs(t *testing.T) {
 
 func TestDeleteProviderRejectsUnaffectedBackgroundJobsBeforeSavingConfig(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	setDesktopTestCredential(t, "REASONIX_TEST_KEY", "sk-test")
+	setDesktopTestCredential(t, "SEMANTIX_TEST_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "prov-b/model-b1"
 	cfg.Providers = []config.ProviderEntry{
-		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", APIKeyEnv: "REASONIX_TEST_KEY"},
-		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "REASONIX_TEST_KEY"},
+		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", APIKeyEnv: "SEMANTIX_TEST_KEY"},
+		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "SEMANTIX_TEST_KEY"},
 	}
 	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
 		t.Fatalf("save config: %v", err)
@@ -7426,7 +7426,7 @@ func TestSubmitToTabHistoryDisplaysRawInputAfterMemoryCompose(t *testing.T) {
 
 	app := NewApp()
 	app.setTestCtrl(ctrl, "deepseek/test")
-	ctrl.QueueMemory(`Saved memory "reasonix-contributions": contribution count updated`)
+	ctrl.QueueMemory(`Saved memory "semantix-contributions": contribution count updated`)
 
 	const prompt = "不要，删了"
 	app.SubmitToTab("test", prompt)
@@ -7455,7 +7455,7 @@ func TestForkCreatesActiveTabWithoutSwitchingSourceController(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	workspace := robustTempDir(t)
-	if err := os.WriteFile(filepath.Join(workspace, "reasonix.toml"), []byte(""), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(workspace, "semantix.toml"), []byte(""), 0o644); err != nil {
 		t.Fatalf("write workspace config: %v", err)
 	}
 	dir := config.SessionDir()
@@ -7549,7 +7549,7 @@ func TestCapabilitiesShowsDefaultMCPAsAutomaticIdleNotDisabled(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "semantix.toml"), []byte(`
 [[plugins]]
 name = "playwright"
 command = "npx"
@@ -7580,8 +7580,8 @@ args = ["-y", "@playwright/mcp"]
 
 func TestCapabilitiesIncludesInstalledPlugins(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	reasonixHome := config.SemantixHomeDir()
-	root := filepath.Join(reasonixHome, "plugins", "superpowers")
+	semantixHome := config.SemantixHomeDir()
+	root := filepath.Join(semantixHome, "plugins", "superpowers")
 	if err := os.MkdirAll(filepath.Join(root, "skills"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -7602,7 +7602,7 @@ func TestCapabilitiesIncludesInstalledPlugins(t *testing.T) {
 }`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := pluginpkg.Upsert(reasonixHome, pluginpkg.InstalledPlugin{
+	if err := pluginpkg.Upsert(semantixHome, pluginpkg.InstalledPlugin{
 		Name:         "superpowers",
 		Root:         "plugins/superpowers",
 		Version:      "6.1.0",
@@ -7634,7 +7634,7 @@ func TestDesktopSharedHostProjectMCPConnectsWithoutLaunchApproval(t *testing.T) 
 
 	srv := desktopMCPHTTPServer(t)
 	defer srv.Close()
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), fmt.Appendf(nil, `
+	if err := os.WriteFile(filepath.Join(dir, "semantix.toml"), fmt.Appendf(nil, `
 [[plugins]]
 name = "h"
 type = "http"
@@ -7703,8 +7703,8 @@ func TestProjectMCPViewIsTrustedAndKeepsProjectSource(t *testing.T) {
 	if blocked.RequiresLaunchApproval {
 		t.Fatalf("project MCP exposed obsolete launch approval action: %+v", blocked)
 	}
-	if blocked.Source != "project" || blocked.ConfigSource != "reasonix.toml" {
-		t.Fatalf("blocked project MCP source = %q/%q, want project/reasonix.toml", blocked.Source, blocked.ConfigSource)
+	if blocked.Source != "project" || blocked.ConfigSource != "semantix.toml" {
+		t.Fatalf("blocked project MCP source = %q/%q, want project/semantix.toml", blocked.Source, blocked.ConfigSource)
 	}
 
 	user := withPluginConfig(ServerView{Name: "user", Status: "connected"},
@@ -7721,7 +7721,7 @@ func TestMCPServersMatchesCapabilitiesServerProjection(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "semantix.toml"), []byte(`
 [[plugins]]
 name = "playwright"
 command = "npx"
@@ -7743,7 +7743,7 @@ func TestConfiguredMCPWithFormerBuiltInNameIsUserServer(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "semantix.toml"), []byte(`
 [[plugins]]
 name = "time"
 command = "custom-time"
@@ -7789,10 +7789,10 @@ tier = "lazy"
 
 func TestSetMCPServerEnabledRestoresOnDemandWithoutConnecting(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	t.Setenv("REASONIX_CACHE_HOME", t.TempDir())
+	t.Setenv("SEMANTIX_CACHE_HOME", t.TempDir())
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "semantix.toml"), []byte(`
 [[plugins]]
 name = "offline"
 type = "http"
@@ -7830,7 +7830,7 @@ func TestSetMCPServerEnabledSharedHostPreservesSiblingTabs(t *testing.T) {
 
 	srv := desktopMCPHTTPServer(t)
 	defer srv.Close()
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), fmt.Appendf(nil, `
+	if err := os.WriteFile(filepath.Join(dir, "semantix.toml"), fmt.Appendf(nil, `
 [[plugins]]
 name = "h"
 type = "http"
@@ -7980,7 +7980,7 @@ func TestReconnectMCPServerUsesEffectiveProjectConfigWhenUserNameIsShadowed(t *t
 	if err := userCfg.SaveTo(config.UserConfigPath()); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), fmt.Appendf(nil, `
+	if err := os.WriteFile(filepath.Join(dir, "semantix.toml"), fmt.Appendf(nil, `
 [[plugins]]
 name = "h"
 type = "http"
@@ -8126,7 +8126,7 @@ func newGatedDesktopMCPLaunchFixture(t *testing.T, startGateAddr string) gatedDe
 		gateConfig = fmt.Sprintf("DESKTOP_MCP_START_GATE_ADDR = %q\n", startGateAddr)
 	}
 	helperArgs := []string{"-test.run=TestDesktopMCPHelperProcess", "--"}
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), fmt.Appendf(nil, `
+	if err := os.WriteFile(filepath.Join(dir, "semantix.toml"), fmt.Appendf(nil, `
 [[plugins]]
 name = "h"
 command = %q
@@ -8371,12 +8371,12 @@ func TestRemovePluginSerializesWithMCPAuthorization(t *testing.T) {
 // the real uninstall and MCP disconnect flow. Returns the plugin root.
 func installGatedTestPluginPackage(t *testing.T, mcpServerName string) string {
 	t.Helper()
-	reasonixHome := config.SemantixHomeDir()
-	root := filepath.Join(reasonixHome, "plugins", "review-helper")
+	semantixHome := config.SemantixHomeDir()
+	root := filepath.Join(semantixHome, "plugins", "review-helper")
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, pluginpkg.NativeManifest), fmt.Appendf(nil, `{"apiVersion": "reasonix.io/plugin/v2",
+	if err := os.WriteFile(filepath.Join(root, pluginpkg.NativeManifest), fmt.Appendf(nil, `{"apiVersion": "semantix.io/plugin/v2",
   "name": "review-helper",
   "version": "1.0.0",
   "mcpServers": {
@@ -8385,11 +8385,11 @@ func installGatedTestPluginPackage(t *testing.T, mcpServerName string) string {
 }`, mcpServerName), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := pluginpkg.Upsert(reasonixHome, pluginpkg.InstalledPlugin{
+	if err := pluginpkg.Upsert(semantixHome, pluginpkg.InstalledPlugin{
 		Name:         "review-helper",
 		Root:         "plugins/review-helper",
 		Version:      "1.0.0",
-		ManifestKind: "reasonix",
+		ManifestKind: "semantix",
 		Enabled:      true,
 	}); err != nil {
 		t.Fatal(err)
@@ -8951,7 +8951,7 @@ func TestEditAndRemoveConfiguredMCPWithBuiltInName(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "semantix.toml"), []byte(`
 [[plugins]]
 name = "time"
 command = "custom-time"
@@ -9003,7 +9003,7 @@ func TestRemoveProjectMCPRevealsAndRegistersGlobalFallback(t *testing.T) {
 	if err := userCfg.SaveTo(config.UserConfigPath()); err != nil {
 		t.Fatal(err)
 	}
-	projectPath := filepath.Join(dir, "reasonix.toml")
+	projectPath := filepath.Join(dir, "semantix.toml")
 	if err := os.WriteFile(projectPath, []byte(`
 [[plugins]]
 name = "docs"
@@ -9063,10 +9063,10 @@ func TestRemoveMCPServerClearsRecordedStartupFailure(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "semantix.toml"), []byte(`
 [[plugins]]
 name = "broken"
-command = "reasonix-missing-mcp-binary"
+command = "semantix-missing-mcp-binary"
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -9076,7 +9076,7 @@ command = "reasonix-missing-mcp-binary"
 	defer app.activeCtrl().Close()
 	recordMCPFailure(app.activeCtrl(), config.PluginEntry{
 		Name:    "broken",
-		Command: "reasonix-missing-mcp-binary",
+		Command: "semantix-missing-mcp-binary",
 	}, errors.New("connect: missing binary"))
 
 	view := app.Capabilities()
@@ -9137,12 +9137,12 @@ func TestRemoveMCPServerRejectsPluginManagedServerWithoutDisconnecting(t *testin
 
 	srv := desktopMCPHTTPServer(t)
 	defer srv.Close()
-	reasonixHome := config.SemantixHomeDir()
-	root := filepath.Join(reasonixHome, "plugins", "superpowers")
+	semantixHome := config.SemantixHomeDir()
+	root := filepath.Join(semantixHome, "plugins", "superpowers")
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, pluginpkg.NativeManifest), fmt.Appendf(nil, `{"apiVersion": "reasonix.io/plugin/v2",
+	if err := os.WriteFile(filepath.Join(root, pluginpkg.NativeManifest), fmt.Appendf(nil, `{"apiVersion": "semantix.io/plugin/v2",
   "name": "superpowers",
   "version": "1.0.0",
   "mcpServers": {
@@ -9151,11 +9151,11 @@ func TestRemoveMCPServerRejectsPluginManagedServerWithoutDisconnecting(t *testin
 }`, srv.URL), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := pluginpkg.Upsert(reasonixHome, pluginpkg.InstalledPlugin{
+	if err := pluginpkg.Upsert(semantixHome, pluginpkg.InstalledPlugin{
 		Name:         "superpowers",
 		Root:         "plugins/superpowers",
 		Version:      "1.0.0",
-		ManifestKind: "reasonix",
+		ManifestKind: "semantix",
 		Enabled:      true,
 	}); err != nil {
 		t.Fatal(err)
@@ -9254,7 +9254,7 @@ func TestUpdateMCPServerEditsProjectMCPJSONEntry(t *testing.T) {
 	if err := app.UpdateMCPServer("codegraph", MCPServerInput{
 		Name:      "codegraph",
 		Transport: "stdio",
-		Command:   "reasonix-missing-mcp-binary",
+		Command:   "semantix-missing-mcp-binary",
 		Args:      []string{"serve", "--mcp"},
 		Env:       map[string]string{"CODEGRAPH_LOG": "debug"},
 	}); err != nil {
@@ -9276,7 +9276,7 @@ func TestUpdateMCPServerEditsProjectMCPJSONEntry(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := doc.MCPServers["codegraph"]
-	if got.Command != "reasonix-missing-mcp-binary" || !reflect.DeepEqual(got.Args, []string{"serve", "--mcp"}) || got.Env["CODEGRAPH_LOG"] != "debug" {
+	if got.Command != "semantix-missing-mcp-binary" || !reflect.DeepEqual(got.Args, []string{"serve", "--mcp"}) || got.Env["CODEGRAPH_LOG"] != "debug" {
 		t.Fatalf(".mcp.json codegraph = %+v, want updated command/args/env", got)
 	}
 	if _, ok := findPluginEntry(config.LoadForEdit(config.UserConfigPath()).Plugins, "codegraph"); ok {
@@ -9293,7 +9293,7 @@ func TestUpdateMCPServerPreservesProjectTOMLSourceAndGlobalShadow(t *testing.T) 
 	if err := userCfg.SaveTo(config.UserConfigPath()); err != nil {
 		t.Fatal(err)
 	}
-	projectPath := filepath.Join(dir, "reasonix.toml")
+	projectPath := filepath.Join(dir, "semantix.toml")
 	if err := os.WriteFile(projectPath, []byte(`
 [[plugins]]
 name = "docs"
@@ -9318,7 +9318,7 @@ command = "project-docs"
 	if err := app.UpdateMCPServer("docs", MCPServerInput{
 		Name: "docs", Transport: "stdio", Command: "project-docs-updated",
 	}); err != nil {
-		t.Fatalf("UpdateMCPServer(project reasonix.toml docs): %v", err)
+		t.Fatalf("UpdateMCPServer(project semantix.toml docs): %v", err)
 	}
 
 	projectCfg := config.LoadForEdit(projectPath)
@@ -9402,7 +9402,7 @@ func TestInstallMCPServerHandshakeFailureDoesNotPersist(t *testing.T) {
 	defer app.activeCtrl().Close()
 
 	result, err := app.InstallMCPServer(MCPServerInput{
-		Name: "broken", Transport: "stdio", Command: "reasonix-missing-mcp-binary",
+		Name: "broken", Transport: "stdio", Command: "semantix-missing-mcp-binary",
 	})
 	if err != nil {
 		t.Fatalf("InstallMCPServer returned transport error instead of structured issue: %v", err)
@@ -9566,7 +9566,7 @@ func TestUpdateMCPServerFailedCandidateRollsBackConfigAndConnection(t *testing.T
 	}
 
 	err := app.UpdateMCPServer("stable", MCPServerInput{
-		Name: "stable", Transport: "stdio", Command: "reasonix-missing-mcp-binary",
+		Name: "stable", Transport: "stdio", Command: "semantix-missing-mcp-binary",
 	})
 	if err == nil {
 		t.Fatal("broken update candidate should fail")
@@ -9588,7 +9588,7 @@ func TestCapabilitiesMarksBackgroundRemoteMCPAuthPossible(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "semantix.toml"), []byte(`
 [[plugins]]
 name = "dida"
 type = "http"
@@ -9618,7 +9618,7 @@ func TestCapabilitiesDoesNotMarkRemoteMCPWithAuthHeaderPossible(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "semantix.toml"), []byte(`
 [[plugins]]
 name = "stripe"
 type = "http"
@@ -9649,7 +9649,7 @@ func TestCapabilitiesMarksAuthFailureRequired(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "semantix.toml"), []byte(`
 [[plugins]]
 name = "figma"
 type = "http"
@@ -9681,7 +9681,7 @@ func TestClearMCPServerAuthenticationClearsConfigAndFailure(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "semantix.toml"), []byte(`
 [[plugins]]
 name = "figma"
 type = "http"
@@ -9741,7 +9741,7 @@ func TestUpdateMCPServerMigratesLegacyTierInProjectSource(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "semantix.toml"), []byte(`
 [[plugins]]
 name = "playwright"
 command = "npx"
@@ -9790,7 +9790,7 @@ tier = "lazy"
 	if _, ok := findPluginEntry(userCfg.Plugins, "playwright"); ok {
 		t.Fatalf("project plugin should not be copied to user config: %+v", userCfg.Plugins)
 	}
-	projectCfg := config.LoadForEdit(filepath.Join(dir, "reasonix.toml"))
+	projectCfg := config.LoadForEdit(filepath.Join(dir, "semantix.toml"))
 	projectPlugin, ok := findPluginEntry(projectCfg.Plugins, "playwright")
 	if !ok {
 		t.Fatalf("playwright should remain in project config: %+v", projectCfg.Plugins)
@@ -9820,7 +9820,7 @@ func TestUpdateMCPServerSplitsPastedCommandLine(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := t.TempDir()
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "semantix.toml"), []byte(`
 [[plugins]]
 name = "playwright"
 command = "npx"
@@ -9858,10 +9858,10 @@ func TestUpdateMCPServerRejectsReconnectFailureWithoutPersisting(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "semantix.toml"), []byte(`
 [[plugins]]
 name = "broken"
-command = "reasonix-old-missing-mcp-binary"
+command = "semantix-old-missing-mcp-binary"
 tier = "background"
 `), 0o644); err != nil {
 		t.Fatal(err)
@@ -9874,7 +9874,7 @@ tier = "background"
 	if err := app.UpdateMCPServer("broken", MCPServerInput{
 		Name:      "broken",
 		Transport: "stdio",
-		Command:   "reasonix-missing-mcp-binary",
+		Command:   "semantix-missing-mcp-binary",
 	}); err == nil {
 		t.Fatal("UpdateMCPServer should reject an unusable candidate")
 	}
@@ -9882,7 +9882,7 @@ tier = "background"
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := cfg.Plugins[0].Command; got != "reasonix-old-missing-mcp-binary" {
+	if got := cfg.Plugins[0].Command; got != "semantix-old-missing-mcp-binary" {
 		t.Fatalf("failed update command = %q, want original command", got)
 	}
 	if got := cfg.Plugins[0].Tier; got != "" {
@@ -9897,7 +9897,7 @@ tier = "background"
 			if s.Status != "failed" {
 				t.Fatalf("server status = %q, want failed; server = %+v", s.Status, s)
 			}
-			if s.Command != "reasonix-old-missing-mcp-binary" || s.Tier != "background" {
+			if s.Command != "semantix-old-missing-mcp-binary" || s.Tier != "background" {
 				t.Fatalf("failed candidate leaked into server config: %+v", s)
 			}
 			return
@@ -9910,7 +9910,7 @@ func TestReconnectMCPServerClearsInitializingPlaceholderAndRecordsFailure(t *tes
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "semantix.toml"), []byte(`
 [[plugins]]
 name = "codegraph"
 `), 0o644); err != nil {
@@ -9966,10 +9966,10 @@ func TestSetMCPServerTierPreservesProjectSourceAndRecordsConnectFailure(t *testi
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "semantix.toml"), []byte(`
 [[plugins]]
 name = "broken"
-command = "reasonix-missing-mcp-binary"
+command = "semantix-missing-mcp-binary"
 tier = "lazy"
 `), 0o644); err != nil {
 		t.Fatal(err)
@@ -9997,7 +9997,7 @@ tier = "lazy"
 	if _, ok := findPluginEntry(userCfg.Plugins, "broken"); ok {
 		t.Fatalf("project plugin should not be copied to user config: %+v", userCfg.Plugins)
 	}
-	projectCfg := config.LoadForEdit(filepath.Join(dir, "reasonix.toml"))
+	projectCfg := config.LoadForEdit(filepath.Join(dir, "semantix.toml"))
 	projectPlugin, ok := findPluginEntry(projectCfg.Plugins, "broken")
 	if !ok {
 		t.Fatalf("broken should remain in project config: %+v", projectCfg.Plugins)
@@ -10033,7 +10033,7 @@ func TestSetMCPServerTierRejectsBackgroundJobsBeforeSavingConfig(t *testing.T) {
 	if err := os.WriteFile(config.UserConfigPath(), []byte(`
 [[plugins]]
 name = "broken"
-command = "reasonix-missing-mcp-binary"
+command = "semantix-missing-mcp-binary"
 tier = "lazy"
 `), 0o644); err != nil {
 		t.Fatal(err)
@@ -10059,10 +10059,10 @@ func TestCapabilitiesMigratesFailedMCPConfiguredTierAfterRestart(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "semantix.toml"), []byte(`
 [[plugins]]
 name = "broken"
-command = "reasonix-missing-mcp-binary"
+command = "semantix-missing-mcp-binary"
 tier = "eager"
 `), 0o644); err != nil {
 		t.Fatal(err)
@@ -10073,7 +10073,7 @@ tier = "eager"
 	defer app.activeCtrl().Close()
 	recordMCPFailure(app.activeCtrl(), config.PluginEntry{
 		Name:    "broken",
-		Command: "reasonix-missing-mcp-binary",
+		Command: "semantix-missing-mcp-binary",
 		Tier:    "eager",
 	}, errors.New("connect: missing binary"))
 

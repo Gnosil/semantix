@@ -141,7 +141,7 @@ func TestResolveStatsRangeToIsEndOfDay(t *testing.T) {
 }
 
 func TestUsageStatsFlushesPendingRecorderWrites(t *testing.T) {
-	t.Setenv("REASONIX_STATE_HOME", t.TempDir())
+	t.Setenv("SEMANTIX_STATE_HOME", t.TempDir())
 	recorder := stats.NewRecorder(event.Discard, config.StatsDir(), "desktop")
 	recorder.Emit(event.Event{
 		Kind: event.Usage, ModelRef: "deepseek/model",

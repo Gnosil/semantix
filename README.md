@@ -116,7 +116,7 @@ Prefer to build from source (Go 1.26+)? `go build -o semantix ./cmd/semantix && 
 
 | Agent / harness | Integration path | Status |
 | --- | --- | --- |
-| DeepSeek-Reasonix | Built-in bundle: `[semantix] enabled=true` + `semantix_lookup` tool | ✅ shipped since v0.3.0 |
+| Semantix Agent | Built-in bundle: `[semantix] enabled=true` + `semantix_lookup` tool | ✅ shipped since v0.3.0 |
 | Claude Code | Tool registration via `semantix_lookup` / `semantix_inject` schemas | ✅ documented (`agent-skill/tools/`) |
 | LangChain apps | Middleware with two hooks (message rewrite + session extraction) | ✅ documented ([report](./docs/reports/langchain-middleware.md)) |
 | Custom / self-hosted | Session bypass: export / event bypass / direct call | ✅ documented (`agent-skill/hooks/session-bypass.md`) |

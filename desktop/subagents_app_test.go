@@ -136,8 +136,8 @@ func TestCreateSubagentProfileScopeIsStrictButEmptyRemainsGlobal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("empty scope should preserve the legacy global default: %v", err)
 	}
-	if !strings.Contains(filepath.ToSlash(path), "/.reasonix/skills/") {
-		t.Fatalf("empty scope path = %q, want global Reasonix skills dir", path)
+	if !strings.Contains(filepath.ToSlash(path), "/.semantix/skills/") {
+		t.Fatalf("empty scope path = %q, want global Semantix skills dir", path)
 	}
 	if _, err := a.CreateSubagentProfile(SubagentProfileInput{
 		Name: "bad-scope", Description: "d", SystemPrompt: "body", Scope: "custom",
@@ -229,7 +229,7 @@ func TestUpdateSubagentProfileRefusesNonManualSkill(t *testing.T) {
 	home := os.Getenv("HOME")
 	// A hand-authored subagent skill without invocation: manual — the exact
 	// shape the reviewer flagged: editing it here would silently drop fields.
-	dir := filepath.Join(home, ".reasonix", "skills", "hand-authored")
+	dir := filepath.Join(home, ".semantix", "skills", "hand-authored")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -251,7 +251,7 @@ func TestUpdateSubagentProfileRefusesUnmanagedFrontmatter(t *testing.T) {
 	home := os.Getenv("HOME")
 	// invocation: manual but carrying an unmanaged routing key — dropping it
 	// on save would silently change discovery/auto-use semantics.
-	dir := filepath.Join(home, ".reasonix", "skills", "manual-rich")
+	dir := filepath.Join(home, ".semantix", "skills", "manual-rich")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -314,7 +314,7 @@ func TestUpdateSubagentProfileRoundTripsReadOnly(t *testing.T) {
 func TestUpdateSubagentProfileRefusesManualInlineSkill(t *testing.T) {
 	a := newTestSubagentApp(t)
 	home := os.Getenv("HOME")
-	dir := filepath.Join(home, ".reasonix", "skills", "manual-inline")
+	dir := filepath.Join(home, ".semantix", "skills", "manual-inline")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -341,7 +341,7 @@ func TestUpdateSubagentProfileRefusesManualInlineSkill(t *testing.T) {
 func TestDeleteSubagentProfileRefusesNonProfileSkill(t *testing.T) {
 	a := newTestSubagentApp(t)
 	home := os.Getenv("HOME")
-	dir := filepath.Join(home, ".reasonix", "skills", "hand-skill")
+	dir := filepath.Join(home, ".semantix", "skills", "hand-skill")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -361,7 +361,7 @@ func TestDeleteSubagentProfileRefusesNonProfileSkill(t *testing.T) {
 func TestUpdateSubagentProfileRefusesExpandedReferences(t *testing.T) {
 	a := newTestSubagentApp(t)
 	home := os.Getenv("HOME")
-	dir := filepath.Join(home, ".reasonix", "skills", "with-refs")
+	dir := filepath.Join(home, ".semantix", "skills", "with-refs")
 	if err := os.MkdirAll(filepath.Join(dir, "references"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -851,7 +851,7 @@ func TestSubagentProfileCRUDRefusesWhileControllerBusy(t *testing.T) {
 // instead of racing the first one's cancel handle.
 func TestTrySubagentProfileCancelAbortsRunAndIsSingleFlight(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	setDesktopTestCredential(t, "REASONIX_TEST_KEY", "sk-test")
+	setDesktopTestCredential(t, "SEMANTIX_TEST_KEY", "sk-test")
 
 	requestStarted := make(chan struct{})
 	release := make(chan struct{})
@@ -874,7 +874,7 @@ func TestTrySubagentProfileCancelAbortsRunAndIsSingleFlight(t *testing.T) {
 	cfg := config.Default()
 	cfg.DefaultModel = "prov-t/model-t1"
 	cfg.Providers = []config.ProviderEntry{
-		{Name: "prov-t", Kind: "openai", BaseURL: srv.URL, Model: "model-t1", APIKeyEnv: "REASONIX_TEST_KEY"},
+		{Name: "prov-t", Kind: "openai", BaseURL: srv.URL, Model: "model-t1", APIKeyEnv: "SEMANTIX_TEST_KEY"},
 	}
 	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
 		t.Fatalf("save config: %v", err)

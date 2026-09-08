@@ -59,13 +59,13 @@ import type {
 export type ToolStatus = "running" | "done" | "error" | "stopped";
 // Reserved ToolProgress channel names for sub-agent progress previews (the Go
 // tracker emits these; ordinary tool progress must never use them).
-export const SUBAGENT_PROGRESS_STATUS = "reasonix.subagent.status";
-export const SUBAGENT_PROGRESS_REASONING = "reasonix.subagent.reasoning";
-export const SUBAGENT_PROGRESS_TEXT = "reasonix.subagent.text";
-export const SUBAGENT_PROGRESS_NOTICE = "reasonix.subagent.notice";
+export const SUBAGENT_PROGRESS_STATUS = "semantix.subagent.status";
+export const SUBAGENT_PROGRESS_REASONING = "semantix.subagent.reasoning";
+export const SUBAGENT_PROGRESS_TEXT = "semantix.subagent.text";
+export const SUBAGENT_PROGRESS_NOTICE = "semantix.subagent.notice";
 // Reserved names are matched by prefix so a future channel never falls back
 // to ordinary tool output on older frontends.
-const SUBAGENT_PROGRESS_PREFIX = "reasonix.subagent.";
+const SUBAGENT_PROGRESS_PREFIX = "semantix.subagent.";
 const TURN_ACTIVITY_KINDS = new Set(["turn_started", "text", "reasoning", "message", "tool_dispatch", "tool_progress", "tool_result"]);
 const SUBAGENT_PROGRESS_PHASES = new Set([
   "queued", "running", "reasoning", "responding", "tool", "retrying", "completed", "failed", "cancelled",
@@ -2538,7 +2538,7 @@ function settingSwitchNoticeText(
     if (jobs > 0) return t(keys.busyJobs, { n: jobs });
     return t(keys.busy);
   }
-  if (lower.includes("already open in another reasonix window") || lower.includes("session lease held")) {
+  if (lower.includes("already open in another semantix window") || lower.includes("session lease held")) {
     return t(keys.leaseHeld);
   }
   if (lower.includes("workspace is still starting")) {

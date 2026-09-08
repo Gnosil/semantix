@@ -154,7 +154,7 @@ func TestWorkspaceGitBranchForMetaDoesNotBlockOnColdProbe(t *testing.T) {
 	}()
 
 	start := time.Now()
-	if got := workspaceGitBranchForMeta("/tmp/reasonix-cold-probe"); got != "" {
+	if got := workspaceGitBranchForMeta("/tmp/semantix-cold-probe"); got != "" {
 		t.Fatalf("cold branch = %q, want empty while async refresh runs", got)
 	}
 	if elapsed := time.Since(start); elapsed > 100*time.Millisecond {
@@ -167,13 +167,13 @@ func TestWorkspaceGitBranchForMetaDoesNotBlockOnColdProbe(t *testing.T) {
 	}
 
 	releaseProbe()
-	eventuallyBranchForMeta(t, "/tmp/reasonix-cold-probe", "feature/async")
+	eventuallyBranchForMeta(t, "/tmp/semantix-cold-probe", "feature/async")
 }
 
 func TestWorkspaceGitBranchForMetaReturnsStaleDuringRefresh(t *testing.T) {
 	resetWorkspaceGitBranchMetaCacheForTest(t)
 	workspaceGitBranchCache.Lock()
-	workspaceGitBranchCache.entries[filepath.Clean("/tmp/reasonix-stale-probe")] = workspaceGitBranchCacheEntry{
+	workspaceGitBranchCache.entries[filepath.Clean("/tmp/semantix-stale-probe")] = workspaceGitBranchCacheEntry{
 		branch:  "feature/stale",
 		expires: time.Now().Add(-time.Second),
 	}
@@ -195,7 +195,7 @@ func TestWorkspaceGitBranchForMetaReturnsStaleDuringRefresh(t *testing.T) {
 	}()
 
 	start := time.Now()
-	if got := workspaceGitBranchForMeta("/tmp/reasonix-stale-probe"); got != "feature/stale" {
+	if got := workspaceGitBranchForMeta("/tmp/semantix-stale-probe"); got != "feature/stale" {
 		t.Fatalf("stale branch = %q, want feature/stale", got)
 	}
 	if elapsed := time.Since(start); elapsed > 100*time.Millisecond {
@@ -208,7 +208,7 @@ func TestWorkspaceGitBranchForMetaReturnsStaleDuringRefresh(t *testing.T) {
 	}
 
 	releaseProbe()
-	eventuallyBranchForMeta(t, "/tmp/reasonix-stale-probe", "feature/fresh")
+	eventuallyBranchForMeta(t, "/tmp/semantix-stale-probe", "feature/fresh")
 }
 
 func resetWorkspaceGitBranchMetaCacheForTest(t *testing.T) {

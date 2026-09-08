@@ -38,27 +38,27 @@ ok(getReasoningDisplayMode() === "auto", "missing preferences default to live fo
 hydrateReasoningDisplayMode("future-mode", false);
 ok(getReasoningDisplayMode() === "auto", "unknown preferences use the live-follow fallback");
 
-storage.set("reasonix-reasoning-summary", "0");
+storage.set("semantix-reasoning-summary", "0");
 hydrateReasoningDisplayMode("auto", false);
 ok(getReasoningDisplayMode() === "legacy-collapsed", "legacy summary-off preserves the old compatible behavior");
 
-storage.set("reasonix-reasoning-summary", "1");
+storage.set("semantix-reasoning-summary", "1");
 hydrateReasoningDisplayMode("auto", false);
 ok(getReasoningDisplayMode() === "summary", "legacy summary-on wins over the old expand flag");
 
-storage.set("reasonix-reasoning-summary", "0");
+storage.set("semantix-reasoning-summary", "0");
 hydrateReasoningDisplayMode("hidden", true);
 ok(getReasoningDisplayMode() === "hidden", "explicit new mode wins over every legacy preference");
 
 hydrateReasoningDisplayMode("summary", true);
 ok(getReasoningDisplayMode() === "summary", "an explicit summary selection remains persisted");
 
-storage.set("reasonix-reasoning-summary", "0");
+storage.set("semantix-reasoning-summary", "0");
 ok(resolveReasoningDisplayMode("auto", false) === "legacy-collapsed", "resolver applies legacy precedence without hydration");
 hydrateReasoningDisplayMode("auto", false);
 applyReasoningDisplayMode("auto");
 ok(getReasoningDisplayMode() === "auto", "successful selection applies the new mode");
-ok(!storage.has("reasonix-reasoning-summary"), "successful selection clears the legacy key");
+ok(!storage.has("semantix-reasoning-summary"), "successful selection clears the legacy key");
 
 setReasoningDisplayPending();
 ok(getReasoningDisplayMode() === "pending", "startup can hold reasoning until settings hydrate");

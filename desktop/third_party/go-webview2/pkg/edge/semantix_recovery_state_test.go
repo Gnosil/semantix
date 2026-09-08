@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-func TestReasonixRecoveryCompletesOnlyMatchingReloadNavigation(t *testing.T) {
-	var state reasonixRecoveryState[string]
+func TestSemantixRecoveryCompletesOnlyMatchingReloadNavigation(t *testing.T) {
+	var state semantixRecoveryState[string]
 	now := time.Date(2026, 8, 10, 1, 0, 0, 0, time.UTC)
 	if !state.begin("renderer", now, 30*time.Second, time.Hour, nil) {
 		t.Fatal("first recovery was rejected")
@@ -27,8 +27,8 @@ func TestReasonixRecoveryCompletesOnlyMatchingReloadNavigation(t *testing.T) {
 	}
 }
 
-func TestReasonixRecoveryCompletionIsConsumedOnce(t *testing.T) {
-	var state reasonixRecoveryState[int]
+func TestSemantixRecoveryCompletionIsConsumedOnce(t *testing.T) {
+	var state semantixRecoveryState[int]
 	now := time.Date(2026, 8, 10, 1, 0, 0, 0, time.UTC)
 	if !state.begin(7, now, 30*time.Second, time.Hour, nil) || !state.bindNavigation(99) {
 		t.Fatal("failed to arm recovery")
@@ -59,8 +59,8 @@ func TestReasonixRecoveryCompletionIsConsumedOnce(t *testing.T) {
 	}
 }
 
-func TestReasonixRecoveryCooldownStartsAfterAcceptedFailure(t *testing.T) {
-	var state reasonixRecoveryState[string]
+func TestSemantixRecoveryCooldownStartsAfterAcceptedFailure(t *testing.T) {
+	var state semantixRecoveryState[string]
 	now := time.Date(2026, 8, 10, 1, 0, 0, 0, time.UTC)
 	if !state.begin("first", now, 30*time.Second, time.Hour, nil) {
 		t.Fatal("first recovery was rejected")

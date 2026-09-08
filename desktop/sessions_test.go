@@ -1241,8 +1241,8 @@ func TestRecordSessionPlannerDisplayConcurrentPreservesEverySession(t *testing.T
 }
 
 func TestRecordSessionPlannerDisplayCrossProcessPreservesEverySession(t *testing.T) {
-	if role := os.Getenv("REASONIX_PLANNER_DISPLAY_HELPER"); role != "" {
-		dir := os.Getenv("REASONIX_PLANNER_DISPLAY_DIR")
+	if role := os.Getenv("SEMANTIX_PLANNER_DISPLAY_HELPER"); role != "" {
+		dir := os.Getenv("SEMANTIX_PLANNER_DISPLAY_DIR")
 		sessionPlannerDisplayExternalLockTimeout = 5 * time.Second
 		attempted := filepath.Join(dir, role+".attempted")
 		loaded := filepath.Join(dir, role+".loaded")
@@ -1274,8 +1274,8 @@ func TestRecordSessionPlannerDisplayCrossProcessPreservesEverySession(t *testing
 	startHelper := func(role string, output *strings.Builder) *exec.Cmd {
 		cmd := exec.Command(os.Args[0], "-test.run=^TestRecordSessionPlannerDisplayCrossProcessPreservesEverySession$")
 		cmd.Env = append(os.Environ(),
-			"REASONIX_PLANNER_DISPLAY_HELPER="+role,
-			"REASONIX_PLANNER_DISPLAY_DIR="+dir,
+			"SEMANTIX_PLANNER_DISPLAY_HELPER="+role,
+			"SEMANTIX_PLANNER_DISPLAY_DIR="+dir,
 		)
 		cmd.Stdout = output
 		cmd.Stderr = output

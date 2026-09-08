@@ -126,23 +126,23 @@ func TestWebKitObserverReloadIsAbnormalPathOnly(t *testing.T) {
 	if strings.Count(text, "webkit_web_view_reload(") != 1 {
 		t.Fatalf("observer must have exactly one native reload call site")
 	}
-	_, recoveryTail, ok := strings.Cut(text, "static gboolean reasonix_reload_after_termination")
+	_, recoveryTail, ok := strings.Cut(text, "static gboolean semantix_reload_after_termination")
 	if !ok {
 		t.Fatal("native reload is not deferred until after termination signal dispatch")
 	}
-	reloadHelper, terminationTail, ok := strings.Cut(recoveryTail, "static void reasonix_web_process_terminated")
+	reloadHelper, terminationTail, ok := strings.Cut(recoveryTail, "static void semantix_web_process_terminated")
 	if !ok || !strings.Contains(reloadHelper, "webkit_web_view_reload(") {
 		t.Fatal("native reload escaped the deferred recovery helper")
 	}
-	terminationBody, _, ok := strings.Cut(terminationTail, "static gboolean reasonix_load_failed")
-	if !ok || !strings.Contains(terminationBody, "reasonix_reload_after_termination") {
+	terminationBody, _, ok := strings.Cut(terminationTail, "static gboolean semantix_load_failed")
+	if !ok || !strings.Contains(terminationBody, "semantix_reload_after_termination") {
 		t.Fatal("web-process termination does not schedule the bounded recovery helper")
 	}
-	if !strings.Contains(text, "if (!reasonix_recovery_pending) return;") ||
-		!strings.Contains(text, "if (reasonix_recovery_load_started && event == WEBKIT_LOAD_FINISHED)") {
+	if !strings.Contains(text, "if (!semantix_recovery_pending) return;") ||
+		!strings.Contains(text, "if (semantix_recovery_load_started && event == WEBKIT_LOAD_FINISHED)") {
 		t.Fatal("ordinary load-finished events are not gated by recovery state")
 	}
-	if !strings.Contains(text, "reasonix_recovery_pending && reasonix_recovery_load_started") {
+	if !strings.Contains(text, "semantix_recovery_pending && semantix_recovery_load_started") {
 		t.Fatal("a stale load failure could be attributed to the recovery navigation")
 	}
 	for _, forbidden := range []string{"fopen(", "open(", "curl_", "send(", "recv("} {

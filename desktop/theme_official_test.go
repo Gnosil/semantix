@@ -52,7 +52,7 @@ func TestOfficialThemesAllValid(t *testing.T) {
 		if m.Recipes.Density != "comfortable" {
 			t.Fatalf("%s: density must be comfortable", m.ID)
 		}
-		if m.Author != "Reasonix Contributors" || m.License != "MIT" {
+		if m.Author != "Semantix Contributors" || m.License != "MIT" {
 			t.Fatalf("%s: author/license = %q/%q", m.ID, m.Author, m.License)
 		}
 		if ot.bgSize > officialMaxBackground {
@@ -124,7 +124,7 @@ func TestOfficialFailClosedSkipsInvalid(t *testing.T) {
 
 func TestOfficialReservedIDsRefused(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	app := NewApp()
 
 	officialID := officialThemes()[0].manifest.ID
@@ -141,7 +141,7 @@ func TestOfficialReservedIDsRefused(t *testing.T) {
 		if _, err := app.CopyThemePack("graphite", id, "Hijack"); err == nil {
 			t.Fatalf("copy onto reserved id %s must fail", id)
 		}
-		if _, err := app.ExportThemePack(id, filepath.Join(t.TempDir(), "out.reasonix-theme")); err == nil {
+		if _, err := app.ExportThemePack(id, filepath.Join(t.TempDir(), "out.semantix-theme")); err == nil {
 			t.Fatalf("export %s must fail", id)
 		}
 		if _, _, err := importThemePackZIPBytesForID(id); err == nil {
@@ -157,7 +157,7 @@ func TestOfficialReservedIDsRefused(t *testing.T) {
 // importThemePackZIPBytesForID builds an in-memory package for a reserved id.
 func importThemePackZIPBytesForID(id string) (*ThemePackManifest, string, error) {
 	raw := fmt.Sprintf(`{"schemaVersion":1,"id":%q,"name":"Hijack","baseStyle":"graphite"}`, id)
-	tmp := filepath.Join(os.TempDir(), "hijack-"+id+".reasonix-theme")
+	tmp := filepath.Join(os.TempDir(), "hijack-"+id+".semantix-theme")
 	if err := writeThemeZip(tmp, &ThemePackManifest{SchemaVersion: 1, ID: id, Name: "Hijack", BaseStyle: "graphite"}, nil); err != nil {
 		return nil, "", err
 	}
@@ -168,7 +168,7 @@ func importThemePackZIPBytesForID(id string) (*ThemePackManifest, string, error)
 
 func TestOfficialListOrderAndKinds(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	app := NewApp()
 
 	// Two user themes.
@@ -239,7 +239,7 @@ func TestOfficialListOrderAndKinds(t *testing.T) {
 
 func TestOfficialActivateRestoreReset(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	app := NewApp()
 
 	id := officialThemes()[1].manifest.ID
@@ -277,7 +277,7 @@ func TestOfficialActivateRestoreReset(t *testing.T) {
 
 func TestOfficialCopyBecomesEditableUserTheme(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	app := NewApp()
 
 	src := officialThemes()[2].manifest.ID
@@ -314,7 +314,7 @@ func TestOfficialCopyBecomesEditableUserTheme(t *testing.T) {
 
 func TestOfficialAssetRoute(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	app := NewApp()
 
 	ot := officialThemes()[0]
@@ -385,11 +385,11 @@ func TestOfficialAssetRoute(t *testing.T) {
 	}
 }
 
-// v1.20+: REASONIX_SAFE_MODE no longer restricts official theme packs.
+// v1.20+: SEMANTIX_SAFE_MODE no longer restricts official theme packs.
 func TestOfficialThemesAvailableDespiteSafeModeEnv(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
-	t.Setenv("REASONIX_SAFE_MODE", "1")
+	t.Setenv("SEMANTIX_HOME", home)
+	t.Setenv("SEMANTIX_SAFE_MODE", "1")
 	app := NewApp()
 
 	list, err := app.ListThemePacks()

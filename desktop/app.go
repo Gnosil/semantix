@@ -79,13 +79,13 @@ func sessionTempFromController(ctrl control.SessionAPI) *sessiontemp.Manager {
 // `data:` frames.
 const eventChannel = "agent:event"
 
-const singleInstanceIDPrefix = "com.reasonix.desktop"
+const singleInstanceIDPrefix = "com.semantix.desktop"
 
 // singleInstanceID is used by Wails to route a second desktop launch back to the
-// process that owns the same Reasonix data home. Basing the identity on the
+// process that owns the same Semantix data home. Basing the identity on the
 // executable path let installed, portable, stable, and canary binaries write the
-// same sessions concurrently. Explicit REASONIX_HOME isolation still produces
-// an independent instance; REASONIX_DEV continues to bypass the lock entirely.
+// same sessions concurrently. Explicit SEMANTIX_HOME isolation still produces
+// an independent instance; SEMANTIX_DEV continues to bypass the lock entirely.
 func singleInstanceID() string {
 	root := strings.TrimSpace(config.SemantixHomeDir())
 	if root == "" {
@@ -93,7 +93,7 @@ func singleInstanceID() string {
 	}
 	// Reuse the lease path canonicalizer so a missing home below a symlink or
 	// junction still hashes to the same physical data directory.
-	if marker := agent.CanonicalSessionPath(filepath.Join(root, ".reasonix-home.identity")); marker != "" {
+	if marker := agent.CanonicalSessionPath(filepath.Join(root, ".semantix-home.identity")); marker != "" {
 		root = filepath.Dir(marker)
 	}
 	root = filepath.Clean(root)
@@ -500,13 +500,13 @@ func (a *App) jsProfilingMiddleware() func(http.Handler) http.Handler {
 }
 
 // workspaceMediaMiddleware returns an HTTP middleware that intercepts
-// /__reasonix_workspace_media/{token}/{filename} requests and serves the
+// /__semantix_workspace_media/{token}/{filename} requests and serves the
 // corresponding workspace file. All other paths pass through to the Wails
 // default asset handler unchanged.
 func (a *App) workspaceMediaMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			prefix := "/__reasonix_workspace_media/"
+			prefix := "/__semantix_workspace_media/"
 			if !strings.HasPrefix(r.URL.Path, prefix) {
 				next.ServeHTTP(w, r)
 				return
@@ -7054,7 +7054,7 @@ type CommandInfo struct {
 }
 
 // Commands lists the slash commands available this session — built-in actions,
-// custom commands (.reasonix/commands), and MCP prompts — for the composer's "/"
+// custom commands (.semantix/commands), and MCP prompts — for the composer's "/"
 // autocomplete menu.
 func (a *App) Commands() []CommandInfo {
 	out := []CommandInfo{
@@ -8147,7 +8147,7 @@ func withPluginConfigInWorkspace(v ServerView, p config.PluginEntry, workspace s
 func mcpServerSource(source config.MCPConfigSource) (kind, configSource string) {
 	switch source {
 	case config.MCPSourceProjectConfig:
-		return "project", "reasonix.toml"
+		return "project", "semantix.toml"
 	case config.MCPSourceProjectMCPJSON:
 		return "project", ".mcp.json"
 	case config.MCPSourcePluginPackage:
@@ -9078,7 +9078,7 @@ func (a *App) ReconnectMCPServer(name string) error {
 }
 
 // SetMCPServerEnabled is the durable enable/disable switch for an installed MCP
-// server. It writes $REASONIX_HOME/mcp-activation.json and updates the live
+// server. It writes $SEMANTIX_HOME/mcp-activation.json and updates the live
 // registry: disable removes tools and may stop the process; enable restores
 // cached tools and starts the process only on the next real tool call.
 func (a *App) SetMCPServerEnabled(name string, enabled bool) error {
@@ -10689,7 +10689,7 @@ func (a *App) ReadFileForTab(tabID, rel string) FilePreview {
 		token := a.ensureMediaTokenStore().create(path, info.Name(), mime, kind, info.Size(), info.ModTime())
 		out.Kind = kind
 		out.Mime = mime
-		out.URL = "/__reasonix_workspace_media/" + token + "/" + url.PathEscape(info.Name())
+		out.URL = "/__semantix_workspace_media/" + token + "/" + url.PathEscape(info.Name())
 		return out
 	}
 	f, err := os.Open(path)
@@ -10930,7 +10930,7 @@ func (a *App) withActiveWorkspaceDo(fn func() error) error {
 }
 
 // SavePastedImage stores a browser clipboard image data URL under the active
-// tab's workspace .reasonix/attachments and returns the relative @-reference path.
+// tab's workspace .semantix/attachments and returns the relative @-reference path.
 func (a *App) SavePastedImage(dataURL string) (string, error) {
 	return a.withActiveWorkspace(func() (string, error) {
 		return control.SaveImageDataURL(dataURL)
@@ -10938,14 +10938,14 @@ func (a *App) SavePastedImage(dataURL string) (string, error) {
 }
 
 // SaveClipboardImage reads the native OS clipboard image under the active tab's
-// workspace .reasonix/attachments and returns the relative @-reference path.
+// workspace .semantix/attachments and returns the relative @-reference path.
 func (a *App) SaveClipboardImage() (string, error) {
 	return a.withActiveWorkspace(control.SaveClipboardImage)
 }
 
 // SavePastedFile stores a dropped non-image file (the browser exposes its bytes
 // as a data URL but not a real path) under the active tab's workspace
-// .reasonix/attachments and returns the relative @-reference path.
+// .semantix/attachments and returns the relative @-reference path.
 func (a *App) SavePastedFile(name, dataURL string) (string, error) {
 	return a.withActiveWorkspace(func() (string, error) {
 		return control.SaveAttachmentDataURL(name, dataURL)
@@ -11125,7 +11125,7 @@ func createExportTempFile(dir string) (*os.File, os.FileMode, error) {
 		if _, err := rand.Read(suffix[:]); err != nil {
 			return nil, 0, fmt.Errorf("generate export temp name: %w", err)
 		}
-		path := filepath.Join(dir, ".reasonix-export-"+hex.EncodeToString(suffix[:]))
+		path := filepath.Join(dir, ".semantix-export-"+hex.EncodeToString(suffix[:]))
 		file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 		if errors.Is(err, os.ErrExist) {
 			continue
@@ -11223,7 +11223,7 @@ func exportOperationError(operation, path string, err error) error {
 func safeExportFilename(name string) string {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return "reasonix-session.md"
+		return "semantix-session.md"
 	}
 	return filepath.Base(name)
 }
@@ -11255,7 +11255,7 @@ func (a *App) AttachmentDataURL(path string) (string, error) {
 // DroppedItem is one OS-dropped file resolved into a composer context entry: an
 // in-tree file becomes a workspace @reference (read in place, no copy), while an
 // outside directory becomes a session-scoped workspace @reference; an image or
-// out-of-tree file is copied into .reasonix/attachments.
+// out-of-tree file is copied into .semantix/attachments.
 type DroppedItem struct {
 	Kind        string `json:"kind"` // "workspace" | "attachment"
 	Path        string `json:"path"`
@@ -11268,7 +11268,7 @@ type DroppedItem struct {
 // composer context entry. Images are stored as attachments so the chip shows a
 // thumbnail; in-workspace files are referenced relatively (no copy); directories
 // outside the workspace are registered as current-session folder references;
-// files outside the workspace are copied into .reasonix/attachments.
+// files outside the workspace are copied into .semantix/attachments.
 func (a *App) AttachDropped(path string) (DroppedItem, error) {
 	var item DroppedItem
 	err := a.withActiveWorkspaceDo(func() error {
@@ -11459,7 +11459,7 @@ type MemoryView struct {
 // writableScopes are the quick-add targets the panel offers, broad → specific.
 var writableScopes = []memory.Scope{memory.ScopeUser, memory.ScopeProject, memory.ScopeLocal}
 
-// Memory returns the loaded memory for the panel: the REASONIX.md hierarchy,
+// Memory returns the loaded memory for the panel: the SEMANTIX.md hierarchy,
 // active/archived auto-memories, and the writable scopes. Read-only; mutations
 // go through Remember / SaveDoc.
 func (a *App) Memory() MemoryView {
@@ -12104,7 +12104,7 @@ func (a *App) NeedsOnboarding() bool {
 }
 
 // ConnectKey validates apiKey against the balance endpoint, persists it to
-// Reasonix's global .env, and rebuilds the controller so the new key takes effect.
+// Semantix's global .env, and rebuilds the controller so the new key takes effect.
 func (a *App) ConnectKey(apiKey string) (string, error) {
 	apiKey = strings.TrimSpace(apiKey)
 	if apiKey == "" {

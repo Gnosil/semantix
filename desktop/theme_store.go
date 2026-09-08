@@ -357,7 +357,7 @@ func writeThemeStaging(m *ThemePackManifest, imagePath string, imageBytes []byte
 	if err := validateThemePackManifest(m); err != nil {
 		return "", err
 	}
-	staging, err = os.MkdirTemp("", "reasonix-theme-stage-*")
+	staging, err = os.MkdirTemp("", "semantix-theme-stage-*")
 	if err != nil {
 		return "", err
 	}

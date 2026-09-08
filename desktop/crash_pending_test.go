@@ -198,8 +198,8 @@ func TestFlushPendingCrashDevGuard(t *testing.T) {
 }
 
 func TestFlushPendingCrashIgnoresSafeModeEnv(t *testing.T) {
-	// v1.20+: REASONIX_SAFE_MODE no longer blocks crash flush.
-	t.Setenv("REASONIX_SAFE_MODE", "1")
+	// v1.20+: SEMANTIX_SAFE_MODE no longer blocks crash flush.
+	t.Setenv("SEMANTIX_SAFE_MODE", "1")
 	oldVersion, oldEndpoint := version, crashEndpoint
 	t.Cleanup(func() {
 		version = oldVersion

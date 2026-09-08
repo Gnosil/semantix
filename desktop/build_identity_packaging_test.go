@@ -18,7 +18,7 @@ func TestDesktopBuildLinksSharedSourceRevision(t *testing.T) {
 	for _, want := range []string{
 		`SOURCE_REVISION="$(git -C "$ROOT" rev-parse --verify HEAD)"`,
 		`SOURCE_REVISION="$SOURCE_REVISION+dirty"`,
-		`product_docs_ldflags="-X reasonix/internal/productdocs.linkedVersion=$VERSION -X reasonix/internal/productdocs.linkedRevision=$SOURCE_REVISION"`,
+		`product_docs_ldflags="-X semantix/internal/productdocs.linkedVersion=$VERSION -X semantix/internal/productdocs.linkedRevision=$SOURCE_REVISION"`,
 		`cli_identity_ldflags="-X main.version=$VERSION -X main.gitCommit=$GIT_COMMIT -X main.buildTimeUTC=$BUILD_TIME_UTC $product_docs_ldflags"`,
 		`ldflags="-X main.version=$VERSION -X main.channel=$CHANNEL $product_docs_ldflags"`,
 		`cli_identity_ldflags`,

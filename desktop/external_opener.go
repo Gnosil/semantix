@@ -351,7 +351,7 @@ func copyLocalPathAs(path, target string) (err error) {
 		return fmt.Errorf("destination is the same as the source")
 	}
 
-	tmp, err := os.CreateTemp(filepath.Dir(target), "."+filepath.Base(target)+".reasonix-copy-*")
+	tmp, err := os.CreateTemp(filepath.Dir(target), "."+filepath.Base(target)+".semantix-copy-*")
 	if err != nil {
 		return err
 	}

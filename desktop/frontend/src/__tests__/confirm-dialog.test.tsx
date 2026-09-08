@@ -45,7 +45,7 @@ async function flush() {
   await new Promise((resolve) => setTimeout(resolve, 20));
 }
 
-console.log("\nReasonix confirmation dialog");
+console.log("\nSemantix confirmation dialog");
 
 const dom = new JSDOM("<!doctype html><html><body><div id=\"root\"></div></body></html>", {
   pretendToBeVisual: true,
@@ -79,10 +79,10 @@ await act(async () => {
   await flush();
 });
 
-const dialog = document.querySelector<HTMLElement>(".reasonix-confirm-dialog");
-const cancelButton = Array.from(document.querySelectorAll<HTMLButtonElement>(".reasonix-confirm-dialog button"))
+const dialog = document.querySelector<HTMLElement>(".semantix-confirm-dialog");
+const cancelButton = Array.from(document.querySelectorAll<HTMLButtonElement>(".semantix-confirm-dialog button"))
   .find((button) => button.textContent === "Cancel");
-const deleteButton = Array.from(document.querySelectorAll<HTMLButtonElement>(".reasonix-confirm-dialog button"))
+const deleteButton = Array.from(document.querySelectorAll<HTMLButtonElement>(".semantix-confirm-dialog button"))
   .find((button) => button.textContent === "Delete");
 ok(dialog?.getAttribute("role") === "dialog" && dialog.getAttribute("aria-modal") === "true", "renders an accessible modal dialog");
 ok(dialog?.textContent?.includes("Delete Example? This cannot be undone.") === true, "renders the confirmation message");
@@ -93,7 +93,7 @@ await act(async () => {
   document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
   await flush();
 });
-ok(document.querySelector(".reasonix-confirm-dialog") === null, "Escape cancels and closes the dialog");
+ok(document.querySelector(".semantix-confirm-dialog") === null, "Escape cancels and closes the dialog");
 ok(document.getElementById("confirm-result")?.textContent === "false", "cancellation resolves false");
 ok(document.activeElement === openButton, "restores focus to the triggering control");
 
@@ -101,7 +101,7 @@ await act(async () => {
   openButton.click();
   await flush();
 });
-const secondDeleteButton = Array.from(document.querySelectorAll<HTMLButtonElement>(".reasonix-confirm-dialog button"))
+const secondDeleteButton = Array.from(document.querySelectorAll<HTMLButtonElement>(".semantix-confirm-dialog button"))
   .find((button) => button.textContent === "Delete");
 await act(async () => {
   secondDeleteButton?.click();

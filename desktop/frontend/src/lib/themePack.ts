@@ -116,7 +116,7 @@ export type ThemeImportResult = {
 
 export type ThemeScene = "home" | "task";
 
-const PACK_STYLE_ID = "reasonix-theme-pack-overlay";
+const PACK_STYLE_ID = "semantix-theme-pack-overlay";
 const TOKEN_KEYS = [
   "bg",
   "bgSoft",
@@ -171,7 +171,7 @@ let previewSnapshot: {
 } | null = null;
 
 // Browser development uses Vite-bundled copies of the same official images
-// that Wails serves through /__reasonix_theme_asset/. Only exact, internally
+// that Wails serves through /__semantix_theme_asset/. Only exact, internally
 // registered URLs may cross the background URL safety boundary.
 const trustedBundledThemeBackgroundURLs = new Set<string>();
 
@@ -549,7 +549,7 @@ export function isSafeHex(value: string): boolean {
 export function isSafeBackgroundURL(url: string): boolean {
   const u = url.trim();
   if (!u) return false;
-  if (u.startsWith("/__reasonix_theme_asset/")) return true;
+  if (u.startsWith("/__semantix_theme_asset/")) return true;
   if (u.startsWith("data:image/png;base64,")) return true;
   if (u.startsWith("data:image/jpeg;base64,")) return true;
   if (u.startsWith("data:image/jpg;base64,")) return true;

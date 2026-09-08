@@ -20,7 +20,7 @@ var processFailedObserver struct {
 	callback func(ProcessFailedDiagnostic)
 }
 
-// SetProcessFailedObserver installs Reasonix's process-level diagnostics hook.
+// SetProcessFailedObserver installs Semantix's process-level diagnostics hook.
 // Browser-process events invoke it synchronously before the public Wails callback,
 // because Wails terminates the host process from that callback.
 func SetProcessFailedObserver(callback func(ProcessFailedDiagnostic)) {

@@ -54,22 +54,22 @@ function ConfirmDialog({ request, onResolve }: { request: ConfirmDialogRequest; 
 
   return createPortal(
     <div
-      className="modal-backdrop reasonix-confirm-backdrop"
+      className="modal-backdrop semantix-confirm-backdrop"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onResolve(false);
       }}
     >
       <div
-        className="modal reasonix-confirm-dialog"
+        className="modal semantix-confirm-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={messageId}
       >
-        <div className="modal__title reasonix-confirm-dialog__title" id={titleId}>{request.title}</div>
-        <div className="reasonix-confirm-dialog__message" id={messageId}>{request.message}</div>
-        <div className="modal__actions reasonix-confirm-dialog__actions">
+        <div className="modal__title semantix-confirm-dialog__title" id={titleId}>{request.title}</div>
+        <div className="semantix-confirm-dialog__message" id={messageId}>{request.message}</div>
+        <div className="modal__actions semantix-confirm-dialog__actions">
           <button ref={cancelRef} className="btn btn--small" type="button" onClick={() => onResolve(false)}>
             {request.cancelLabel}
           </button>

@@ -27,7 +27,7 @@ func (a *App) IsMainWindowMaximised() bool {
 	return runtime.WindowIsMaximised(a.ctx)
 }
 
-// CloseMainWindow preserves Reasonix's configured close behavior for the
+// CloseMainWindow preserves Semantix's configured close behavior for the
 // Windows frameless titlebar close button.
 func (a *App) CloseMainWindow() {
 	if a.ctx == nil {

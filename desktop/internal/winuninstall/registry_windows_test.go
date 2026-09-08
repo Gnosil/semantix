@@ -17,14 +17,14 @@ func TestDeleteInstallLocationIfOwned(t *testing.T) {
 		location   string
 		wantDelete bool
 	}{
-		{name: "same root", location: `D:\Reasonix`, wantDelete: true},
-		{name: "quoted case variant", location: `"d:\reasonix\"`, wantDelete: true},
-		{name: "separate legacy install", location: `C:\Legacy\Reasonix`, wantDelete: false},
+		{name: "same root", location: `D:\Semantix`, wantDelete: true},
+		{name: "quoted case variant", location: `"d:\semantix\"`, wantDelete: true},
+		{name: "separate legacy install", location: `C:\Legacy\Semantix`, wantDelete: false},
 	}
 
 	for i, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			keyPath := fmt.Sprintf(`Software\ReasonixTests\winuninstall-%d-%d`, os.Getpid(), i)
+			keyPath := fmt.Sprintf(`Software\SemantixTests\winuninstall-%d-%d`, os.Getpid(), i)
 			key, _, err := registry.CreateKey(registry.CURRENT_USER, keyPath, registry.QUERY_VALUE|registry.SET_VALUE)
 			if err != nil {
 				t.Fatal(err)
@@ -44,7 +44,7 @@ func TestDeleteInstallLocationIfOwned(t *testing.T) {
 				_ = registry.DeleteKey(registry.CURRENT_USER, keyPath)
 			})
 
-			if err := deleteInstallLocationIfOwned(keyPath, `D:\Reasonix`); err != nil {
+			if err := deleteInstallLocationIfOwned(keyPath, `D:\Semantix`); err != nil {
 				t.Fatal(err)
 			}
 
@@ -69,9 +69,9 @@ func TestDeleteInstallLocationIfOwned(t *testing.T) {
 }
 
 func TestDeleteInstallLocationIfOwnedIgnoresMissingKey(t *testing.T) {
-	keyPath := fmt.Sprintf(`Software\ReasonixTests\missing-%d`, os.Getpid())
+	keyPath := fmt.Sprintf(`Software\SemantixTests\missing-%d`, os.Getpid())
 	_ = registry.DeleteKey(registry.CURRENT_USER, keyPath)
-	if err := deleteInstallLocationIfOwned(keyPath, `D:\Reasonix`); err != nil {
+	if err := deleteInstallLocationIfOwned(keyPath, `D:\Semantix`); err != nil {
 		t.Fatal(err)
 	}
 }

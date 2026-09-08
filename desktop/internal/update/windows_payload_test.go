@@ -54,7 +54,7 @@ func TestWindowsPayloadManifestRejectsDuplicateAndTrailingData(t *testing.T) {
 	duplicate := strings.Replace(
 		string(b),
 		`"files": [`,
-		`"files": [{"name":"reasonix-desktop.exe","sha256":"`+strings.Repeat("a", 64)+`"},`,
+		`"files": [{"name":"semantix-desktop.exe","sha256":"`+strings.Repeat("a", 64)+`"},`,
 		1,
 	)
 	if _, err := DecodeWindowsPayloadManifest([]byte(duplicate), "v2"); err == nil {
@@ -76,7 +76,7 @@ func TestWindowsPayloadManifestRejectsNonCanonicalIdentity(t *testing.T) {
 	}
 	for _, changed := range [][]byte{
 		[]byte(strings.Replace(string(b), `"version": "v2"`, `"version": " v2 "`, 1)),
-		[]byte(strings.Replace(string(b), `"name": "reasonix-desktop.exe"`, `"name": "Reasonix-Desktop.exe"`, 1)),
+		[]byte(strings.Replace(string(b), `"name": "semantix-desktop.exe"`, `"name": "Semantix-Desktop.exe"`, 1)),
 		[]byte(strings.Replace(string(b), strings.Repeat("a", 64), strings.Repeat("A", 64), 1)),
 	} {
 		if _, err := DecodeWindowsPayloadManifest(changed, "v2"); err == nil {

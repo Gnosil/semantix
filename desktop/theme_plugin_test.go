@@ -58,7 +58,7 @@ func testPNGBytes(t *testing.T) []byte {
 }
 
 // installPluginThemeFixture writes a Manifest v1 plugin root with
-// contributes.themes globbing themes/*.reasonix-theme, plus the
+// contributes.themes globbing themes/*.semantix-theme, plus the
 // plugin-packages.json entry pointing at it.
 func installPluginThemeFixture(t *testing.T, home, pluginName string, enabled bool, themes []pluginThemeFixture) string {
 	t.Helper()
@@ -90,7 +90,7 @@ func installPluginThemeFixture(t *testing.T, home, pluginName string, enabled bo
 		}
 	}
 	manifestJSON := fmt.Sprintf(
-		`{"apiVersion":%q,"name":%q,"version":"1.0.0","contributes":{"themes":["themes/*.reasonix-theme"]}}`,
+		`{"apiVersion":%q,"name":%q,"version":"1.0.0","contributes":{"themes":["themes/*.semantix-theme"]}}`,
 		pluginpkg.ManifestAPIVersionV2, pluginName,
 	)
 	if err := os.WriteFile(filepath.Join(root, pluginpkg.NativeManifest), []byte(manifestJSON), 0o644); err != nil {
@@ -100,7 +100,7 @@ func installPluginThemeFixture(t *testing.T, home, pluginName string, enabled bo
 		Name:         pluginName,
 		Root:         root,
 		Version:      "1.0.0",
-		ManifestKind: "reasonix",
+		ManifestKind: "semantix",
 		Enabled:      enabled,
 	}); err != nil {
 		t.Fatal(err)
@@ -162,9 +162,9 @@ func TestParsePluginThemeID(t *testing.T) {
 
 func TestPluginThemeDiscoveryAndList(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	pluginRoot := installPluginThemeFixture(t, home, "themery", true, []pluginThemeFixture{
-		{fileName: "neon.reasonix-theme", manifest: testPluginThemeManifest("neon-dusk", "Neon Dusk"), withImage: true},
+		{fileName: "neon.semantix-theme", manifest: testPluginThemeManifest("neon-dusk", "Neon Dusk"), withImage: true},
 	})
 	app := NewApp()
 
@@ -204,17 +204,17 @@ func TestPluginThemeDiscoveryAndList(t *testing.T) {
 		t.Fatal("plugin themes must never be copied into the user library")
 	}
 	// The pack stays inside the plugin root.
-	if _, err := os.Stat(filepath.Join(pluginRoot, "themes", "neon.reasonix-theme")); err != nil {
+	if _, err := os.Stat(filepath.Join(pluginRoot, "themes", "neon.semantix-theme")); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestPluginThemeInvalidSkippedWithWarning(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	installPluginThemeFixture(t, home, "themery", true, []pluginThemeFixture{
-		{fileName: "neon.reasonix-theme", manifest: testPluginThemeManifest("neon-dusk", "Neon Dusk")},
-		{fileName: "broken.reasonix-theme", manifest: nil}, // invalid ZIP
+		{fileName: "neon.semantix-theme", manifest: testPluginThemeManifest("neon-dusk", "Neon Dusk")},
+		{fileName: "broken.semantix-theme", manifest: nil}, // invalid ZIP
 	})
 	app := NewApp()
 
@@ -229,7 +229,7 @@ func TestPluginThemeInvalidSkippedWithWarning(t *testing.T) {
 	if view == nil {
 		t.Fatal("valid plugin theme missing")
 	}
-	if len(view.Warnings) == 0 || !strings.Contains(view.Warnings[0], "broken.reasonix-theme") {
+	if len(view.Warnings) == 0 || !strings.Contains(view.Warnings[0], "broken.semantix-theme") {
 		t.Fatalf("skipped file must surface a warning on the plugin's views: %+v", view.Warnings)
 	}
 
@@ -239,7 +239,7 @@ func TestPluginThemeInvalidSkippedWithWarning(t *testing.T) {
 	}
 	found := false
 	for _, w := range exp.Warnings {
-		if strings.Contains(w, "broken.reasonix-theme") {
+		if strings.Contains(w, "broken.semantix-theme") {
 			found = true
 		}
 	}
@@ -250,9 +250,9 @@ func TestPluginThemeInvalidSkippedWithWarning(t *testing.T) {
 
 func TestPluginThemeDisabledNotListed(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	installPluginThemeFixture(t, home, "themery", false, []pluginThemeFixture{
-		{fileName: "neon.reasonix-theme", manifest: testPluginThemeManifest("neon-dusk", "Neon Dusk")},
+		{fileName: "neon.semantix-theme", manifest: testPluginThemeManifest("neon-dusk", "Neon Dusk")},
 	})
 	app := NewApp()
 
@@ -270,9 +270,9 @@ func TestPluginThemeDisabledNotListed(t *testing.T) {
 
 func TestPluginThemeActivatePersistFallbackRestore(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	themes := []pluginThemeFixture{
-		{fileName: "neon.reasonix-theme", manifest: testPluginThemeManifest("neon-dusk", "Neon Dusk")},
+		{fileName: "neon.semantix-theme", manifest: testPluginThemeManifest("neon-dusk", "Neon Dusk")},
 	}
 	installPluginThemeFixture(t, home, "themery", true, themes)
 	app := NewApp()
@@ -353,9 +353,9 @@ func TestPluginThemeActivatePersistFallbackRestore(t *testing.T) {
 
 func TestPluginThemeReadOnlyGuards(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	pluginRoot := installPluginThemeFixture(t, home, "themery", true, []pluginThemeFixture{
-		{fileName: "neon.reasonix-theme", manifest: testPluginThemeManifest("neon-dusk", "Neon Dusk")},
+		{fileName: "neon.semantix-theme", manifest: testPluginThemeManifest("neon-dusk", "Neon Dusk")},
 	})
 	app := NewApp()
 
@@ -373,7 +373,7 @@ func TestPluginThemeReadOnlyGuards(t *testing.T) {
 		t.Fatal("CopyThemePack must reject plugin theme sources")
 	}
 	// The plugin ZIP is untouched and no user library entry appeared.
-	if _, err := os.Stat(filepath.Join(pluginRoot, "themes", "neon.reasonix-theme")); err != nil {
+	if _, err := os.Stat(filepath.Join(pluginRoot, "themes", "neon.semantix-theme")); err != nil {
 		t.Fatal(err)
 	}
 	if userThemeExists("neon-dusk") || userThemeExists("neon-copy") {
@@ -383,7 +383,7 @@ func TestPluginThemeReadOnlyGuards(t *testing.T) {
 
 func TestLegacyStateWithPluginIDPreserved(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 
 	// State written by a build that already knew plugin themes; no plugin is
 	// installed here. New code must read it, fall back, and preserve it.
@@ -418,7 +418,7 @@ func TestLegacyStateWithPluginIDPreserved(t *testing.T) {
 
 func TestUnknownNonPluginActiveIDStillCleared(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 
 	// The pre-plugin erase behavior is unchanged for official/user ids that no
 	// longer resolve: clear the pointer and save.
@@ -451,9 +451,9 @@ func TestUnknownNonPluginActiveIDStillCleared(t *testing.T) {
 
 func TestPluginThemeAssetRoute(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	installPluginThemeFixture(t, home, "themery", true, []pluginThemeFixture{
-		{fileName: "neon.reasonix-theme", manifest: testPluginThemeManifest("neon-dusk", "Neon Dusk"), withImage: true},
+		{fileName: "neon.semantix-theme", manifest: testPluginThemeManifest("neon-dusk", "Neon Dusk"), withImage: true},
 	})
 	app := NewApp()
 
@@ -515,7 +515,7 @@ func TestPluginThemeAssetRoute(t *testing.T) {
 
 func TestActivateThemePackRejectsMalformedPluginID(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	app := NewApp()
 	if err := app.ActivateThemePack("plugin:themery"); err == nil {
 		t.Fatal("malformed plugin theme id must be rejected")

@@ -14,7 +14,7 @@ import (
 
 var (
 	errTopicHasActiveWork = errors.New("wait for the session to finish, answer pending prompts, and stop background jobs before archiving this topic")
-	errTopicArchiveBusy   = errors.New("Reasonix is finishing another session change — wait a moment and retry archiving")
+	errTopicArchiveBusy   = errors.New("Semantix is finishing another session change — wait a moment and retry archiving")
 )
 
 var topicArchiveCleanupHookForTest func() error

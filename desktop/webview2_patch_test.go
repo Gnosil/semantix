@@ -55,7 +55,7 @@ func TestWebView2PatchWiring(t *testing.T) {
 				ident, ok := value.Values[0].(*ast.Ident)
 				policyEnabled = ok && ident.Name == "true"
 			}
-			if len(value.Names) == 1 && value.Names[0].Name == "reasonixNoProxyServerBrowserArg" && len(value.Values) == 1 {
+			if len(value.Names) == 1 && value.Names[0].Name == "semantixNoProxyServerBrowserArg" && len(value.Values) == 1 {
 				literal, ok := value.Values[0].(*ast.BasicLit)
 				if ok {
 					unquoted, err := strconv.Unquote(literal.Value)
@@ -88,7 +88,7 @@ func TestWebView2PatchWiring(t *testing.T) {
 					continue
 				}
 				arg, ok := args.Elts[0].(*ast.Ident)
-				proxyIsolationArgApplied = ok && arg.Name == "reasonixNoProxyServerBrowserArg"
+				proxyIsolationArgApplied = ok && arg.Name == "semantixNoProxyServerBrowserArg"
 			}
 		}
 		return true

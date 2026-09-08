@@ -11,7 +11,7 @@ import (
 
 func TestActivateBaseStyleClearsActivePack(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	app := NewApp()
 
 	// Seed a user pack and activate it.
@@ -47,7 +47,7 @@ func TestActivateBaseStyleClearsActivePack(t *testing.T) {
 
 func TestActivateThemePackRejectsBaseStyle(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	app := NewApp()
 	if err := app.ActivateThemePack("amber"); err == nil {
 		t.Fatal("expected base style activation to fail")
@@ -56,7 +56,7 @@ func TestActivateThemePackRejectsBaseStyle(t *testing.T) {
 
 func TestMigrateV1BaseActiveIDToBaseStyle(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	// Write v1 state with base style as activeThemeId.
 	statePath := filepath.Join(config.MemoryUserDir(), themeStateFileName)
 	if err := os.MkdirAll(filepath.Dir(statePath), 0o755); err != nil {
@@ -99,7 +99,7 @@ func TestOfficialThemeOrderFixed(t *testing.T) {
 
 func TestDisableThemePackKeepsBaseStyle(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	app := NewApp()
 	if err := app.ActivateBaseStyle("nocturne"); err != nil {
 		t.Fatal(err)
@@ -129,7 +129,7 @@ func TestDisableThemePackKeepsBaseStyle(t *testing.T) {
 
 func TestRestoreGraphiteAppearance(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	app := NewApp()
 	_ = app.ActivateBaseStyle("carbon")
 	if len(officialThemes()) > 0 {

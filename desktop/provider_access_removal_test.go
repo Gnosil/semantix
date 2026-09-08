@@ -74,14 +74,14 @@ func TestRemoveProviderAccessesRemovesGroupedOfficialAliasesAtomically(t *testin
 
 func TestDeleteProviderKeepsOldControllerWhenFallbackBuildFails(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	setDesktopTestCredential(t, "REASONIX_TEST_KEY", "sk-test")
+	setDesktopTestCredential(t, "SEMANTIX_TEST_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "prov-a/model-a"
 	cfg.Desktop.ProviderAccess = []string{"prov-a", "broken"}
 	cfg.Providers = []config.ProviderEntry{
-		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.invalid/v1", Model: "model-a", APIKeyEnv: "REASONIX_TEST_KEY"},
-		{Name: "broken", Kind: "missing-provider-kind", BaseURL: "https://broken.example.invalid", Model: "model-b", APIKeyEnv: "REASONIX_TEST_KEY"},
+		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.invalid/v1", Model: "model-a", APIKeyEnv: "SEMANTIX_TEST_KEY"},
+		{Name: "broken", Kind: "missing-provider-kind", BaseURL: "https://broken.example.invalid", Model: "model-b", APIKeyEnv: "SEMANTIX_TEST_KEY"},
 	}
 	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
 		t.Fatalf("save config: %v", err)
@@ -116,13 +116,13 @@ func TestDeleteProviderKeepsOldControllerWhenFallbackBuildFails(t *testing.T) {
 
 func TestProviderRemovalContinuesRebuildingSiblingTabsAfterOneFails(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	setDesktopTestCredential(t, "REASONIX_TEST_KEY", "sk-test")
+	setDesktopTestCredential(t, "SEMANTIX_TEST_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "good/model-b"
 	cfg.Desktop.ProviderAccess = []string{"good"}
 	cfg.Providers = []config.ProviderEntry{
-		{Name: "good", Kind: "openai", BaseURL: "https://good.example.invalid/v1", Model: "model-b", APIKeyEnv: "REASONIX_TEST_KEY"},
+		{Name: "good", Kind: "openai", BaseURL: "https://good.example.invalid/v1", Model: "model-b", APIKeyEnv: "SEMANTIX_TEST_KEY"},
 	}
 	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
 		t.Fatalf("save config: %v", err)
@@ -132,7 +132,7 @@ func TestProviderRemovalContinuesRebuildingSiblingTabsAfterOneFails(t *testing.T
 	brokenProject := `[agent]
 system_prompt_file = "/outside-workspace/system.md"
 `
-	if err := os.WriteFile(filepath.Join(brokenRoot, "reasonix.toml"), []byte(brokenProject), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(brokenRoot, "semantix.toml"), []byte(brokenProject), 0o600); err != nil {
 		t.Fatalf("write project config: %v", err)
 	}
 	workingRoot := t.TempDir()
@@ -314,7 +314,7 @@ func TestDeleteProviderRebuildsNonActiveWorkspaceWithProjectAuxiliaryProvider(t 
 	}
 	activeRoot := t.TempDir()
 	backgroundRoot := t.TempDir()
-	if err := os.WriteFile(filepath.Join(backgroundRoot, "reasonix.toml"), []byte("[agent]\nsubagent_model = \"removed/vision-model\"\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(backgroundRoot, "semantix.toml"), []byte("[agent]\nsubagent_model = \"removed/vision-model\"\n"), 0o600); err != nil {
 		t.Fatalf("write project config: %v", err)
 	}
 
@@ -351,7 +351,7 @@ func TestDeleteProviderRebuildsNonActiveWorkspaceWithProjectAuxiliaryProvider(t 
 	if active.Ctrl == oldActive || background.Ctrl == oldBackground || oldActive.closeCount.Load() != 1 || oldBackground.closeCount.Load() != 1 {
 		t.Fatalf("workspace provider refresh: active=%T/%d background=%T/%d; want both replaced once", active.Ctrl, oldActive.closeCount.Load(), background.Ctrl, oldBackground.closeCount.Load())
 	}
-	projectRaw, err := os.ReadFile(filepath.Join(backgroundRoot, "reasonix.toml"))
+	projectRaw, err := os.ReadFile(filepath.Join(backgroundRoot, "semantix.toml"))
 	if err != nil {
 		t.Fatalf("read project config: %v", err)
 	}
@@ -396,14 +396,14 @@ func TestDeleteProviderRejectsDetachedRuntimeUsingAuxiliaryProvider(t *testing.T
 
 func TestDeleteProviderRebuildsLiveTabAndReusesSharedHost(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	setDesktopTestCredential(t, "REASONIX_TEST_KEY", "sk-test")
+	setDesktopTestCredential(t, "SEMANTIX_TEST_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "prov-a/model-a"
 	cfg.Desktop.ProviderAccess = []string{"prov-a", "prov-b"}
 	cfg.Providers = []config.ProviderEntry{
-		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.invalid/v1", Model: "model-a", APIKeyEnv: "REASONIX_TEST_KEY"},
-		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.invalid/v1", Model: "model-b", APIKeyEnv: "REASONIX_TEST_KEY"},
+		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.invalid/v1", Model: "model-a", APIKeyEnv: "SEMANTIX_TEST_KEY"},
+		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.invalid/v1", Model: "model-b", APIKeyEnv: "SEMANTIX_TEST_KEY"},
 	}
 	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
 		t.Fatalf("save config: %v", err)

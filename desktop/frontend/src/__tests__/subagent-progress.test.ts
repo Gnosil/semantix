@@ -1,6 +1,6 @@
 // Run: tsx src/__tests__/subagent-progress.test.ts
 //
-// Verifies the reserved ToolProgress channels (reasonix.subagent.*) update
+// Verifies the reserved ToolProgress channels (semantix.subagent.*) update
 // only the target card's in-memory subagentProgress: never tool.output, never
 // the parent LiveStream, never history data. Also locks the background keep-
 // running rule, the group-card settle rule, preview caps, and the isolation
@@ -107,7 +107,7 @@ console.log("\nsubagent progress reducer");
   s = dispatch(s, { id: "task-1", name: "task", args: "{}", readOnly: true });
   const before = JSON.stringify(toolById(s, "task-1"));
   s = progress(s, progressTool("task-1", SUBAGENT_PROGRESS_STATUS, "not-a-phase"));
-  s = progress(s, progressTool("task-1", "reasonix.subagent.bogus", "x"));
+  s = progress(s, progressTool("task-1", "semantix.subagent.bogus", "x"));
   eq(JSON.stringify(toolById(s, "task-1")), before, "unknown phase and unknown channel ignored");
 }
 

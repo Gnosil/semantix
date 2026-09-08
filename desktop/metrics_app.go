@@ -26,7 +26,7 @@ import (
 // or base URLs; custom provider/model identifiers are normalized into bounded
 // buckets. Gated on config desktop.metrics (default on), dev-skipped.
 
-var metricsEndpoint = "https://crash.reasonix.io/v1/metrics"
+var metricsEndpoint = "https://crash.semantix.ensureok.ai/v1/metrics"
 
 const metricsPendingFile = "metrics-pending.json"
 const metricsPostTimeout = 8 * time.Second

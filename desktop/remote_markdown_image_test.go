@@ -26,7 +26,7 @@ func (fn roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 	return fn(req)
 }
 
-func TestRemoteMarkdownImageUsesReasonixProxySpec(t *testing.T) {
+func TestRemoteMarkdownImageUsesSemantixProxySpec(t *testing.T) {
 	png := []byte("\x89PNG\r\n\x1a\nproxy-image")
 	wantSpec := netclient.ProxySpec{Mode: netclient.ModeCustom, URL: "socks5://127.0.0.1:10808"}
 	var gotSpec netclient.ProxySpec

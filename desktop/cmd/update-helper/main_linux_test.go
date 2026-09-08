@@ -245,7 +245,7 @@ func baseFakeDeps(p *installProbe) installDeps {
 			return ""
 		},
 		mkTempDir: func() (string, error) {
-			return os.MkdirTemp("", "reasonix-helper-test-*")
+			return os.MkdirTemp("", "semantix-helper-test-*")
 		},
 		removeAll: os.RemoveAll,
 		copyOwnedRegular: func(src, dst string, mode os.FileMode, ownerUID int, maxBytes int64) error {
@@ -287,8 +287,8 @@ func baseFakeDeps(p *installProbe) installDeps {
 func writeInstallInputs(t *testing.T) (pkg, sig string) {
 	t.Helper()
 	dir := t.TempDir()
-	pkg = filepath.Join(dir, "Reasonix.deb")
-	sig = filepath.Join(dir, "Reasonix.deb.minisig")
+	pkg = filepath.Join(dir, "Semantix.deb")
+	sig = filepath.Join(dir, "Semantix.deb.minisig")
 	if err := os.WriteFile(pkg, []byte("deb-payload"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -519,7 +519,7 @@ func TestRunInstallCleansTempDirOnFailure(t *testing.T) {
 	d := baseFakeDeps(&probe)
 	var created, removed string
 	d.mkTempDir = func() (string, error) {
-		dir, err := os.MkdirTemp("", "reasonix-helper-test-*")
+		dir, err := os.MkdirTemp("", "semantix-helper-test-*")
 		created = dir
 		return dir, err
 	}

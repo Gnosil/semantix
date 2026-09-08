@@ -169,7 +169,7 @@ export function createRasterPdf(images: RasterPdfImage[], title: string): Uint8A
     );
   });
 
-  addObject(infoObjectId, `<< /Title (${pdfString(title)}) /Producer (Reasonix) >>`);
+  addObject(infoObjectId, `<< /Title (${pdfString(title)}) /Producer (Semantix) >>`);
   const xrefStart = position;
   push(`xref\n0 ${objectCount + 1}\n0000000000 65535 f \n`);
   for (let id = 1; id <= objectCount; id++) {

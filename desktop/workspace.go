@@ -18,9 +18,9 @@ import (
 // cwd isn't writable.
 
 // workspaceStatePath is where the last working folder is remembered (under the
-// user config dir, shared with the rest of Reasonix's state).
+// user config dir, shared with the rest of Semantix's state).
 func workspaceStatePath() string {
-	dir := config.MemoryUserDir() // …/reasonix
+	dir := config.MemoryUserDir() // …/semantix
 	if dir == "" {
 		return ""
 	}
@@ -176,7 +176,7 @@ func cwdWritable() bool {
 	if err != nil {
 		return false
 	}
-	f, err := os.CreateTemp(cwd, ".reasonix-wtest-*")
+	f, err := os.CreateTemp(cwd, ".semantix-wtest-*")
 	if err != nil {
 		return false
 	}

@@ -11,9 +11,9 @@ import (
 
 func TestStorageSettingsReportsRuntimeOwnedPaths(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	cache := filepath.Join(t.TempDir(), "cache")
-	t.Setenv("REASONIX_CACHE_HOME", cache)
+	t.Setenv("SEMANTIX_CACHE_HOME", cache)
 
 	view := (&App{}).StorageSettings()
 	if view.StatePath != config.MemoryUserDir() {
@@ -29,7 +29,7 @@ func TestStorageSettingsReportsRuntimeOwnedPaths(t *testing.T) {
 
 func TestStorageSettingsReportsRememberedWorkspace(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	workspace := filepath.Join(t.TempDir(), "workspace")
 	if err := os.MkdirAll(workspace, 0o755); err != nil {
 		t.Fatal(err)
@@ -43,7 +43,7 @@ func TestStorageSettingsReportsRememberedWorkspace(t *testing.T) {
 
 func TestStorageSettingsFallsBackToWorkingDirectory(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("SEMANTIX_HOME", home)
 	workspace, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)

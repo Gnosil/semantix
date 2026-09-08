@@ -55,7 +55,7 @@ export function baseSettings(displayMode: "standard" | "compact" = "standard"): 
       queueDrop: "summarize",
       ignoreSelfMessages: true,
       selfUserIds: { qq: [], feishu: [], weixin: [] },
-      control: { enabled: false, addr: "127.0.0.1:37913", tokenEnv: "REASONIX_BOT_CONTROL_TOKEN" },
+      control: { enabled: false, addr: "127.0.0.1:37913", tokenEnv: "SEMANTIX_BOT_CONTROL_TOKEN" },
       pairing: { enabled: true, requestTtlMinutes: 60, maxPendingPerPlatform: 3 },
       routes: [],
       allowlist: {
@@ -105,7 +105,7 @@ export function baseSettings(displayMode: "standard" | "compact" = "standard"): 
     updateChannel: "stable",
     telemetry: true,
     metrics: true,
-    configPath: "/tmp/reasonix/config.toml",
+    configPath: "/tmp/semantix/config.toml",
     providerKinds: [],
     autoApproveTools: false,
     bypass: false,

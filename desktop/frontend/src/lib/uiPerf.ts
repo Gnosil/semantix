@@ -18,7 +18,7 @@ export const UI_PERF_BUDGETS = {
   markdownRenderP95Ms: 10,
   longTasks: 0, // main-thread tasks > 50ms per turn
   // Session-switch/history pipeline gates (Phase F). Not turn-scoped: these
-  // are enforced by the real-DOM harness in bench/ (REASONIX_BENCH_* env
+  // are enforced by the real-DOM harness in bench/ (SEMANTIX_BENCH_* env
   // overrides), not by the per-turn signal path below.
   sessionFirstPaintP95Ms: 100, // cold open → surface first paint
   sessionInteractiveP95Ms: 300, // cold open → input enabled + first slice rendered
@@ -109,7 +109,7 @@ function defaultEnv(): PerfEnv {
         const observer = new PerformanceObserver((list) => {
           const durations: number[] = [];
           for (const entry of list.getEntries()) {
-            if (type === "measure" && !entry.name.startsWith("reasonix:markdown")) continue;
+            if (type === "measure" && !entry.name.startsWith("semantix:markdown")) continue;
             if (type === "event") {
               const timing = entry as PerformanceEntry & { processingStart?: number };
               durations.push((timing.processingStart ?? entry.startTime + entry.duration) - entry.startTime);

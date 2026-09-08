@@ -3,7 +3,7 @@ import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import type { Components } from "react-markdown";
 import katexCss from "katex/dist/katex.min.css?inline";
 import { highlightToHtml } from "./highlight";
-import { reasonixRehypePlugins, reasonixRemarkPlugins } from "../components/markdownRemarkPlugins";
+import { semantixRehypePlugins, semantixRemarkPlugins } from "../components/markdownRemarkPlugins";
 import { normalizeMath } from "../components/mathNormalize";
 import {
   createRasterPdf,
@@ -232,8 +232,8 @@ function StaticMarkdown({ text }: { text: string }) {
   return (
     <div className="md">
       <ReactMarkdown
-        remarkPlugins={reasonixRemarkPlugins}
-        rehypePlugins={reasonixRehypePlugins}
+        remarkPlugins={semantixRemarkPlugins}
+        rehypePlugins={semantixRehypePlugins}
         components={staticMarkdownComponents}
         urlTransform={(value, key) => transformExportMarkdownUrl(value, key, defaultUrlTransform)}
       >

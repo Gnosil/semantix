@@ -46,8 +46,8 @@ for (const [path, source] of [
   ["desktop/frontend/src/lib/bridge.ts", bridgeSource],
 ]) {
   for (const forbidden of [
-    "REASONIX_WEBVIEW2_APPROVAL_SMOKE",
-    "__REASONIX_WEBVIEW2_APPROVAL_SMOKE__",
+    "SEMANTIX_WEBVIEW2_APPROVAL_SMOKE",
+    "__SEMANTIX_WEBVIEW2_APPROVAL_SMOKE__",
     "WebView2ApprovalSmokeBridge",
   ]) {
     if (source.includes(forbidden)) {

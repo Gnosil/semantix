@@ -25,7 +25,7 @@ import {
 
 declare global {
   interface Window {
-    __REASONIX_TRANSCRIPT_SCROLL_WRITE__?: (owner: TranscriptScrollOwner, top: number) => void;
+    __SEMANTIX_TRANSCRIPT_SCROLL_WRITE__?: (owner: TranscriptScrollOwner, top: number) => void;
   }
 }
 
@@ -261,7 +261,7 @@ export function useScrollManager() {
       behavior,
       expiresAt: Date.now() + (behavior === "smooth" ? DUR_FAST * 2 * 1000 : PROGRAMMATIC_SCROLL_EVENT_HOLD_MS),
     };
-    window.__REASONIX_TRANSCRIPT_SCROLL_WRITE__?.(owner, top);
+    window.__SEMANTIX_TRANSCRIPT_SCROLL_WRITE__?.(owner, top);
     if (typeof el.scrollTo === "function") el.scrollTo({ top, behavior });
     else el.scrollTop = top;
     return true;

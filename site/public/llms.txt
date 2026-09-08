@@ -36,7 +36,7 @@
 
 - [Documentation index](https://semantix.ensureok.ai/docs/): Entry point for all project documentation.
 - [Install and first run](https://semantix.ensureok.ai/docs/quickstart): Release and source installation, followed by the smallest extract/search/inject loop.
-- [Coding-agent integration](https://semantix.ensureok.ai/docs/agent-integration): Reasonix, Claude Code, and custom harness integration paths.
+- [Coding-agent integration](https://semantix.ensureok.ai/docs/agent-integration): Semantix Agent, Claude Code, and custom harness integration paths.
 - [Configuration and scopes](https://semantix.ensureok.ai/docs/configuration): TOML precedence, stores, scopes, retrieval, and injection settings.
 - [Extract and search](https://semantix.ensureok.ai/docs/extract-search): Session ingestion and BM25, vector, or hybrid retrieval.
 - [Lookup and injection](https://semantix.ensureok.ai/docs/lookup-inject): Structured tool results and budgeted L2 context blocks.

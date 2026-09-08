@@ -19,13 +19,13 @@ type LegacyWorkbenchDataView struct {
 	TrustFile   bool  `json:"trustFile"`
 }
 
-// remoteLegacyWorkbenchMirrorDir is the fixed Reasonix private directory that
+// remoteLegacyWorkbenchMirrorDir is the fixed Semantix private directory that
 // the removed Remote Workbench mirror wrote session snapshots into.
 func remoteLegacyWorkbenchMirrorDir() string {
 	return filepath.Join(config.MemoryUserDir(), "remote-mirrors")
 }
 
-// remoteLegacyWorkbenchTrustPath is the fixed Reasonix private file that held
+// remoteLegacyWorkbenchTrustPath is the fixed Semantix private file that held
 // per-host Provider authorization for the removed Remote Workbench.
 func remoteLegacyWorkbenchTrustPath() string {
 	return filepath.Join(config.MemoryUserDir(), "remote-provider-trust.json")
@@ -65,7 +65,7 @@ func (a *App) ScanRemoteLegacyWorkbenchData() LegacyWorkbenchDataView {
 
 // CleanRemoteLegacyWorkbenchData deletes one legacy artifact family: "mirrors"
 // removes the remote-mirrors tree, "trust" removes remote-provider-trust.json.
-// Only these two whitelisted targets inside the Reasonix private directory are
+// Only these two whitelisted targets inside the Semantix private directory are
 // accepted; symlinks and path escapes are rejected so cleanup can never reach
 // outside the fixed data root.
 func (a *App) CleanRemoteLegacyWorkbenchData(target string) error {
@@ -83,8 +83,8 @@ func (a *App) CleanRemoteLegacyWorkbenchData(target string) error {
 		if info.Mode()&os.ModeSymlink != 0 {
 			return fmt.Errorf("legacy workbench mirrors path is a symlink; refusing to clean")
 		}
-		if !withinReasonixPrivateDir(path) {
-			return fmt.Errorf("legacy workbench mirrors path escapes the Reasonix data directory")
+		if !withinSemantixPrivateDir(path) {
+			return fmt.Errorf("legacy workbench mirrors path escapes the Semantix data directory")
 		}
 		return os.RemoveAll(path)
 	case "trust":
@@ -99,8 +99,8 @@ func (a *App) CleanRemoteLegacyWorkbenchData(target string) error {
 		if info.Mode()&os.ModeSymlink != 0 {
 			return fmt.Errorf("legacy provider trust file is a symlink; refusing to clean")
 		}
-		if !withinReasonixPrivateDir(path) {
-			return fmt.Errorf("legacy provider trust path escapes the Reasonix data directory")
+		if !withinSemantixPrivateDir(path) {
+			return fmt.Errorf("legacy provider trust path escapes the Semantix data directory")
 		}
 		return os.Remove(path)
 	default:
@@ -108,10 +108,10 @@ func (a *App) CleanRemoteLegacyWorkbenchData(target string) error {
 	}
 }
 
-// withinReasonixPrivateDir verifies path resolves lexically inside the fixed
-// Reasonix private state directory. MemoryUserDir is derived from the same
+// withinSemantixPrivateDir verifies path resolves lexically inside the fixed
+// Semantix private state directory. MemoryUserDir is derived from the same
 // env-scoped home the legacy artifacts were written into.
-func withinReasonixPrivateDir(path string) bool {
+func withinSemantixPrivateDir(path string) bool {
 	root := strings.TrimSpace(config.MemoryUserDir())
 	if root == "" {
 		return false

@@ -10,12 +10,12 @@ import (
 	"time"
 )
 
-const themeAssetURLPrefix = "/__reasonix_theme_asset/"
+const themeAssetURLPrefix = "/__semantix_theme_asset/"
 
 // themeAssetMiddleware serves theme background images through a content-addressed
 // read-only route. The frontend only receives temporary URLs — never absolute paths.
 //
-// URL shape: /__reasonix_theme_asset/{themeID}/{digest}/{filename}
+// URL shape: /__semantix_theme_asset/{themeID}/{digest}/{filename}
 // On every request the server re-validates theme id, filename, MIME, file identity
 // (digest), and directory containment.
 func (a *App) themeAssetMiddleware() func(http.Handler) http.Handler {

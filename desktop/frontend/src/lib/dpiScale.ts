@@ -17,7 +17,7 @@ export type ZoomLevel = number; // 0.5 – 2.0
 
 export const DEFAULT_ZOOM: ZoomLevel = 1.0;
 
-const ZOOM_KEY = "reasonix-zoom-restart";
+const ZOOM_KEY = "semantix-zoom-restart";
 
 // ─── helpers ────────────────────────────────────────────────────────
 

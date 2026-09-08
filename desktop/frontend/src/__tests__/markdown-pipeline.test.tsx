@@ -12,7 +12,7 @@ import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import { JSDOM } from "jsdom";
 import { normalizeMath } from "../components/mathNormalize";
 import { createComponents } from "../components/markdownComponents";
-import { reasonixRehypePlugins, reasonixRemarkPlugins } from "../components/markdownRemarkPlugins";
+import { semantixRehypePlugins, semantixRemarkPlugins } from "../components/markdownRemarkPlugins";
 import { hastBlockToJsx } from "../lib/hastJsx";
 import {
   defaultMarkdownUrlTransform,
@@ -48,8 +48,8 @@ function eq(actual: unknown, expected: unknown, label: string) {
 function renderCurrent(text: string): string {
   return renderToStaticMarkup(
     createElement(ReactMarkdown, {
-      remarkPlugins: reasonixRemarkPlugins,
-      rehypePlugins: reasonixRehypePlugins,
+      remarkPlugins: semantixRemarkPlugins,
+      rehypePlugins: semantixRehypePlugins,
       components: createComponents(false),
       urlTransform: markdownUrlTransform,
       children: normalizeMath(text),

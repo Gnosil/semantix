@@ -26,7 +26,7 @@ func TestRemoveMCPServerReconcilesOAuthState(t *testing.T) {
 				}
 			}
 			project := fmt.Sprintf("[[plugins]]\nname = %q\ntype = \"http\"\nurl = %q\n", name, resource)
-			if err := os.WriteFile(filepath.Join(root, "reasonix.toml"), []byte(project), 0o644); err != nil {
+			if err := os.WriteFile(filepath.Join(root, "semantix.toml"), []byte(project), 0o644); err != nil {
 				t.Fatal(err)
 			}
 			stateDir := plugin.MCPStateDir(config.SemantixHomeDir(), root, name)
@@ -59,7 +59,7 @@ func TestRemoveMCPServerReconcilesOAuthStateAcrossWorkspaceRuntimes(t *testing.T
 	name, resource := "shared", "https://mcp.example.test/mcp"
 	t.Chdir(activeRoot)
 	project := fmt.Sprintf("[[plugins]]\nname = %q\ntype = \"http\"\nurl = %q\n", name, resource)
-	if err := os.WriteFile(filepath.Join(activeRoot, "reasonix.toml"), []byte(project), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(activeRoot, "semantix.toml"), []byte(project), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	for _, root := range []string{activeRoot, otherRoot} {

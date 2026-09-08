@@ -109,8 +109,8 @@ func TestTrashTopicForeignLeaseFailsBeforeCleanupCommit(t *testing.T) {
 
 	cmd := exec.Command(os.Args[0], "-test.run=^TestTrashTopicForeignLeaseHelper$")
 	cmd.Env = append(os.Environ(),
-		"REASONIX_TOPIC_ARCHIVE_LEASE_HELPER=1",
-		"REASONIX_TOPIC_ARCHIVE_LEASE_PATH="+sessionPath,
+		"SEMANTIX_TOPIC_ARCHIVE_LEASE_HELPER=1",
+		"SEMANTIX_TOPIC_ARCHIVE_LEASE_PATH="+sessionPath,
 	)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -169,10 +169,10 @@ func TestTrashTopicForeignLeaseFailsBeforeCleanupCommit(t *testing.T) {
 }
 
 func TestTrashTopicForeignLeaseHelper(t *testing.T) {
-	if os.Getenv("REASONIX_TOPIC_ARCHIVE_LEASE_HELPER") != "1" {
+	if os.Getenv("SEMANTIX_TOPIC_ARCHIVE_LEASE_HELPER") != "1" {
 		return
 	}
-	lease, err := agent.TryAcquireSessionLease(os.Getenv("REASONIX_TOPIC_ARCHIVE_LEASE_PATH"))
+	lease, err := agent.TryAcquireSessionLease(os.Getenv("SEMANTIX_TOPIC_ARCHIVE_LEASE_PATH"))
 	if err != nil {
 		t.Fatalf("TryAcquireSessionLease: %v", err)
 	}

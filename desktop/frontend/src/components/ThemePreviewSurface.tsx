@@ -21,7 +21,7 @@ export function themePreviewCodePalette(
   return deriveCodeReadabilityPalette(mode, baseStyleForPreview(pack), tokens || {});
 }
 
-/** Isolated mini Reasonix surface for gallery detail — does not touch :root. */
+/** Isolated mini Semantix surface for gallery detail — does not touch :root. */
 export function ThemePreviewSurface({
   pack,
   mode,

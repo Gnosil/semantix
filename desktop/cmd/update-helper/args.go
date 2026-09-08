@@ -7,7 +7,7 @@ func installerCommandLine(installer, dir string) string {
 	// The current helper also requires staging-only extraction: NSIS never writes
 	// the live install, and the helper compare-and-publishes the claimed release
 	// unit after validating every staged member.
-	line := fmt.Sprintf(`"%s" /REASONIXUPDATE=1 /REASONIXSTAGE=1`, installer)
+	line := fmt.Sprintf(`"%s" /SEMANTIXUPDATE=1 /SEMANTIXSTAGE=1`, installer)
 	if dir != "" {
 		line += " /D=" + dir
 	}

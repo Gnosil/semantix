@@ -344,7 +344,7 @@ func (a *App) AbandonPendingUpdate() error {
 
 func (a *App) installDebUpdate(requestID string, meta *cachedUpdate) error {
 	// authorizing = Polkit password dialog. The helper streams
-	// REASONIX_UPDATE_PHASE=installing on stderr after validation and before
+	// SEMANTIX_UPDATE_PHASE=installing on stderr after validation and before
 	// apt-get, so the UI can leave authorizing while the package manager runs.
 	a.emitProgress(requestID, meta.Channel, meta.Version, "authorizing", meta.Size, meta.Size, "")
 	err := applyDebLinux(meta.Path, meta.SignaturePath, func(phase string) {

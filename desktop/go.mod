@@ -87,6 +87,6 @@ require (
 
 replace semantix => ../
 
-// Reasonix patches WebView2 monitor-scale detection for mixed-DPI restore
+// Semantix patches WebView2 monitor-scale detection for mixed-DPI restore
 // (#5862) and isolates its embedded/loopback UI from stale system proxies.
 replace github.com/wailsapp/go-webview2 => ./third_party/go-webview2
