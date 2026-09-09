@@ -2009,7 +2009,7 @@ func (m chatTUI) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			_ = m.ctrl.Snapshot()
 			m.followSessionLease()
 		}
-		return m, tea.Sequence(tea.Raw(resetMouseTracking), tea.Quit)
+		return m, tea.Quit
 
 	case modelSwitchMsg:
 		m.modelSwitchPending = false
