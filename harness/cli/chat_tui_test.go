@@ -2387,7 +2387,10 @@ func TestMouseReenableIsSuppressedAfterShutdownStarts(t *testing.T) {
 }
 
 func TestShutdownMessageMakesMouseLifecycleIrreversible(t *testing.T) {
-	m := newTestChatTUI()
+	ctrl := control.New(control.Options{})
+	m := newChatTUI(ctrl, "", make(chan event.Event, 1), 60)
+	m0, _ := m.Update(tea.WindowSizeMsg{Width: 60, Height: 20})
+	m = m0.(chatTUI)
 	next, cmd := m.Update(tuiShutdownMsg{})
 	nextTUI := next.(chatTUI)
 	if !nextTUI.shuttingDown {
