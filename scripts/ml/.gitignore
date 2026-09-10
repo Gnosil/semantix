@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# model weight caches never enter the repo (spec §8)
+models/
+*.onnx

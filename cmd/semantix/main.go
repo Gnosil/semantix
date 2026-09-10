@@ -202,6 +202,11 @@ func buildCommands() []commandSpec {
 			summary: "restore slices from JSONL, stamped as import (Issue #279)",
 			run:     depsCommand(runImport),
 		},
+		{name: "export", group: groupMaintenance,
+			usage:   "semantix export [--out <file.jsonl>] [--db <path>] [--scope project]",
+			summary: "dump the library as JSONL (lossless import round-trip; embeddings intact)",
+			run:     depsCommand(runExport),
+		},
 	}
 }
 

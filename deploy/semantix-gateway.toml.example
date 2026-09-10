@@ -20,6 +20,13 @@ deps_root = "/data"                       # deps 指纹根目录（缺失文件�
 retriever = "bm25"                        # bm25 | vector | hybrid（当前仅 bm25 生效，hybrid/vector 未接线，见 GW6）
 top_k = 5
 budget = 4096                             # L2 注入块字节预算
+# events_log = ""                          # 本地检索模型训练语料采集（spec local-retrieval-model §3 G1）。
+#                                          # 每次 L2 检索追加一行 query+候选裁决轨迹 JSONL；含 query 明文，
+#                                          # 生产环境保持关闭，仅 retrieval-lab 实验臂开启。
+# rerank_base_url = ""                     # 本地重排 sidecar（spec §3 B）。仅接受 loopback（协议无鉴权明文
+#                                          # HTTP）；失败/超时 fail-soft 回退原始检索序，检索链无感降级。
+# rerank_top_n = 20                        # 交给重排器的过取深度（0 = 默认 20）
+# rerank_timeout_ms = 300                  # 单次重排调用上限（0 = 默认 300ms）
 
 [cache]
 ttl_seconds = 86400                       # 默认 TTL（0 = 不设时间窗）

@@ -1,0 +1,46 @@
+# retrieval-lab · OFF 臂：现状检索链（无重排），对照基线。
+# 事件日志同样开启：OFF 臂的检索轨迹留作对照分析（训练只消费 ON 臂）。
+
+[server]
+addr = ":8092"
+gateway_key = "${SEMANTIX_GATEWAY_KEY}"
+health_timeout_seconds = 3
+
+[store]
+db = "__LAB__/off/gateway.jsonl"
+scope = "project"
+deps_root = "__LAB__/off"
+
+[retrieval]
+retriever = "bm25"
+top_k = 5
+budget = 4096
+events_log = "__LAB__/off/events.jsonl"
+
+[cache]
+ttl_seconds = 86400
+
+[ingest]
+sessions_dir = "__LAB__/off/sessions"
+usage_log = "__LAB__/off/usage.jsonl"
+l3_safe_default = false
+
+[billing]
+enabled = false
+recharge_url = ""
+
+[[upstreams]]
+name = "qianfan-fast"
+base_url = "https://qianfan.baidubce.com/v2"
+api_key = "${QIANFAN_API_KEY}"
+model_alias = ["ernie-4.5-turbo-128k"]
+upstream_model = "ernie-4.5-turbo-128k"
+vendor = "openai"
+
+[[upstreams]]
+name = "qianfan-deep"
+base_url = "https://qianfan.baidubce.com/v2"
+api_key = "${QIANFAN_API_KEY}"
+model_alias = ["deepseek-v4-pro"]
+upstream_model = "deepseek-v4-pro"
+vendor = "openai"
