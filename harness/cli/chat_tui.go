@@ -3589,7 +3589,7 @@ func (m chatTUI) View() tea.View {
 		v := tea.NewView(m.themeSweep.render())
 		if !m.nativeScrollback {
 			v.AltScreen = true
-			if m.mouseCaptureOff {
+			if m.shuttingDown || m.mouseCaptureOff {
 				v.MouseMode = tea.MouseModeNone
 			} else {
 				v.MouseMode = tea.MouseModeCellMotion
@@ -3724,7 +3724,7 @@ func (m chatTUI) View() tea.View {
 	}
 	v := tea.NewView(mainArea + "\n" + strings.Join(parts, "\n"))
 	v.AltScreen = true
-	if m.mouseCaptureOff {
+	if m.shuttingDown || m.mouseCaptureOff {
 		// Release the mouse to the terminal: native click-drag selection and
 		// right-click context menu work again, at the cost of the in-app
 		// scrollbar, wheel-scroll, and drag-select while it's off.
