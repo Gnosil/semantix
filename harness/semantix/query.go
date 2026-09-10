@@ -12,10 +12,19 @@ var (
 	repoPattern   = regexp.MustCompile(`(?i)checkout\s+of\s+the\s+([a-z0-9_.-]+/[a-z0-9_.-]+)\s+repository`)
 	pathPattern   = regexp.MustCompile(`(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]+`)
 	symbolPattern = regexp.MustCompile(`\b[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+\b|\b_+[A-Za-z0-9_]+_+\b|\b[A-Za-z][A-Za-z0-9]*_[A-Za-z0-9_]+\b`)
-	errorPattern  = regexp.MustCompile(`(?i)\b[a-z][a-z0-9]*error\b|\b[A-Z]{2,}(?:[_-][A-Z0-9]+)+\b`)
-	testPattern   = regexp.MustCompile(`(?i)\btest[A-Za-z0-9_]*\b`)
-	importPattern = regexp.MustCompile(`(?i)\bimports?\s+([a-z_][a-z0-9_.]*)|\bfrom\s+([a-z_][a-z0-9_.]*)\s+import\b`)
-	urlPattern    = regexp.MustCompile(`(?i)https?://\S+`)
+	// Exception names are case-insensitive ("ConnectionError"); code-style
+	// identifiers (HTTP_404, FOO-BAR_1) must stay case-sensitive — under (?i)
+	// the same pattern matched every hyphenated prose word ("pre-fix",
+	// "read-only"), which put template words into the retrieval query.
+	errorWordPattern = regexp.MustCompile(`(?i)\b[a-z][a-z0-9]*error\b`)
+	errorCodePattern = regexp.MustCompile(`\b[A-Z]{2,}(?:[_-][A-Z0-9]+)+\b`)
+	// Test names need a real identifier shape (test_foo / TestFoo); the bare
+	// words test/tests/testing appear in almost every task shell.
+	testFuncPattern  = regexp.MustCompile(`(?i)\btest_[a-z0-9_]+\b`)
+	testClassPattern = regexp.MustCompile(`\bTest[A-Z][A-Za-z0-9_]*\b`)
+	labelLinePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z ]{0,40}:$`)
+	importPattern    = regexp.MustCompile(`(?i)\bimports?\s+([a-z_][a-z0-9_.]*)|\bfrom\s+([a-z_][a-z0-9_.]*)\s+import\b`)
+	urlPattern       = regexp.MustCompile(`(?i)https?://\S+`)
 )
 
 // RetrievalQuery is the deterministic P1 query projection. Text is the only
@@ -47,7 +56,7 @@ var retrievalStopwords = map[string]struct{}{
 // change the lexical evidence while boilerplate cannot dominate it.
 func cleanRetrievalQuery(raw string) string {
 	query := stripTaggedBlock(raw, "execution-policy")
-	if issue, ok := taggedBody(query, "issue"); ok {
+	if issue, ok := issueBody(query); ok {
 		query = issue
 	}
 	tokens := bm25.Tokenize(query)
@@ -65,22 +74,22 @@ func cleanRetrievalQuery(raw string) string {
 // than pretending a generic sentence is structured evidence.
 func buildRetrievalQuery(raw string) RetrievalQuery {
 	body := stripTaggedBlock(raw, "execution-policy")
-	issue, hasIssue := taggedBody(body, "issue")
-	if hasIssue {
+	if issue, ok := issueBody(body); ok {
 		body = issue
 	}
 	signalBody := urlPattern.ReplaceAllString(body, " ")
 	q := RetrievalQuery{Intent: firstNonEmptyLine(body), Repo: firstCapture(repoPattern, raw)}
 	q.Paths = collectPaths(signalBody, q.Repo)
 	q.Symbols = collectMatches(symbolPattern, signalBody)
-	q.ErrorCodes = collectMatches(errorPattern, signalBody)
+	q.ErrorCodes = uniqueSorted(append(collectMatches(errorWordPattern, signalBody), collectMatches(errorCodePattern, signalBody)...))
 	q.Dependencies = collectImports(signalBody)
 	for _, value := range append(append([]string(nil), q.Paths...), q.Symbols...) {
 		if strings.Contains(strings.ToLower(value), "test") {
 			q.TestNames = append(q.TestNames, strings.ToLower(value))
 		}
 	}
-	q.TestNames = append(q.TestNames, collectMatches(testPattern, signalBody)...)
+	q.TestNames = append(q.TestNames, collectMatches(testFuncPattern, signalBody)...)
+	q.TestNames = append(q.TestNames, collectMatches(testClassPattern, signalBody)...)
 	q.TestNames = uniqueSorted(q.TestNames)
 
 	hasSignals := len(q.Paths)+len(q.Symbols)+len(q.ErrorCodes)+len(q.TestNames)+len(q.Dependencies) > 0
@@ -103,6 +112,39 @@ func buildRetrievalQuery(raw string) RetrievalQuery {
 	q.Text = joinRetrievalTokens(values...)
 	q.Strategy = "structured"
 	return q
+}
+
+// issueBody isolates the issue text from the task shell: a <issue> block
+// (SWE-bench runner) or a labeled "Issue:" section (swe_pilot and hand-written
+// prompts) that ends at the next bare label line such as "Instructions:".
+// Without either the whole text is the issue.
+func issueBody(text string) (string, bool) {
+	if issue, ok := taggedBody(text, "issue"); ok {
+		return issue, true
+	}
+	return labeledSection(text, "issue")
+}
+
+func labeledSection(text, label string) (string, bool) {
+	lines := strings.Split(text, "\n")
+	start := -1
+	for i, line := range lines {
+		if strings.EqualFold(strings.TrimSpace(line), label+":") {
+			start = i + 1
+			break
+		}
+	}
+	if start < 0 {
+		return "", false
+	}
+	end := len(lines)
+	for i := start; i < len(lines); i++ {
+		if labelLinePattern.MatchString(strings.TrimSpace(lines[i])) {
+			end = i
+			break
+		}
+	}
+	return strings.Join(lines[start:end], "\n"), true
 }
 
 func firstNonEmptyLine(text string) string {
