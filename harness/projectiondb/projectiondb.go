@@ -223,7 +223,7 @@ func open(ctx context.Context, opts OpenOptions, mode Mode) (*sql.DB, error) {
 			return fail(err)
 		}
 	}
-	for _, pragma := range []string{`PRAGMA synchronous=NORMAL`, `PRAGMA foreign_keys=ON`, `PRAGMA busy_timeout=150`} {
+	for _, pragma := range []string{`PRAGMA synchronous=NORMAL`, `PRAGMA foreign_keys=ON`, `PRAGMA busy_timeout=1050`} {
 		if _, err := db.ExecContext(ctx, pragma); err != nil {
 			return fail(err)
 		}
