@@ -109,6 +109,48 @@ semantix install --target claude-code --uninstall   # 卸载（仅移除 install
 `--json` 输出 `evicted_by_type` 分布；`gc` 默认重算价值权重并按 `store.max_slices`
 （默认 5000）归档超限切片到 `<db>.archive.jsonl`。
 
+### 安全预览与清理记忆库
+
+`prune` 用于保守地清理 `kernel/slice` 切片库，默认只读，不影响用户事实记忆或历史会话。
+与 `gc` 的容量/评分策略不同，`prune` 只有显式 `--apply` 才会归档并删除候选：
+
+```bash
+semantix prune --scope project                 # 默认只读预览
+semantix prune --scope user --dry-run --json    # 用户库，元数据报告可保存供审计
+semantix prune --scope project --older-than-days 180
+semantix prune --scope project --project owner/repo --project-root /workspace/repo
+semantix prune --scope project --apply          # 按执行时的当前状态重新生成并提交计划
+```
+
+`--db` 显式指定库；project 默认使用 `store.db` 配置，user 默认使用 `~/.semantix/user.db`。
+即使一个文件混有多个 scope，也只清理选定范围。默认保护最近 30 天创建或使用的切片
+（`--recent-days`），年龄清理要求创建和最后使用均早于 90 天（`--older-than-days`）。
+已验证 Result、用户 curated/正向反馈、有用反馈、未知创建时间和缺少使用时间的旧命中记录均保留。
+
+候选包括适用元数据一致的异 ID 完全重复项、明确缺失的依赖文件以及旧且长期未用的切片。
+`--project-root` 必须配合准确的 `--project`；没有这组映射时跳过路径检查。
+不会从正文猜路径，也不因不同 commit 或语义相似就删除。报告提供候选 ID、类型、原因、
+会话来源、时间、逻辑空间估计及重复项的保留 ID，不输出正文或验证证据。
+
+运行前停止使用该库的 gateway/其他读写句柄。当前版本的普通库句柄持有共享维护锁，
+`prune` 获取非阻塞独占锁，库忙时直接报错；预览也不会趁写入中读取不一致的快照。
+旧版本程序和直接修改文件的外部工具不参与此锁协议，升级后应先停止这些写入者。
+`<db>.maintenance.lock` 是常驻的锁文件，不要在库使用期间删除它。
+
+每次有候选的 apply 都先写一份受限权限的 `<db>.prune-archive-*.jsonl`，再原子替换 journal，
+整批删除一起生效。提交前失败时活跃库不变，可能留下完整恢复副本；提交后若输出失败，
+错误会明确说明删除已提交。库损坏或 journal 不匹配时拒绝清理，不自动修复。
+
+恢复时使用输出的实际归档路径：
+
+```bash
+semantix import --input <archive-path> --db <database-path>
+```
+
+恢复沿用现有信任规则：默认来源为 import，Result 需要重新验证；不要把恢复当成信任升级。
+`estimated_reclaimable_bytes` 是逻辑活跃记录字节，含 raw embedding，不保证文件立即缩小。
+日志折叠仍由既有维护执行，归档也占用空间，因此不是目录净节省量。通用模糊去重和后台清理不在此命令范围。
+
 **退出码契约**（所有命令统一）：
 
 | 码 | 语义 |

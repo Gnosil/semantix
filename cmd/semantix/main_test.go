@@ -255,6 +255,11 @@ func TestRunRejectsUnknownCommand(t *testing.T) {
 // (docs/reports/cli-v2-architecture.md §4.3) at the dispatch layer:
 // 0 ok · 1 runtime error · 2 usage error · 3 gate not met.
 func TestDispatchExitCodeContract(t *testing.T) {
+	// The no-argument usage case assumes no installed agent. Keep the test
+	// independent of the developer's PATH; launch behavior has separate tests.
+	origFind := findAgentBinary
+	t.Cleanup(func() { findAgentBinary = origFind })
+	findAgentBinary = func() string { return "" }
 	dir := t.TempDir()
 	missing := filepath.Join(dir, "missing.jsonl")
 	cases := []struct {
@@ -267,6 +272,8 @@ func TestDispatchExitCodeContract(t *testing.T) {
 		{"--help → ok", []string{"--help"}, 0},
 		{"-h → ok", []string{"-h"}, 0},
 		{"unknown command → usage", []string{"nope"}, 2},
+		{"prune invalid scope → usage", []string{"prune", "--scope", "session"}, 2},
+		{"prune conflicting modes → usage", []string{"prune", "--dry-run", "--apply"}, 2},
 		{"extract missing --input → usage", []string{"extract"}, 2},
 		{"extract missing input file → runtime", []string{"extract", "--input", missing}, 1},
 		{"extract unknown flag → usage", []string{"extract", "--bogus"}, 2},
