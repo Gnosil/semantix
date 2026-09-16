@@ -355,6 +355,7 @@ func TestBridgeRecordInjectionOutcomeAttributesUsefulAndNeutral(t *testing.T) {
 func TestBridgeRecordsAndUsesStructuredRetrievalQuery(t *testing.T) {
 	dir := writeKernelDir(t, admissionFixtureSlices(), nil)
 	b := NewBridge(Config{Enabled: true, Mode: "strict", ProjectDir: dir})
+	defer b.Close() // join asynchronous usage writes before TempDir cleanup
 	raw := `You are working in a git checkout of the owner/repo repository at commit abc.
 <issue>
 修复 go 测试

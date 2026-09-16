@@ -30,8 +30,11 @@ import (
 //
 // Design: docs/specs/slice-store-append-journal.md.
 type fileStore struct {
-	mu   sync.Mutex
-	path string
+	mu       sync.Mutex
+	path     string
+	lease    *os.File // shared lifetime lease; excludes prune's maintenance window
+	closed   bool
+	readOnly bool // strict maintenance snapshot: no creation, repair or append fd
 
 	entries map[string]*storedEntry
 	order   []*storedEntry // live+dead in arrival order; dead pruned at compaction
@@ -107,14 +110,26 @@ var errNotFound = errors.New("slice: not found")
 // journal that does not match the base generation (an old binary rewrote the
 // base underneath it) is moved aside to <path>.journal.stash-<ts> — base
 // wins, nothing is guessed, the stash keeps the bytes for forensics.
+// The returned store implements io.Closer. Call Close even for read-only use:
+// its lifetime lease prevents prune from replacing a live handle's journal.
 func NewFileStore(path string) (Store, error) {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600)
+	path, err := canonicalStorePath(path)
 	if err != nil {
 		return nil, err
 	}
+	lease, err := lockStore(path, false, true)
+	if err != nil {
+		return nil, err
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		lease.Close()
+		return nil, err
+	}
 	f.Close()
-	s := &fileStore{path: path, entries: map[string]*storedEntry{}}
+	s := &fileStore{path: path, lease: lease, entries: map[string]*storedEntry{}}
 	if err := s.load(); err != nil {
+		lease.Close()
 		return nil, err
 	}
 	return s, nil
@@ -150,6 +165,12 @@ func (s *fileStore) load() error {
 			continue
 		}
 		var dto sliceDTO
+		if s.readOnly {
+			if err := strictStoreJSON(line, &dto); err != nil {
+				f.Close()
+				return err
+			}
+		}
 		if err := json.Unmarshal(line, &dto); err != nil || dto.ID == "" {
 			// Corrupt lines and ID-less "phantom" objects are both skipped:
 			// v1 let phantoms through as empty-ID slices, which broke every
@@ -186,6 +207,12 @@ func (s *fileStore) loadJournal() error {
 		return err
 	}
 	var hdr journalHeader
+	if s.readOnly {
+		if err := strictStoreJSON(headerLine, &hdr); err != nil {
+			jf.Close()
+			return err
+		}
+	}
 	if json.Unmarshal(bytes.TrimSpace(headerLine), &hdr) != nil || hdr.J == 0 {
 		jf.Close()
 		return s.stashJournal("malformed header")
@@ -197,6 +224,10 @@ func (s *fileStore) loadJournal() error {
 	if hdr.BSize != s.baseSize || hdr.BMtime != s.baseMtime {
 		jf.Close()
 		return s.stashJournal("base changed underneath the journal")
+	}
+	if s.readOnly && hdr.BSha != "" && hdr.BSha != s.baseSha {
+		jf.Close()
+		return errors.New("slice: journal base content mismatch")
 	}
 	for {
 		line, tooLong, err := readJSONLLine(br)
@@ -218,6 +249,16 @@ func (s *fileStore) loadJournal() error {
 		s.jOps++
 		s.jBytes += int64(len(line)) + 1
 		var rec journalRecord
+		if s.readOnly {
+			if err := strictStoreJSON(line, &rec); err != nil {
+				jf.Close()
+				return err
+			}
+			if (rec.Op == "del" && rec.ID == "") || (rec.Op == "stat" && (rec.ID == "" || rec.D == nil)) {
+				jf.Close()
+				return errors.New("slice: invalid journal record")
+			}
+		}
 		if json.Unmarshal(line, &rec) != nil {
 			s.journalSkipped++ // torn tail or bit rot: skip, never brick
 			continue
@@ -243,6 +284,9 @@ func (s *fileStore) loadJournal() error {
 		}
 	}
 	jf.Close()
+	if s.readOnly {
+		return nil
+	}
 	s.jf, err = os.OpenFile(jpath, os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return err
@@ -258,6 +302,9 @@ func (s *fileStore) journalPath() string { return s.path + ".journal" }
 // overwrite fresh data, which is real corruption — a stash is diagnosable
 // and recoverable, a silent stale-wins merge is neither.
 func (s *fileStore) stashJournal(reason string) error {
+	if s.readOnly {
+		return fmt.Errorf("slice: maintenance requires a healthy journal (%s)", reason)
+	}
 	stash := s.journalPath() + ".stash-" + strconv.FormatInt(time.Now().UnixNano(), 10)
 	if err := os.Rename(s.journalPath(), stash); err != nil {
 		return err
@@ -282,6 +329,9 @@ func (s *fileStore) upsertLocked(e *storedEntry) {
 // commands must leave no write side effects). The header binds the journal
 // to the base generation loaded at open.
 func (s *fileStore) ensureJournalLocked() error {
+	if s.closed {
+		return os.ErrClosed
+	}
 	if s.jw != nil {
 		return nil
 	}
@@ -508,17 +558,19 @@ func (s *fileStore) UpdateStatsBatch(deltas map[string]SliceStats) error {
 func (s *fileStore) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.jw == nil {
+	if s.closed {
 		return nil
 	}
-	if err := s.jw.Flush(); err != nil {
-		return err
+	s.closed = true
+	var err error
+	if s.jw != nil {
+		err = errors.Join(s.jw.Flush(), s.jf.Sync(), s.jf.Close())
+		s.jf, s.jw = nil, nil
 	}
-	if err := s.jf.Sync(); err != nil {
-		return err
+	if s.lease != nil {
+		err = errors.Join(err, s.lease.Close())
+		s.lease = nil
 	}
-	err := s.jf.Close()
-	s.jf, s.jw = nil, nil
 	return err
 }
 
@@ -574,6 +626,9 @@ func (s *fileStore) maybeCompactLocked() error {
 func (s *fileStore) Compact() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.closed {
+		return os.ErrClosed
+	}
 	// Nothing folded, nothing corrupt to shed → true no-op (a header-only
 	// journal may linger; it stays correctly bound to the base generation).
 	if s.jOps == 0 && s.baseSkipped == 0 && s.journalSkipped == 0 {
@@ -598,6 +653,9 @@ func (s *fileStore) CompactWith(rescore func([]*Slice) []*Slice) error {
 var osRename = os.Rename
 
 func (s *fileStore) compactLocked(rescore func([]*Slice) []*Slice) error {
+	if s.closed {
+		return os.ErrClosed
+	}
 	lives := make([]*storedEntry, 0, len(s.entries))
 	for _, e := range s.order {
 		if !e.dead {
