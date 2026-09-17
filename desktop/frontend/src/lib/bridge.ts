@@ -40,7 +40,6 @@ import type {
   CommandInfo,
   ControlResult,
   ContextInfo,
-  ContextPanelInfo,
   DirEntry,
   DesktopStartupSettingsView,
   DeliveryWorktreeAvailability,
@@ -613,7 +612,6 @@ export interface AppBindings extends SessionCatalogBindings, HistoryCatalogBindi
   DeleteTopic(topicID: string): Promise<void>;
   TrashTopic(topicID: string): Promise<void>;
   SetTopicPinned(topicID: string, pinned: boolean): Promise<void>;
-  ContextPanel(tabID: string): Promise<ContextPanelInfo>;
   // New native-feel bindings (added with the desktop native-feel plan).
   ConfirmAction(req: NativeConfirmRequest): Promise<boolean>;
   SaveWindowState(state: DesktopWindowState): Promise<void>;
@@ -5272,115 +5270,6 @@ function makeMockApp(): AppBindings {
     async SaveWindowState(_state) {
       // no-op in browser dev — no real window geometry to persist
     },
-    async ContextPanel(_tabID: string) {
-      const now = Date.now();
-      const currency = "¥";
-      const cost = (usd: number) => currency === "¥" ? Number((usd * 7.15).toFixed(4)) : usd;
-      return {
-        usedTokens: 42124,
-        windowTokens: 128000,
-        promptTokens: 22134,
-        completionTokens: 12345,
-        totalTokens: 34479,
-        reasoningTokens: 7521,
-        cacheHitTokens: 87000,
-        cacheMissTokens: 13000,
-        sessionCacheHitTokens: 87000,
-        sessionCacheMissTokens: 13000,
-        sessionCompletionTokens: 12345,
-        requestCount: 10,
-        elapsedMs: 33 * 60 * 1000,
-        sessionCost: cost(0.018),
-        sessionCurrency: currency,
-        sessionCostUsd: cost(0.018),
-        sources: {
-          executor: {
-            promptTokens: 24100,
-            completionTokens: 8300,
-            totalTokens: 32400,
-            reasoningTokens: 5200,
-            cacheHitTokens: 76000,
-            cacheMissTokens: 9000,
-            requestCount: 4,
-            sessionCost: cost(0.0124),
-            sessionCurrency: currency,
-            sessionCostUsd: cost(0.0124),
-          },
-          planner: {
-            promptTokens: 1800,
-            completionTokens: 600,
-            totalTokens: 2400,
-            reasoningTokens: 420,
-            cacheHitTokens: 3400,
-            cacheMissTokens: 700,
-            requestCount: 1,
-            sessionCost: cost(0.0011),
-            sessionCurrency: currency,
-            sessionCostUsd: cost(0.0011),
-          },
-          subagent: {
-            promptTokens: 4200,
-            completionTokens: 2100,
-            totalTokens: 6300,
-            reasoningTokens: 1500,
-            cacheHitTokens: 6100,
-            cacheMissTokens: 2100,
-            requestCount: 2,
-            sessionCost: cost(0.0032),
-            sessionCurrency: currency,
-            sessionCostUsd: cost(0.0032),
-          },
-          compaction: {
-            promptTokens: 2600,
-            completionTokens: 700,
-            totalTokens: 3300,
-            reasoningTokens: 260,
-            cacheHitTokens: 1100,
-            cacheMissTokens: 900,
-            requestCount: 1,
-            sessionCost: cost(0.0009),
-            sessionCurrency: currency,
-            sessionCostUsd: cost(0.0009),
-          },
-          classifier: {
-            promptTokens: 900,
-            completionTokens: 120,
-            totalTokens: 1020,
-            reasoningTokens: 70,
-            cacheHitTokens: 300,
-            cacheMissTokens: 250,
-            requestCount: 1,
-            sessionCost: cost(0.0003),
-            sessionCurrency: currency,
-            sessionCostUsd: cost(0.0003),
-          },
-          title: {
-            promptTokens: 420,
-            completionTokens: 80,
-            totalTokens: 500,
-            reasoningTokens: 20,
-            cacheHitTokens: 100,
-            cacheMissTokens: 50,
-            requestCount: 1,
-            sessionCost: cost(0.0001),
-            sessionCurrency: currency,
-            sessionCostUsd: cost(0.0001),
-          },
-        },
-        mock: true,
-        readFiles: [
-          { path: "README.md", turn: 2, time: now - 34 * 60 * 1000 },
-          { path: "go.mod", turn: 3, time: now - 30 * 60 * 1000 },
-          { path: "desktop/file.go", turn: 5, time: now - 13 * 60 * 1000, offset: 0, limit: 180 },
-          { path: "internal/event.go", turn: 6, time: now - 4 * 60 * 1000, offset: 120, limit: 80, truncated: true },
-        ],
-        changedFiles: [
-          { path: t("mock.changedFile1Path"), sources: ["session"], gitStatus: "modified", turns: [5, 6], latestPrompt: t("mock.changedFile1Prompt"), latestTime: now - 2 * 60 * 1000 },
-          { path: t("mock.changedFile2Path"), sources: ["session"], gitStatus: "added", turns: [6], latestPrompt: t("mock.changedFile2Prompt"), latestTime: now - 60 * 1000 },
-        ],
-      };
-    },
-
     // ── Remote (SSH) mock ──
     async RemoteHosts() {
       return mockRemoteHosts.slice();

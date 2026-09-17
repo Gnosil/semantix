@@ -6546,6 +6546,8 @@ func (a *App) ContextUsageForTab(tabID string) ContextInfo {
 		info.Estimated = snap.Usage.Estimated
 		info.SessionCostComplete = snap.Usage.SessionCostComplete
 		info.SessionCostQuote = snap.Usage.SessionCostQuote
+		info.RequestCount = snap.Usage.RequestCount
+		info.ElapsedMs = snap.Usage.ElapsedMs
 		info.Sources = snap.Usage.Sources
 	}
 	if ctrl == nil {

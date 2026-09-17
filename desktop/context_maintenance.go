@@ -10,19 +10,24 @@ import (
 // ContextInfo is the prompt-vs-window gauge payload plus session totals. Used
 // and Window both zero means no context-window data yet.
 type ContextInfo struct {
-	Used                int                         `json:"used"`
-	Window              int                         `json:"window"`
-	SessionTokens       int                         `json:"sessionTokens"`
-	CompactRatio        float64                     `json:"compactRatio,omitempty"`
-	SessionCost         float64                     `json:"sessionCost,omitempty"`
-	SessionCurrency     string                      `json:"sessionCurrency,omitempty"`
-	CacheHitTokens      int                         `json:"cacheHitTokens,omitempty"`
-	CacheMissTokens     int                         `json:"cacheMissTokens,omitempty"`
-	Estimated           bool                        `json:"estimated,omitempty"`
-	SessionCostComplete bool                        `json:"sessionCostComplete,omitempty"`
-	SessionCostQuote    *billing.CostQuote          `json:"sessionCostQuote,omitempty"`
-	Sources             map[string]usageSourceStats `json:"sources,omitempty"`
-	Maintenance         *ContextMaintenanceInfo     `json:"maintenance,omitempty"`
+	Used                int                `json:"used"`
+	Window              int                `json:"window"`
+	SessionTokens       int                `json:"sessionTokens"`
+	CompactRatio        float64            `json:"compactRatio,omitempty"`
+	SessionCost         float64            `json:"sessionCost,omitempty"`
+	SessionCurrency     string             `json:"sessionCurrency,omitempty"`
+	CacheHitTokens      int                `json:"cacheHitTokens,omitempty"`
+	CacheMissTokens     int                `json:"cacheMissTokens,omitempty"`
+	Estimated           bool               `json:"estimated,omitempty"`
+	SessionCostComplete bool               `json:"sessionCostComplete,omitempty"`
+	SessionCostQuote    *billing.CostQuote `json:"sessionCostQuote,omitempty"`
+	// RequestCount / ElapsedMs are the session-cumulative request tally and
+	// active-turn wall time from telemetry; the composer's context ring shows
+	// them alongside the gauge.
+	RequestCount int                         `json:"requestCount,omitempty"`
+	ElapsedMs    int64                       `json:"elapsedMs,omitempty"`
+	Sources      map[string]usageSourceStats `json:"sources,omitempty"`
+	Maintenance  *ContextMaintenanceInfo     `json:"maintenance,omitempty"`
 }
 
 // ContextMaintenanceInfo is the Wails-safe current-view snapshot. Optional
