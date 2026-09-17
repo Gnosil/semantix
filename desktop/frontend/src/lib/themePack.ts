@@ -44,7 +44,7 @@ export type ThemeContrastWarning = {
   suggest?: string;
 };
 
-export type ThemePackKind = "base" | "official" | "user" | "plugin";
+export type ThemePackKind = "base" | "user" | "plugin";
 
 export type ThemePackView = {
   id: string;
@@ -54,7 +54,7 @@ export type ThemePackView = {
   license?: string;
   baseStyle: string;
   builtin: boolean;
-  /** New in the official-themes release; old backends/mocks may omit it. */
+  /** Older backends/mocks may omit it; see themePackKind(). */
   kind?: ThemePackKind;
   active: boolean;
   hasBackground: boolean;
@@ -79,7 +79,7 @@ export type ThemePackView = {
  * the historical builtin flag: builtin ? "base" : "user".
  */
 export function themePackKind(pack: Pick<ThemePackView, "kind" | "builtin">): ThemePackKind {
-  if (pack.kind === "base" || pack.kind === "official" || pack.kind === "user" || pack.kind === "plugin") return pack.kind;
+  if (pack.kind === "base" || pack.kind === "user" || pack.kind === "plugin") return pack.kind;
   return pack.builtin ? "base" : "user";
 }
 
@@ -169,27 +169,6 @@ let previewSnapshot: {
   style: ThemeStyle;
   baseAppearance: { theme: Theme; style: ThemeStyle } | null;
 } | null = null;
-
-// Browser development uses Vite-bundled copies of the same official images
-// that Wails serves through /__semantix_theme_asset/. Only exact, internally
-// registered URLs may cross the background URL safety boundary.
-const trustedBundledThemeBackgroundURLs = new Set<string>();
-
-export function registerTrustedThemeBackgroundURLs(urls: readonly string[]): void {
-  if (typeof window === "undefined" || !window.location) return;
-  for (const raw of urls) {
-    try {
-      const parsed = new URL(raw, window.location.href);
-      if (parsed.origin !== window.location.origin) continue;
-      const path = decodeURIComponent(parsed.pathname);
-      const viteDevOfficial = /\/desktop\/themes\/official\/official-[a-z0-9-]+\/background\.webp$/.test(path);
-      const viteBuiltOfficial = /^\/assets\/background-[a-zA-Z0-9_-]+\.webp$/.test(path);
-      if (viteDevOfficial || viteBuiltOfficial) trustedBundledThemeBackgroundURLs.add(parsed.href);
-    } catch {
-      // Ignore malformed candidates; they remain outside the allow-list.
-    }
-  }
-}
 
 export function getActiveThemePack(): ThemePackView | null {
   return activePack;
@@ -555,7 +534,6 @@ export function isSafeBackgroundURL(url: string): boolean {
   if (u.startsWith("data:image/jpg;base64,")) return true;
   if (u.startsWith("data:image/webp;base64,")) return true;
   if (u.startsWith("blob:")) return true;
-  if (trustedBundledThemeBackgroundURLs.has(u)) return true;
   return false;
 }
 

@@ -241,7 +241,7 @@ func readZipFileLimited(zf *zip.File, max int64) ([]byte, error) {
 }
 
 // exportThemePackZIP writes a validated user theme to a ZIP path.
-// Reserved ids (base styles + official themes) are refused: an exported pack
+// Reserved ids (base styles) are refused: an exported pack
 // could never be re-imported because the id is reserved. Duplicate first.
 func exportThemePackZIP(id, destPath string) error {
 	id = strings.TrimSpace(id)

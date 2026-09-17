@@ -351,18 +351,16 @@ export function ThemeLibrarySection() {
 
   const activeId = useMemo(() => packs.find((p) => p.active)?.id ?? "", [packs]);
   const groups = useMemo(() => {
-    const official: ThemePackView[] = [];
     const base: ThemePackView[] = [];
     const user: ThemePackView[] = [];
     const plugin: ThemePackView[] = [];
     for (const p of packs) {
       const kind = themePackKind(p);
-      if (kind === "official") official.push(p);
-      else if (kind === "base") base.push(p);
+      if (kind === "base") base.push(p);
       else if (kind === "plugin") plugin.push(p);
       else user.push(p);
     }
-    return { official, base, user, plugin };
+    return { base, user, plugin };
   }, [packs]);
 
   return (
@@ -383,24 +381,6 @@ export function ThemeLibrarySection() {
         <div className="theme-lib-card__sub">{t("settings.themeLibrary.loading")}</div>
       ) : (
         <>
-          {groups.official.length > 0 && (
-            <section className="theme-library__group" data-group="official">
-              <h4 className="theme-library__heading">{t("settings.themeLibrary.groupOfficial")}</h4>
-              <div className="theme-library__grid theme-library__grid--official">
-                {groups.official.map((pack) => (
-                  <OfficialThemeCard
-                    key={pack.id}
-                    pack={pack}
-                    active={pack.id === activeId}
-                    busy={busy}
-                    onActivate={() => void activate(pack)}
-                    onCopy={() => void openCopy(pack)}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-
           {groups.base.length > 0 && (
             <section className="theme-library__group" data-group="base">
               <h4 className="theme-library__heading">{t("settings.themeLibrary.groupBase")}</h4>
@@ -484,66 +464,6 @@ export function ThemeLibrarySection() {
 
 function packDisplayName(pack: ThemePackView, t: (key: never, vars?: Record<string, string | number>) => string): string {
   return pack.nameKey ? t(pack.nameKey as never) : pack.name;
-}
-
-function packDescription(pack: ThemePackView, t: (key: never, vars?: Record<string, string | number>) => string): string {
-  if (pack.descriptionKey) return t(pack.descriptionKey as never);
-  return pack.description || "";
-}
-
-function OfficialThemeCard({
-  pack,
-  active,
-  busy,
-  onActivate,
-  onCopy,
-}: {
-  pack: ThemePackView;
-  active: boolean;
-  busy: boolean;
-  onActivate: () => void;
-  onCopy: () => void;
-}) {
-  const t = useT();
-  const name = packDisplayName(pack, t);
-  const desc = packDescription(pack, t);
-  const lightBg = pack.tokens?.light?.bg || "#f4f3ef";
-  const darkBg = pack.tokens?.dark?.bg || "#0c0d10";
-  const accent = pack.tokens?.dark?.accent || pack.tokens?.light?.accent || "#ff6a3d";
-
-  return (
-    <div className={`theme-lib-card theme-lib-card--official${active ? " theme-lib-card--on" : ""}`}>
-      <div className="theme-lib-card__thumb theme-lib-card__thumb--img">
-        {pack.previewUrl ? (
-          <img src={pack.previewUrl} alt={name} loading="lazy" decoding="async" />
-        ) : (
-          <div className="theme-lib-card__thumb-fallback" style={{ background: `linear-gradient(120deg, ${lightBg} 0%, ${lightBg} 55%, ${accent} 140%)` }} />
-        )}
-      </div>
-      <div className="theme-lib-card__meta">
-        <div className="theme-lib-card__name">
-          {name} {active ? <Check size={12} style={{ display: "inline", verticalAlign: "middle" }} /> : null}
-        </div>
-        {desc ? <div className="theme-lib-card__desc">{desc}</div> : null}
-        <div className="theme-lib-card__sub">
-          {pack.license || "MIT"} · {pack.author || "Semantix Contributors"}
-        </div>
-      </div>
-      <div className="theme-lib-card__swatches" aria-hidden="true">
-        <span className="theme-lib-card__swatch" style={{ background: lightBg }} />
-        <span className="theme-lib-card__swatch" style={{ background: darkBg }} />
-        <span className="theme-lib-card__swatch" style={{ background: accent }} />
-      </div>
-      <div className="theme-lib-card__actions">
-        <button type="button" className="btn btn--small btn--primary" disabled={busy || active} onClick={onActivate}>
-          {active ? t("settings.themeLibrary.active") : t("settings.themeLibrary.enable")}
-        </button>
-        <button type="button" className="btn btn--small" disabled={busy} onClick={onCopy}>
-          <Copy size={12} /> {t("settings.themeLibrary.copyFrom")}
-        </button>
-      </div>
-    </div>
-  );
 }
 
 function ThemeLibCard({

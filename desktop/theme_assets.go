@@ -1,13 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 const themeAssetURLPrefix = "/__semantix_theme_asset/"
@@ -55,12 +53,6 @@ func (a *App) themeAssetMiddleware() func(http.Handler) http.Handler {
 				http.NotFound(w, r)
 				return
 			}
-			// Official themes serve embedded assets with immutable caching;
-			// everything else falls through to the user library path below.
-			if isOfficialThemeID(themeID) {
-				serveOfficialThemeAsset(w, r, themeID, digest, filename)
-				return
-			}
 			if isBuiltinThemeID(themeID) {
 				http.NotFound(w, r)
 				return
@@ -99,50 +91,6 @@ func (a *App) themeAssetMiddleware() func(http.Handler) http.Handler {
 			http.ServeContent(w, r, filename, info.ModTime(), f)
 		})
 	}
-}
-
-// serveOfficialThemeAsset serves embedded official backgrounds and previews.
-// The URL digest is re-verified against the embedded bytes on every request;
-// only the manifest-declared background and the fixed preview name resolve.
-func serveOfficialThemeAsset(w http.ResponseWriter, r *http.Request, themeID, digest, filename string) {
-	ot := findOfficialTheme(themeID)
-	if ot == nil {
-		http.NotFound(w, r)
-		return
-	}
-	want := ""
-	switch filename {
-	case ot.manifest.Background.Image:
-		want = ot.bgDigest
-	case officialPreviewName:
-		want = ot.previewDigest
-	default:
-		http.NotFound(w, r)
-		return
-	}
-	if !strings.EqualFold(want, digest) {
-		http.NotFound(w, r)
-		return
-	}
-	data, name, err := readOfficialAsset(themeID, filename)
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	// MIME re-verification: sniff must agree with the declared extension.
-	head := data
-	if len(head) > 512 {
-		head = head[:512]
-	}
-	if sniffThemeImageMIME(head, name) != themeImageMIMEFromName(name) {
-		http.NotFound(w, r)
-		return
-	}
-	w.Header().Set("Content-Type", themeImageMIMEFromName(name))
-	w.Header().Set("Content-Disposition", mime.FormatMediaType("inline", map[string]string{"filename": name}))
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-	http.ServeContent(w, r, name, time.Time{}, bytes.NewReader(data))
 }
 
 func themeBackgroundURL(themeID, imageName string) string {

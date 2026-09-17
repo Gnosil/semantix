@@ -303,7 +303,7 @@ func deleteUserTheme(id string) error {
 	return os.RemoveAll(dest)
 }
 
-// resolveActiveThemeID returns a loadable official/user/plugin theme id, or
+// resolveActiveThemeID returns a loadable user/plugin theme id, or
 // empty. Base style ids are never active packs under schema v2. A plugin:
 // pointer resolves only while its plugin is installed AND enabled; when it
 // does not resolve, callers fall back to the base style but MUST preserve the
@@ -322,9 +322,6 @@ func resolveActiveThemeID(st ThemeDesktopState) string {
 			return pt.id
 		}
 		return ""
-	}
-	if isOfficialThemeID(id) {
-		return id
 	}
 	if userThemeExists(id) {
 		// Quick re-validate; corrupt themes fall back to none (caller falls to base style).
