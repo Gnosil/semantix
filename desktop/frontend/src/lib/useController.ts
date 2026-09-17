@@ -433,14 +433,10 @@ interface State {
   retry?: { attempt: number; max: number; observedAt: number };
   seq: number;
   sessionGen: number;
-  // Per-session counter bumped after hydration ancillary data (context, effort,
-  // jobs) arrives. ContextPanel reads this (merged into refreshKey) so the
-  // right-side panel re-fetches after a session rebind instead of showing stale
-  // RequestCount / ElapsedMs / SessionCost from before the swap.
-  contextPanelSeq: number;
   // Monotonic count of usage events from ANY source (executor, subagent,
-  // title…). Drives right-panel snapshot refreshes so sub-agent activity keeps
-  // the session metrics live; state.usage stays executor-gated for the gauge.
+  // title…). Drives the live ContextUsageForTab refresh so sub-agent activity
+  // keeps the context snapshot current; state.usage stays executor-gated for
+  // the gauge.
   usageSeq: number;
   // Bounded set of context_maintenance operationIds already shown as notices
   // so reconnect/replay does not insert duplicate timeline cards.
@@ -499,7 +495,6 @@ export const initialState: State = {
   sessionCurrency: "¥",
   seq: 0,
   sessionGen: 0,
-  contextPanelSeq: 0,
   usageSeq: 0,
   seenMaintenanceOps: [],
   extensionStatuses: {},
@@ -823,8 +818,7 @@ type Action =
   | { type: "approval_drained"; ids: string[]; epoch: number }
   | { type: "submit_prompt_failed"; id: string; epoch: number }
   | { type: "controller_rebuilt" }
-  | { type: "reset" }
-  | { type: "context_panel_refresh" };
+  | { type: "reset" };
 
 function backendStatusFromRuntimeMeta(meta: RuntimeMetaSnapshot): Extract<Action, { type: "backend_status" }> {
   const foregroundRunning = foregroundRunningFromRuntimeMeta(meta);
@@ -2166,7 +2160,6 @@ export function reducer(s: State, a: Action): State {
         extensionGenerations: {},
       };
     case "reset": return { ...initialState, meta: metaWithoutCanonicalTodos(s.meta), context: { used: 0, window: s.context.window, sessionTokens: 0, compactRatio: s.context.compactRatio }, balance: s.balance, effort: s.effort, jobs: s.jobs, hydrating: s.hydrating, hydrateReason: s.hydrateReason, hydrateError: s.hydrateError, hydrateHistoryLoaded: s.hydrateHistoryLoaded, hydratePlaceholderItems: s.hydratePlaceholderItems, backendActivationPending: s.backendActivationPending, sessionGen: s.sessionGen + 1, promptEpoch: s.promptEpoch + 1 };
-    case "context_panel_refresh": return { ...s, contextPanelSeq: s.contextPanelSeq + 1 };
     case "event": return applyEvent(s, a.e);
     case "stream_batch": return applyStreamBatch(s, a.segments);
     default: return s;
@@ -3043,11 +3036,6 @@ export function useController() {
       if (effort !== undefined) dispatchTo(tabId, { type: "effort", effort });
       if (jobs !== undefined) dispatchTo(tabId, { type: "jobs", jobs: asArray(jobs) });
       if (context !== undefined) dispatchTo(tabId, { type: "context", context });
-      // Signal ContextPanel to re-fetch now that ancillary data (context,
-      // effort, jobs) has landed. Without this, the right-side panel keeps
-      // stale RequestCount / ElapsedMs / SessionCost from before a session
-      // rebind because its refreshKey (dockRefreshKey) only bumps on turn_done.
-      dispatchTo(tabId, { type: "context_panel_refresh" });
       await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
       if (!stillCurrent()) return;
       if (!stillVisible()) {

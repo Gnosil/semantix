@@ -139,11 +139,6 @@ for (const selector of [
   ".workbench-dock__tab-label",
   ".workspace-files__scope-title",
   ".workspace-files__scope-meta",
-  ".context-panel__section-head span",
-  ".context-panel__metric span",
-  ".context-panel__metric strong",
-  ".app--creation .context-panel__mini-stat span",
-  ".app--creation .context-panel__mini-stat strong",
   ".topbar__model",
   ".composer-modebar__item span",
   ".composer-more-menu__item span",
@@ -155,23 +150,6 @@ eq(
   finalDeclaration(".app--creation .layout.layout--workspace-open", "transition"),
   "grid-template-columns 0s, min-width 0s",
   "creation dock skips zero-width grid interpolation on open",
-);
-eq(
-  finalDeclaration(".app--creation .context-panel__usage", "animation"),
-  "none",
-  "creation overview usage card disables inherited entrance animation",
-);
-ok(
-  finalDeclaration(".app--creation .context-panel__mini-stat", "justify-content") !== "space-between",
-  "creation overview rows avoid edge-pinned value alignment",
-);
-ok(
-  finalDeclaration(".app--creation .context-panel__mini-stat", "grid-template-columns") !== "minmax(0, 1fr) auto",
-  "creation overview rows avoid the spacer grid that pushes values to the edge",
-);
-ok(
-  finalDeclaration(".app--creation .context-panel__mini-stat strong", "max-width") !== "14ch",
-  "creation overview values are not capped to a fixed 14ch width",
 );
 
 eq(finalDeclaration(".composer-modebar", "overflow"), "hidden", "chat mode switcher contains enlarged labels");

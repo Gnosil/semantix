@@ -39,27 +39,6 @@ ok(blocked === "摘要未形成短视图 · 已停重试", `unexpected blocked n
 const failed = formatContextMaintenanceNotice({ status: "failed" }, translate);
 ok(failed === "摘要失败 · 已停重试", `unexpected failed notice: ${failed}`);
 
-const contextPanelSource = readFileSync(new URL("../components/ContextPanel.tsx", import.meta.url), "utf8");
-ok(
-  !contextPanelSource.includes('className="context-panel__maintenance"'),
-  "ContextPanel must not render the context checkpoint detail block",
-);
-ok(
-  !contextPanelSource.includes('t("context.maintenanceCanonical")')
-    && !contextPanelSource.includes('t("context.maintenanceCheckpoint")'),
-  "ContextPanel must not expose canonical, model-visible, or checkpoint details",
-);
-ok(
-  !contextPanelSource.includes("checkpointState")
-    && !contextPanelSource.includes("canonicalTokens")
-    && !contextPanelSource.includes("projectedTokens"),
-  "ContextPanel must not derive hidden checkpoint presentation state",
-);
-ok(
-  !contextPanelSource.includes("snipTrigger") && !contextPanelSource.includes("forceTrigger"),
-  "ContextPanel must not present retired multi-threshold triggers as user settings",
-);
-
 ok(isNewMaintenanceOperation([], "op-1"), "empty seen list accepts first operationId");
 ok(isNewMaintenanceOperation(["op-1"], "op-1") === false, "duplicate operationId is rejected");
 ok(isNewMaintenanceOperation(["op-1"], "op-2"), "distinct operationId is accepted");

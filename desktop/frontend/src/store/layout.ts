@@ -138,7 +138,7 @@ export function saveRightDockPreviewWidth(width: number): void {
 // dock survives restart. maximized/preview stay session-local — they are view
 // layout, not a durable preference. (Resize drag flags, button-press animation
 // flags, measured footer height, and viewport width stay as useState in App.tsx.)
-export type RightDockMode = "context" | "files" | "changed" | "remote";
+export type RightDockMode = "files" | "changed" | "remote";
 
 // terminalPanelOpen is independent from rightDockMode — the terminal is a
 // bottom drawer that coexists with the workspace panel, not a mode of it.
@@ -253,7 +253,7 @@ export const useLayoutStore = create<LayoutState>((set) => ({
   workspacePanelOpen: loadWorkspacePanelOpen(),
   workspacePanelMaximized: false,
   workspacePreviewActive: false,
-  rightDockMode: "context",
+  rightDockMode: "files",
   terminalPanelOpen: loadTerminalPanelOpen(),
   terminalHeight: loadTerminalHeight(),
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),

@@ -282,7 +282,6 @@ function NoticePreviewPanel() {
 }
 
 const TranscriptSelectionMenu = lazy(() => import("./components/TranscriptSelectionMenu").then((module) => ({ default: module.TranscriptSelectionMenu })));
-const ContextPanel = lazy(() => import("./components/ContextPanel").then((module) => ({ default: module.ContextPanel })));
 const HistoryPanel = lazy(() => import("./components/HistoryPanel").then((module) => ({ default: module.HistoryPanel })));
 const SettingsPanel = lazy(() => import("./components/SettingsPanelEntry").then((module) => ({ default: module.SettingsPanel })));
 const RemotePanel = lazy(() => import("./components/RemotePanel").then((module) => ({ default: module.RemotePanel })));
@@ -320,7 +319,6 @@ function normalizeDesktopLayoutStyle(style: string | undefined): DesktopLayoutSt
   if (style === "creation") return "creation";
   return "classic";
 }
-const SHOW_CONTEXT_DOCK = true;
 const DISMISSED_TODO_STORAGE_KEY = "todoPanel:dismissedKeys";
 const MAX_DISMISSED_TODO_KEYS = 160;
 type HistoryScopeFilter = { scope: "global" | "project"; workspaceRoot: string };
@@ -1196,7 +1194,7 @@ export default function App() {
   const workspaceScopeActiveTabRef = useRef(activeTabId);
   const [workspaceControllerEpoch, setWorkspaceControllerEpoch] = useState(0);
   workspaceScopeActiveTabRef.current = activeTabId;
-  // ContextPanel still uses this turn sequence for usage/session metadata;
+  // turn_done bumps the dock refresh key so composer file references re-scan;
   // WorkspacePanel listens to resource-level workspace revisions instead.
   useEffect(() => {
     startTerminalEventBridge();
@@ -1588,7 +1586,7 @@ export default function App() {
       return { ...current, [sourceTabId]: metadata };
     });
   }, []);
-  const rightDockDetailActive = rightDockMode !== "context" && workspacePreviewActive;
+  const rightDockDetailActive = workspacePreviewActive;
   const preferredWorkspacePanelWidth = rightDockDetailActive ? rightDockPreviewWidth : rightDockTreeWidth;
   const rightDockTreeMinWidth = desktopLayoutStyle === "creation" ? CREATION_RIGHT_DOCK_TREE_MIN_WIDTH : RIGHT_DOCK_TREE_MIN_WIDTH;
   const rightDockTreeWidthClamp = desktopLayoutStyle === "creation" ? clampCreationRightDockTreeWidth : clampRightDockTreeWidth;
@@ -2716,14 +2714,6 @@ export default function App() {
     saveRightDockTreeWidth(RIGHT_DOCK_TREE_MIN_WIDTH);
   }, [desktopLayoutStyle, rightDockTreeWidth]);
 
-  // Creation no longer exposes the overview tab. If a previous session left
-  // rightDockMode on "context", coerce it to files so 文件 stays selected.
-  useEffect(() => {
-    if (desktopLayoutStyle !== "creation") return;
-    if (rightDockMode !== "context") return;
-    setRightDockMode("files");
-  }, [desktopLayoutStyle, rightDockMode, setRightDockMode]);
-
   const setExpandedSidebarWidth = useCallback((width: number) => {
     closeTransientOverlays();
     const next = sidebarWidthClamp(width);
@@ -2815,12 +2805,11 @@ export default function App() {
   const ensureWorkspacePanelWidth = useCallback(
     (width: number) => {
       closeTransientOverlays();
-      if (rightDockMode === "context") return;
       const next = clampRightDockPreviewWidth(width);
       setRightDockPreviewWidth(next);
       saveRightDockPreviewWidth(next);
     },
-    [closeTransientOverlays, rightDockMode],
+    [closeTransientOverlays],
   );
 
   const startWorkspacePanelResize = useCallback(
@@ -2957,21 +2946,14 @@ export default function App() {
   const openWorkspacePanel = useCallback(
     (mode: RightDockMode = rightDockMode) => {
       closeTransientOverlays();
-      if (mode === "context" || mode !== rightDockMode) {
+      if (mode !== rightDockMode) {
         setWorkspacePreviewActive(false);
       }
       setRightDockMode(mode);
-      let nextMaximized = workspacePanelMaximized;
-      if (mode === "context") {
-        nextMaximized = false;
-        setWorkspacePanelMaximized(false);
-      } else {
-        // Keep file/change views docked; the rendered dock width is clamped to
-        // the viewport so opening it reflows instead of forcing maximize.
-        nextMaximized = false;
-        setWorkspacePanelMaximized(false);
-      }
-      if (workspacePanelOpen && workspacePanelMaximized === nextMaximized) {
+      // Keep file/change views docked; the rendered dock width is clamped to
+      // the viewport so opening it reflows instead of forcing maximize.
+      setWorkspacePanelMaximized(false);
+      if (workspacePanelOpen && !workspacePanelMaximized) {
         return;
       }
       setWorkspacePanelOpen(true);
@@ -2997,14 +2979,8 @@ export default function App() {
       closeWorkspacePanel();
       return;
     }
-    // Creation hides the overview tab; never reopen into the invisible "context"
-    // mode or neither 文件/改动 will show an active selection.
-    if (desktopLayoutStyle === "creation") {
-      openWorkspacePanel(rightDockMode === "changed" ? "changed" : "files");
-      return;
-    }
-    openWorkspacePanel("context");
-  }, [closeWorkspacePanel, desktopLayoutStyle, openWorkspacePanel, pulseWorkspaceToggle, rightDockMode, workspacePanelRenderable]);
+    openWorkspacePanel(rightDockMode === "changed" ? "changed" : "files");
+  }, [closeWorkspacePanel, openWorkspacePanel, pulseWorkspaceToggle, rightDockMode, workspacePanelRenderable]);
 
   const openRightDockMode = useCallback(
     (mode: RightDockMode) => {
@@ -5186,18 +5162,6 @@ export default function App() {
           >
             <div className="workbench-dock__tools">
               <div className="workbench-dock__tabs" role="tablist" aria-label={t("rightDock.views")}>
-                {SHOW_CONTEXT_DOCK && desktopLayoutStyle !== "creation" && (
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={rightDockMode === "context"}
-                    className={`workbench-dock__tab${rightDockMode === "context" ? " workbench-dock__tab--active" : ""}`}
-                    onClick={() => openRightDockMode("context")}
-                  >
-                    <Activity size={13} />
-                    <span className="workbench-dock__tab-label">{t("rightDock.overview")}</span>
-                  </button>
-                )}
                 <button
                   type="button"
                   role="tab"
@@ -5233,27 +5197,9 @@ export default function App() {
               </div>
             </div>
             <div className="workbench-dock__body">
-              {rightDockMode === "remote" ? (
+                {rightDockMode === "remote" ? (
                 <Suspense fallback={null}>
                   <RemotePanel onClose={() => setWorkspacePanel(false)} />
-                </Suspense>
-              ) : rightDockMode === "context" && desktopLayoutStyle !== "creation" ? (
-                <Suspense fallback={null}>
-                  <ContextPanel
-                    tabId={activeTabId}
-                    context={state.context}
-                    usage={state.usage}
-                    sessionTokens={state.sessionTokens}
-                    sessionCost={state.sessionCost}
-                    sessionCurrency={state.sessionCurrency}
-                    sessionTurns={sessionTurns}
-                    turnTokens={state.turnTotalTokens}
-                    turnCost={state.turnCost}
-                    balance={state.balance}
-                    sessionGen={state.sessionGen}
-                    refreshKey={dockRefreshKey + state.contextPanelSeq}
-                    usageSeq={state.usageSeq}
-                  />
                 </Suspense>
               ) : (
                 <Suspense fallback={null}>

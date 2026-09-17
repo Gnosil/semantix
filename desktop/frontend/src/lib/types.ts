@@ -881,6 +881,8 @@ export interface ContextInfo {
   estimated?: boolean;
   sessionCostComplete?: boolean;
   sessionCostQuote?: CostQuote;
+  requestCount?: number;
+  elapsedMs?: number;
   sources?: Record<string, UsageSourceStats>;
   maintenance?: ContextMaintenanceInfo;
 }
