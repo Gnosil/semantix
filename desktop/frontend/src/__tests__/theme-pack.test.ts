@@ -620,25 +620,10 @@ ok(!gallerySource.includes('["base", t("settings.themeGallery.tabBase"), groups.
 ok(gallerySource.includes("selectionSeeded.current") && gallerySource.includes("packs.length === 0"), "empty user tab is not overwritten by selection seeding");
 ok(!overviewSource.includes("theme-card-grid"), "overview no longer renders long style card grid");
 
-// Localized official names/descriptions in all three locales.
-const OFFICIAL_IDS = [
-  "official-rose-dawn",
-  "official-fortune-forge",
-  "official-crimson-horizon",
-  "official-sage-breeze",
-  "official-spark-notebook",
-  "official-violet-starlight",
-  "official-cyan-stage",
-  "official-noir-gold",
-];
-for (const id of OFFICIAL_IDS) {
-  for (const suffix of ["name", "description"]) {
-    const key = `settings.themes.official.${id}.${suffix}`;
-    ok(localeEn.includes(`"${key}"`), `en has ${key}`);
-    ok(localeZh.includes(`"${key}"`), `zh has ${key}`);
-    ok(localeZhTW.includes(`"${key}"`), `zh-TW has ${key}`);
-  }
-}
+// Official (wallpaper) theme packs were removed; no stale locale keys may linger.
+ok(!localeEn.includes('"settings.themes.official.'), "en has no official theme keys");
+ok(!localeZh.includes('"settings.themes.official.'), "zh has no official theme keys");
+ok(!localeZhTW.includes('"settings.themes.official.'), "zh-TW has no official theme keys");
 for (const key of [
   "settings.themeGallery.title",
   "settings.themeGallery.apply",
@@ -648,7 +633,6 @@ for (const key of [
   "settings.themeGallery.scenePreview",
   "settings.themeGallery.scenePreviewHint",
   "settings.themeGallery.tabAll",
-  "settings.themeGallery.sectionFlagship",
   "settings.themeEditor.safeAreaHint",
   "settings.themeLibrary.confirmDeleteTitle",
   "settings.themeLibrary.confirmReplaceImportTitle",
