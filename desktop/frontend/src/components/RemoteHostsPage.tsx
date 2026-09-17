@@ -34,7 +34,6 @@ export function RemoteHostsPage() {
   const statuses = useRemoteStore((s) => s.statuses);
   const setStoreHosts = useRemoteStore((s) => s.setHosts);
   const hydrateStatuses = useRemoteStore((s) => s.hydrateStatuses);
-  const openExplorer = useRemoteStore((s) => s.openExplorer);
 
   const refreshLegacy = useCallback(async () => {
     try {
@@ -136,7 +135,6 @@ export function RemoteHostsPage() {
                 status={statuses[h.id]}
                 onConnect={() => void app.ConnectRemoteHost(h.id).catch(() => {})}
                 onDisconnect={() => void app.DisconnectRemoteHost(h.id).catch(() => {})}
-                onOpen={() => openExplorer(h.id)}
                 onEdit={() => setScreen({ kind: "edit", id: h.id })}
                 onRemove={async () => {
                   const confirmed = await confirm({
@@ -205,7 +203,6 @@ function RemoteHostRow(props: {
   status?: RemoteConnectionStatus;
   onConnect: () => void;
   onDisconnect: () => void;
-  onOpen: () => void;
   onEdit: () => void;
   onRemove: () => void;
 }) {
@@ -230,9 +227,6 @@ function RemoteHostRow(props: {
       <div className="remote-host-row__actions">
         {connected ? (
           <>
-            <button className="btn" onClick={props.onOpen}>
-              {t("remote.explorer")}
-            </button>
             <button className="btn" onClick={props.onDisconnect}>
               {t("remote.disconnect")}
             </button>

@@ -284,7 +284,6 @@ function NoticePreviewPanel() {
 const TranscriptSelectionMenu = lazy(() => import("./components/TranscriptSelectionMenu").then((module) => ({ default: module.TranscriptSelectionMenu })));
 const HistoryPanel = lazy(() => import("./components/HistoryPanel").then((module) => ({ default: module.HistoryPanel })));
 const SettingsPanel = lazy(() => import("./components/SettingsPanelEntry").then((module) => ({ default: module.SettingsPanel })));
-const RemotePanel = lazy(() => import("./components/RemotePanel").then((module) => ({ default: module.RemotePanel })));
 const TerminalPanel = lazy(() => import("./components/TerminalPanel").then((module) => ({ default: module.TerminalPanel })));
 const TaskMonitorPanel = lazy(() => import("./components/TaskMonitorPanel").then((module) => ({ default: module.TaskMonitorPanel })));
 const WorkspacePanel = lazy(() => import("./components/WorkspacePanel").then((module) => ({ default: module.WorkspacePanel })));
@@ -1138,16 +1137,12 @@ export default function App() {
   const setPaletteOpen = useOverlayStore((s) => s.setPaletteOpen);
   const paletteExtensionActions = useOverlayStore((s) => s.paletteExtensionActions);
   const setPaletteExtensionActions = useOverlayStore((s) => s.setPaletteExtensionActions);
-  const remoteExplorerOpen = useRemoteStore((s) => s.explorerOpen);
-  const remoteExplorerHostId = useRemoteStore((s) => s.explorerHostId);
   const remoteHosts = useRemoteStore((s) => s.hosts);
   const remoteStatuses = useRemoteStore((s) => s.statuses);
   const { showToast } = useToast();
   const { runGoalAction, handleGoalActionError } = useGoalActionHandler();
   const setRemoteHosts = useRemoteStore((s) => s.setHosts);
   const hydrateRemoteStatuses = useRemoteStore((s) => s.hydrateStatuses);
-  const requestRemoteExplorer = useRemoteStore((s) => s.openExplorer);
-  const closeRemoteExplorerRequest = useRemoteStore((s) => s.closeExplorer);
   const applyRemoteStatus = useRemoteStore((s) => s.applyStatus);
   const requestRemoteStatusPopover = useRemoteStore((s) => s.requestStatusPopover);
   const setRemoteForwards = useRemoteStore((s) => s.setForwards);
@@ -3016,28 +3011,6 @@ export default function App() {
     saveTerminalPanelOpen(true);
     void useTerminalStore.getState().createSession(activeTabId, ".", "default").catch(() => {});
   }, [activeTabId, setTerminalPanelOpen]);
-
-  useEffect(() => {
-    if (!remoteExplorerOpen) return;
-    openRightDockMode("remote");
-    closeRemoteExplorerRequest();
-  }, [closeRemoteExplorerRequest, openRightDockMode, remoteExplorerOpen]);
-
-  useEffect(() => {
-    if (remoteHosts.length > 0 || rightDockMode !== "remote") return;
-    setRightDockMode("files");
-  }, [remoteHosts.length, rightDockMode, setRightDockMode]);
-
-  const openRemoteDock = useCallback(() => {
-    const fallback = remoteHosts.find((host) => {
-      const state = useRemoteStore.getState().statuses[host.id]?.state;
-      return state === "connected" || state === "degraded";
-    }) ?? remoteHosts[0];
-    const hostId = remoteExplorerHostId && remoteHosts.some((host) => host.id === remoteExplorerHostId)
-      ? remoteExplorerHostId
-      : fallback?.id;
-    if (hostId) requestRemoteExplorer(hostId);
-  }, [remoteExplorerHostId, remoteHosts, requestRemoteExplorer]);
 
   const remoteWorkspaceLaunchGate = useRef(new RemoteWorkspaceLaunchGate());
   const launchRemoteWorkspace = useCallback(async (host: RemoteHostView, requestSeq: number) => {
@@ -5182,27 +5155,10 @@ export default function App() {
                   <GitBranch size={13} />
                   <span className="workbench-dock__tab-label">{t("workspace.changedTab")}</span>
                 </button>
-                {remoteHosts.length > 0 && (
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={rightDockMode === "remote"}
-                    className={`workbench-dock__tab${rightDockMode === "remote" ? " workbench-dock__tab--active" : ""}`}
-                    onClick={openRemoteDock}
-                  >
-                    <Server size={13} />
-                    <span className="workbench-dock__tab-label">{t("rightDock.remote")}</span>
-                  </button>
-                )}
               </div>
             </div>
             <div className="workbench-dock__body">
-                {rightDockMode === "remote" ? (
-                <Suspense fallback={null}>
-                  <RemotePanel onClose={() => setWorkspacePanel(false)} />
-                </Suspense>
-              ) : (
-                <Suspense fallback={null}>
+              <Suspense fallback={null}>
                   <WorkspacePanel
                     open={workspacePanelRenderable}
                     tabId={activeTabId}
@@ -5230,7 +5186,6 @@ export default function App() {
                     creationMode={sidebarCreation}
                   />
                 </Suspense>
-              )}
             </div>
           </aside>
         )}
@@ -5304,7 +5259,6 @@ export default function App() {
             onConnectRemote={connectAndOpenRemoteWorkspace}
             onDisconnectRemote={(hostId) => void app.DisconnectRemoteHost(hostId).catch(() => {})}
             onManageRemote={() => setSettingsTarget("remote")}
-            onOpenRemote={requestRemoteExplorer}
             onOpenRemoteWorkspace={openRemoteWorkspaceFromStatus}
             remoteHosts={remoteHosts}
             remoteStatuses={remoteStatuses}
