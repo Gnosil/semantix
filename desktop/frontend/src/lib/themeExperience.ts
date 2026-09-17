@@ -30,7 +30,7 @@ export type GalleryTab = "catalog" | "user";
 
 export type ThemeSelection =
   | { kind: "base"; id: ThemeStyle; pack?: ThemePackView }
-  | { kind: "official" | "user" | "plugin"; id: string; pack: ThemePackView };
+  | { kind: "user" | "plugin"; id: string; pack: ThemePackView };
 
 let experienceCache: ThemeExperienceView | null = null;
 let previewDepth = 0;
@@ -234,23 +234,20 @@ export function isPreviewActive(): boolean {
 
 /** Group packs for the gallery tabs. */
 export function groupThemePacks(packs: ThemePackView[]): {
-  official: ThemePackView[];
   user: ThemePackView[];
   base: ThemePackView[];
   plugin: ThemePackView[];
 } {
-  const official: ThemePackView[] = [];
   const user: ThemePackView[] = [];
   const base: ThemePackView[] = [];
   const plugin: ThemePackView[] = [];
   for (const p of packs) {
     const k = themePackKind(p);
-    if (k === "official") official.push(p);
-    else if (k === "base") base.push(p);
+    if (k === "base") base.push(p);
     else if (k === "plugin") plugin.push(p);
     else user.push(p);
   }
-  return { official, user, base, plugin };
+  return { user, base, plugin };
 }
 
 export function selectionFromPack(pack: ThemePackView): ThemeSelection {

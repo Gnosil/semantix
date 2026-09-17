@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import { defineConfig, searchForWorkspaceRoot, type Plugin } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { execSync } from "node:child_process";
 import { mkdir, readdir, rename, writeFile } from "node:fs/promises";
@@ -167,10 +167,5 @@ export default defineConfig({
     host: "127.0.0.1",
     port: devPort,
     strictPort: true,
-    fs: {
-      // Browser-dev theme mocks use the same embedded source assets as Wails.
-      // Keep the allow-list narrow while retaining Vite's workspace root.
-      allow: [searchForWorkspaceRoot(configDir), resolve(configDir, "../themes/official")],
-    },
   },
 });

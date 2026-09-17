@@ -88,7 +88,6 @@ function packDescription(pack: ThemePackView, t: (key: never, vars?: Record<stri
 
 function packKindBadge(pack: ThemePackView, t: ReturnType<typeof useT>): string {
   const kind = themePackKind(pack);
-  if (kind === "official") return t("settings.themeGallery.kindOfficial");
   if (kind === "base") return t("settings.themeGallery.kindBase");
   if (kind === "plugin") {
     return pack.pluginName
@@ -277,12 +276,11 @@ export function ThemeGallery({
   }, [reload]);
 
   const groups = useMemo(() => groupThemePacks(packs), [packs]);
-  const catalogPacks = useMemo(() => [...groups.official, ...groups.plugin, ...groups.base], [groups.official, groups.plugin, groups.base]);
+  const catalogPacks = useMemo(() => [...groups.plugin, ...groups.base], [groups.plugin, groups.base]);
   const visible = tab === "catalog" ? catalogPacks : groups.user;
   const visibleSections =
     tab === "catalog"
       ? [
-          { id: "official", label: t("settings.themeGallery.sectionFlagship"), packs: groups.official },
           { id: "plugin", label: t("settings.themeLibrary.groupPlugin"), packs: groups.plugin },
           { id: "base", label: t("settings.themeGallery.tabBase"), packs: groups.base },
         ].filter((section) => section.packs.length > 0)
@@ -311,12 +309,12 @@ export function ThemeGallery({
       setTab(themePackKind(experience.activePack) === "user" ? "user" : "catalog");
       return;
     }
-    const base = groups.base.find((p) => p.id === experience.baseStyle) || groups.base[0] || groups.official[0];
+    const base = groups.base.find((p) => p.id === experience.baseStyle) || groups.base[0];
     if (base) {
       setSelected(selectionFromPack(base));
       setTab("catalog");
     }
-  }, [packs, experience, selected, groups.base, groups.official]);
+  }, [packs, experience, selected, groups.base]);
 
   const selectedPack = selected?.pack || (selected?.kind === "base" ? groups.base.find((p) => p.id === selected.id) : null) || null;
   const isActive = isSelectionActive(selected, experience);
@@ -617,7 +615,6 @@ export function ThemeGallery({
             ) : null}
             <div className="theme-gallery__rail-list" role="listbox" aria-label={t("settings.themeGallery.title")}>
               {[
-                { id: "official", label: t("settings.themeLibrary.groupOfficial"), packs: groups.official },
                 { id: "user", label: t("settings.themeLibrary.groupUser"), packs: groups.user },
                 { id: "plugin", label: t("settings.themeLibrary.groupPlugin"), packs: groups.plugin },
                 { id: "base", label: t("settings.themeGallery.tabBase"), packs: groups.base },

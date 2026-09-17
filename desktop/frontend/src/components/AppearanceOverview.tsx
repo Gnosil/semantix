@@ -188,11 +188,9 @@ export function AppearanceOverview({
       : pack.name
     : t(styleNameKey);
   const kindLabel = pack
-    ? pack.kind === "user" || (!pack.builtin && pack.kind !== "official")
+    ? pack.kind === "user" || !pack.builtin
       ? t("settings.themeGallery.kindUser")
-      : pack.kind === "official" || (pack.builtin && pack.id.startsWith("official-"))
-        ? t("settings.themeGallery.kindOfficial")
-        : t("settings.themeGallery.kindBase")
+      : t("settings.themeGallery.kindBase")
     : t("settings.themeGallery.kindBase");
 
   const swatches = pack

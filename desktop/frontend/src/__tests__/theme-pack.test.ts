@@ -16,7 +16,6 @@ import {
   isSafeBackgroundURL,
   isSafeHex,
   isThemeTokenKey,
-  registerTrustedThemeBackgroundURLs,
   setBaseAppearance,
   themePackKind,
 } from "../lib/themePack";
@@ -245,9 +244,7 @@ ok(
 ok(isSafeBackgroundURL("/__semantix_theme_asset/my-theme/abc/background.png"), "asset URL allowed");
 ok(isSafeBackgroundURL("data:image/png;base64,aaa"), "data URL allowed");
 ok(!isSafeBackgroundURL("https://evil.example/bg.png"), "remote URL rejected");
-const bundledOfficialBackground = "http://127.0.0.1:5197/@fs/workspace/desktop/themes/official/official-rose-dawn/background.webp";
-registerTrustedThemeBackgroundURLs([bundledOfficialBackground, "https://evil.example/assets/background-fake.webp"]);
-ok(isSafeBackgroundURL(bundledOfficialBackground), "registered same-origin official dev background allowed");
+ok(!isSafeBackgroundURL("http://127.0.0.1:5197/assets/background-fake.webp"), "bundled asset URL outside the theme asset route rejected");
 ok(!isSafeBackgroundURL("https://evil.example/assets/background-fake.webp"), "cross-origin bundled background rejected");
 
 const draft = draftPackView({
@@ -511,10 +508,10 @@ ok(appSource.includes("ThemeBackground"), "App mounts background layer");
 ok(appSource.includes("applyConfiguredBaseAppearance"), "App applies configured appearance without replacing an active pack");
 ok(appSource.includes("ResetThemePack") || appSource.includes("theme reset") || appSource.includes('arg === "reset"'), "reset entry exists");
 
-console.log("\nofficial themes (kind/grouping/i18n)");
+console.log("\ntheme kinds (kind/grouping/i18n)");
 
 // kind resolution with legacy fallback.
-ok(themePackKind({ kind: "official", builtin: true }) === "official", "kind official passthrough");
+ok(themePackKind({ kind: "official" as never, builtin: true }) === "base", "removed official kind falls back to builtin base");
 ok(themePackKind({ kind: "base", builtin: true }) === "base", "kind base passthrough");
 ok(themePackKind({ kind: "user", builtin: false }) === "user", "kind user passthrough");
 ok(themePackKind({ builtin: true }) === "base", "legacy builtin=true falls back to base");
@@ -599,7 +596,7 @@ ok(gallerySource.includes("handlePreviewRadioKey") && gallerySource.includes("ta
 ok(gallerySource.includes("if (!immersive || !selectedPack) return") && gallerySource.includes("previewPackGlobally(selectedPack)"), "immersive selection automatically starts a global preview");
 ok(gallerySource.includes("closeImmersivePreview") && gallerySource.includes("cancelGlobalPreview();"), "leaving immersive preview restores the prior appearance");
 ok(!gallerySource.includes("settings.themeGallery.tempPreview"), "redundant global-trial button is removed");
-ok(gallerySource.includes("theme-gallery__rail-section") && gallerySource.includes("packs: groups.official") && gallerySource.includes("packs: groups.user") && gallerySource.includes("packs: groups.base"), "immersive rail includes official, user, and base theme groups");
+ok(gallerySource.includes("theme-gallery__rail-section") && !gallerySource.includes("groups.official") && gallerySource.includes("packs: groups.user") && gallerySource.includes("packs: groups.base"), "immersive rail includes user and base theme groups and no official group");
 ok(gallerySource.includes("filter((section) => section.packs.length > 0)"), "immersive rail hides empty groups");
 ok(!gallerySource.includes("theme-gallery__tabs--compact"), "immersive rail has no duplicate bottom tab navigation");
 ok(gallerySource.includes("theme-gallery__detail-status"), "active theme uses a status badge");
@@ -616,8 +613,8 @@ ok(bridgeSource.includes("ActivateBaseStyle"), "bridge exposes ActivateBaseStyle
 ok(bridgeSource.includes("DisableThemePack"), "bridge exposes DisableThemePack");
 
 // Gallery navigation merges built-in choices while keeping their semantics.
-ok(gallerySource.includes('["catalog", t("settings.themeGallery.tabAll"), catalogPacks.length]'), "gallery combines official and base packs in all themes");
-ok(gallerySource.includes('id: "official"') && gallerySource.includes('id: "base"'), "all themes keeps flagship and base sections");
+ok(gallerySource.includes('["catalog", t("settings.themeGallery.tabAll"), catalogPacks.length]'), "gallery combines plugin and base packs in all themes");
+ok(!gallerySource.includes('id: "official"') && gallerySource.includes('id: "plugin"') && gallerySource.includes('id: "base"'), "all themes keeps plugin and base sections without a flagship section");
 ok(gallerySource.includes('role="group"') && gallerySource.includes("theme-gallery__section-head"), "catalog sections retain accessible grouping");
 ok(!gallerySource.includes('["base", t("settings.themeGallery.tabBase"), groups.base.length]'), "base styles are no longer a separate top-level tab");
 ok(gallerySource.includes("selectionSeeded.current") && gallerySource.includes("packs.length === 0"), "empty user tab is not overwritten by selection seeding");
@@ -662,13 +659,10 @@ for (const key of [
   ok(localeEn.includes(`"${key}"`) && localeZh.includes(`"${key}"`) && localeZhTW.includes(`"${key}"`), `gallery key ${key} in all locales`);
 }
 
-// Mock parity: 6 base + 8 official mock packs so browser dev matches the shell.
+// Mock parity: 6 base packs and no bundled wallpaper packs so browser dev matches the shell.
 ok((bridgeSource.match(/kind: "base"/g) || []).length === 6, "mock has 6 base packs");
-ok((bridgeSource.match(/kind: "official"/g) || []).length === 8, "mock has 8 official packs");
-ok((bridgeSource.match(/previewUrl: new URL\("\.\.\/\.\.\/\.\.\/themes\/official\//g) || []).length === 8, "browser mock has 8 real official previews");
-ok((bridgeSource.match(/backgroundUrl: new URL\("\.\.\/\.\.\/\.\.\/themes\/official\//g) || []).length === 8, "browser mock has 8 real official backgrounds");
-ok((bridgeSource.match(/paneOpacity:\s*0\.50/g) || []).length === 8, "browser mock gives every official theme the product pane opacity");
-ok(viteSource.includes('resolve(configDir, "../themes/official")'), "Vite dev server permits only the official theme asset directory");
+ok((bridgeSource.match(/kind: "official"/g) || []).length === 0, "mock has no official packs");
+ok(!viteSource.includes("themes/official"), "Vite dev server no longer allow-lists a bundled theme asset directory");
 ok(stylesSource.includes("container: theme-gallery / inline-size"), "gallery establishes its own responsive container");
 ok(stylesSource.includes("@container theme-gallery (max-width: 760px)"), "gallery collapses from its content width");
 ok(gallerySource.includes('import { createPortal } from "react-dom"') && gallerySource.includes("document.body"), "theme editor escapes settings containing blocks through a body portal");
