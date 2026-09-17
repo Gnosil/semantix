@@ -244,7 +244,7 @@ func themeDataDigest(data []byte) string {
 }
 
 // servePluginThemeAsset serves a scene image straight out of the plugin ZIP.
-// It mirrors serveOfficialThemeAsset: the theme must still resolve from an
+// Contract: the theme must still resolve from an
 // enabled plugin, the filename must be manifest-declared, the URL digest is
 // re-verified against the current bytes, and the MIME sniff must agree with
 // the declared extension.

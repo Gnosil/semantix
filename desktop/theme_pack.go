@@ -27,11 +27,13 @@ const (
 	themePackManifestName     = "theme.json"
 	themePackExt              = ".semantix-theme"
 	themeStateFileName        = "desktop-theme-state.json"
-	// Schema v2: activeThemeId may only reference official, user or plugin
-	// packs. Base style ids (graphite/…) live exclusively in desktop.theme_style.
+	// Schema v2: activeThemeId may only reference user or plugin packs. Base
+	// style ids (graphite/…) live exclusively in desktop.theme_style.
 	themeStateSchemaVer   = 2
 	themeStateSchemaVerV1 = 1
 	themeDirName          = "themes"
+	themeKindBase         = "base"
+	themeKindUser         = "user"
 )
 
 // Allowed base styles match the existing desktop theme directions.
@@ -530,6 +532,12 @@ func isBuiltinThemeID(id string) bool {
 	return ok
 }
 
+// isReservedThemeID covers the base styles: user saves, imports, copies,
+// overwrites and deletes must refuse them.
+func isReservedThemeID(id string) bool {
+	return isBuiltinThemeID(id)
+}
+
 func builtinThemePacks() []ThemePackManifest {
 	// Built-in packs mirror the six style directions with empty token overrides.
 	order := []string{"graphite", "aurora", "slate", "carbon", "nocturne", "amber"}
@@ -570,7 +578,7 @@ func manifestToView(m *ThemePackManifest, kind string, active bool, backgroundUR
 		Description:       m.Description,
 		License:           m.License,
 		BaseStyle:         m.BaseStyle,
-		Builtin:           kind == themeKindBase || kind == themeKindOfficial,
+		Builtin:           kind == themeKindBase,
 		Kind:              kind,
 		Active:            active,
 		HasBackground:     (m.Background != nil && m.Background.Image != "") || (m.TaskBackground != nil && m.TaskBackground.Image != ""),
@@ -582,10 +590,6 @@ func manifestToView(m *ThemePackManifest, kind string, active bool, backgroundUR
 			Dark:  copyStringMap(m.Tokens.Dark),
 		},
 		Recipes: m.Recipes,
-	}
-	if kind == themeKindOfficial {
-		v.NameKey = "settings.themes.official." + m.ID + ".name"
-		v.DescriptionKey = "settings.themes.official." + m.ID + ".description"
 	}
 	if m.Background != nil {
 		bg := *m.Background

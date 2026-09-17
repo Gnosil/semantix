@@ -57,7 +57,7 @@ func takePendingThemeImport() *stagedThemeImport {
 	return p
 }
 
-// ListThemePacks returns base directions, official themes and user themes.
+// ListThemePacks returns base directions, plugin themes and user themes.
 // Base packs are never "active" as theme packs; their "active" flag means
 // "this is the configured base style and no pack is applied".
 func (a *App) ListThemePacks() ([]ThemePackView, error) {
@@ -74,12 +74,6 @@ func (a *App) ListThemePacks() ([]ThemePackView, error) {
 		// Base "active" = no pack applied and this is the configured base style.
 		baseActive := activeID == "" && baseStyle == m.ID
 		out = append(out, manifestToView(&cp, themeKindBase, baseActive, "", ""))
-	}
-	for _, ot := range officialThemes() {
-		m := ot.manifest
-		bgURL := officialAssetURL(m.ID, m.Background.Image)
-		pvURL := officialAssetURL(m.ID, officialPreviewName)
-		out = append(out, manifestToView(&m, themeKindOfficial, activeID == m.ID, bgURL, pvURL))
 	}
 	ids, err := listUserThemeIDs()
 	if err != nil {
@@ -202,12 +196,6 @@ func (a *App) loadThemeViewLocked(id string, active bool) (ThemePackView, error)
 		}
 		return manifestToView(m, themeKindBase, active, "", ""), nil
 	}
-	if ot := findOfficialTheme(id); ot != nil {
-		m := ot.manifest
-		bgURL := officialAssetURL(m.ID, m.Background.Image)
-		pvURL := officialAssetURL(m.ID, officialPreviewName)
-		return manifestToView(&m, themeKindOfficial, active, bgURL, pvURL), nil
-	}
 	if pluginName, themeID, ok := parsePluginThemeID(id); ok {
 		pt := findPluginTheme(pluginName, themeID)
 		if pt == nil {
@@ -257,10 +245,6 @@ func (a *App) ActivateThemePack(id string) error {
 			return fmt.Errorf("plugin theme %q is unavailable (plugin %q must be installed and enabled)", id, pluginName)
 		}
 		st.ActiveThemeID = pt.id
-		return saveThemeDesktopState(st)
-	}
-	if findOfficialTheme(id) != nil {
-		st.ActiveThemeID = id
 		return saveThemeDesktopState(st)
 	}
 	if _, err := loadUserThemeManifest(id); err != nil {
@@ -577,16 +561,6 @@ func (a *App) CopyThemePack(sourceID, newID, newName string) (ThemePackView, err
 		}
 		cp := *src
 		m = &cp
-	} else if ot := findOfficialTheme(sourceID); ot != nil {
-		// Copying an official theme embeds a private copy of its background so the
-		// duplicate becomes an ordinary editable user theme.
-		cp := ot.manifest
-		m = &cp
-		data, _, err := readOfficialAsset(sourceID, cp.Background.Image)
-		if err != nil {
-			return ThemePackView{}, fmt.Errorf("read official background: %w", err)
-		}
-		imageBytes = data
 	} else {
 		src, err := loadUserThemeManifest(sourceID)
 		if err != nil {

@@ -84,16 +84,21 @@ func TestMigrateV1BaseActiveIDToBaseStyle(t *testing.T) {
 	}
 }
 
-func TestOfficialThemeOrderFixed(t *testing.T) {
-	resetOfficialRegistryForTest()
-	themes := officialThemes()
-	if len(themes) != len(officialThemeOrderFixed) {
-		t.Fatalf("count %d want %d", len(themes), len(officialThemeOrderFixed))
+// publishTestTheme installs a minimal user theme pack into the current
+// SEMANTIX_HOME so tests have a real pack to activate.
+func publishTestTheme(t *testing.T, id, baseStyle string) {
+	t.Helper()
+	m := &ThemePackManifest{
+		SchemaVersion: 1, ID: id, Name: id, BaseStyle: baseStyle,
+		Recipes: defaultThemePackRecipes(),
 	}
-	for i, ot := range themes {
-		if ot.manifest.ID != officialThemeOrderFixed[i] {
-			t.Fatalf("order[%d] = %q, want %q", i, ot.manifest.ID, officialThemeOrderFixed[i])
-		}
+	staging, err := writeThemeStaging(m, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(staging)
+	if err := publishThemeDir(m.ID, staging, false); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -104,12 +109,8 @@ func TestDisableThemePackKeepsBaseStyle(t *testing.T) {
 	if err := app.ActivateBaseStyle("nocturne"); err != nil {
 		t.Fatal(err)
 	}
-	// Activate official if present.
-	if len(officialThemes()) == 0 {
-		t.Skip("no official themes")
-	}
-	id := officialThemes()[0].manifest.ID
-	if err := app.ActivateThemePack(id); err != nil {
+	publishTestTheme(t, "keep-base", "slate")
+	if err := app.ActivateThemePack("keep-base"); err != nil {
 		t.Fatal(err)
 	}
 	if err := app.DisableThemePack(); err != nil {
@@ -132,8 +133,9 @@ func TestRestoreGraphiteAppearance(t *testing.T) {
 	t.Setenv("SEMANTIX_HOME", home)
 	app := NewApp()
 	_ = app.ActivateBaseStyle("carbon")
-	if len(officialThemes()) > 0 {
-		_ = app.ActivateThemePack(officialThemes()[0].manifest.ID)
+	publishTestTheme(t, "restore-me", "carbon")
+	if err := app.ActivateThemePack("restore-me"); err != nil {
+		t.Fatal(err)
 	}
 	if err := app.RestoreGraphiteAppearance(); err != nil {
 		t.Fatal(err)
