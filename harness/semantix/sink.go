@@ -55,25 +55,19 @@ type toolCallLine struct {
 // HarnessSink mirrors semantix events into kernel-compatible session JSONL.
 // It depends only on the stable event subset (TurnStarted/Reasoning/Text/
 // Message/ToolDispatch/ToolResult/TurnDone) so upstream interface changes
-// stay contained here. Failures are non-fatal: a write error drops the turn
-// and is surfaced on the next success instead of breaking the agent.
+// stay contained here. Emit remains non-fatal; Close reports any mirror write
+// error without changing the agent's execution outcome.
 type HarnessSink struct {
-	mu      sync.Mutex
-	path    string // .semantix/sessions/<sessionID>.jsonl
-	file    *os.File
-	turn    bool   // a turn is currently open
-	first   string // user text of the current turn
-	text    string // assistant text buffer
-	reason  string // reasoning buffer
-	tools   []toolCallLine
-	outputs map[string]toolResultLine // host-owned result metadata keyed by call ID
-	err     error
-}
-
-type toolResultLine struct {
-	content           string
-	verification      string
-	workspaceMutation bool
+	mu          sync.Mutex
+	path        string // .semantix/sessions/<sessionID>.jsonl
+	file        *os.File
+	turn        bool
+	first       string // user text of the current turn
+	lines       []sessionLine
+	assistant   int // current assistant line, or -1 after a tool result
+	messageDone bool
+	pending     map[string]toolCallLine
+	err         error
 }
 
 // NewHarnessSink creates the sink, creating the sessions dir (0700).
@@ -108,27 +102,38 @@ func NewHarnessSink(dir, sessionID, firstUserText string) (*HarnessSink, error) 
 func (s *HarnessSink) Emit(e event.Event) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if !s.turn && e.Kind != event.TurnStarted {
+		return
+	}
 	switch e.Kind {
 	case event.TurnStarted:
 		s.flushLocked()
 		s.turn = true
-		s.text, s.reason, s.tools = "", "", nil
-		// The harness sends the turn's user text on TurnStarted; without it
-		// the mirrored transcript has no user lines and the kernel extractor
-		// can never produce Prompt slices from these sessions.
+		s.assistant = -1
 		if e.Text != "" {
 			s.first = e.Text
 		}
-	case event.Reasoning:
-		s.reason += e.Text
-	case event.Text:
-		s.text += e.Text
-	case event.Message:
-		// keep the accumulated text; nothing extra to do
+	case event.Reasoning, event.Text, event.Message:
+		// Message closes one provider response, not the whole user turn.
+		// A later stream starts a new assistant record. Reasoning itself is
+		// never mirrored, including the Reasoning field on Message.
+		if s.messageDone {
+			s.assistant, s.messageDone = -1, false
+		}
+		if e.Kind == event.Text {
+			s.assistantLocked().Content += e.Text
+		} else if e.Kind == event.Message {
+			// Extensions can replace streamed text; the terminal message wins.
+			s.assistantLocked().Content = e.Text
+			s.messageDone = true
+		}
 	case event.ToolDispatch:
+		// Streaming previews and UI refreshes are not additional calls.
+		if e.Tool.Partial || e.Tool.Refreshed {
+			return
+		}
 		var args json.RawMessage
 		if e.Tool.Args != "" {
-			// Args is a JSON string (may be a raw object or an encoded blob).
 			if raw := json.RawMessage(e.Tool.Args); json.Valid(raw) {
 				args = raw
 			} else {
@@ -138,27 +143,51 @@ func (s *HarnessSink) Emit(e event.Event) {
 		if args == nil {
 			args = json.RawMessage("{}")
 		}
-		s.tools = append(s.tools, toolCallLine{ID: e.Tool.ID, Name: e.Tool.Name, Arguments: args})
+		call := toolCallLine{ID: e.Tool.ID, Name: e.Tool.Name, Arguments: args}
+		line := s.assistantLocked()
+		line.ToolCalls = append(line.ToolCalls, call)
+		if s.pending == nil {
+			s.pending = make(map[string]toolCallLine)
+		}
+		s.pending[call.ID] = call
 	case event.ToolResult:
 		out := e.Tool.Output
 		if e.Tool.Err != "" {
 			out = e.Tool.Err
 		}
-		if s.outputs == nil {
-			s.outputs = make(map[string]toolResultLine)
+		if out == "" {
+			out = "(tool output)"
 		}
+		name := e.Tool.Name
+		if call, ok := s.pending[e.Tool.ID]; ok {
+			name = call.Name
+		}
+		delete(s.pending, e.Tool.ID)
 		verification := ""
 		if e.Tool.Execution != nil {
 			verification = e.Tool.Execution.Verification
 		}
-		s.outputs[e.Tool.ID] = toolResultLine{content: out, verification: verification, workspaceMutation: e.Tool.WorkspaceMutation}
+		// Preserve host result order: a mutation after a passing test must
+		// not become a verified Result by sorting outputs into dispatch order.
+		s.lines = append(s.lines, sessionLine{
+			Type: "tool", ToolCall: e.Tool.ID, Name: name, Content: out,
+			Verification: verification, WorkspaceMutation: e.Tool.WorkspaceMutation,
+		})
+		s.assistant, s.messageDone = -1, false
 	case event.TurnDone:
 		s.flushLocked()
-		s.turn = false
 	}
 }
 
-// flushLocked writes the current turn (user + assistant + tool lines).
+func (s *HarnessSink) assistantLocked() *sessionLine {
+	if s.assistant < 0 {
+		s.lines = append(s.lines, sessionLine{Role: "assistant"})
+		s.assistant = len(s.lines) - 1
+	}
+	return &s.lines[s.assistant]
+}
+
+// flushLocked seals the current turn exactly once, retaining message boundaries.
 func (s *HarnessSink) flushLocked() {
 	if !s.turn {
 		return
@@ -167,29 +196,27 @@ func (s *HarnessSink) flushLocked() {
 	if s.first != "" {
 		lines = append(lines, sessionLine{Role: "user", Content: s.first})
 	}
-	if s.text != "" || len(s.tools) > 0 {
-		lines = append(lines, sessionLine{Role: "assistant", Content: s.text, ToolCalls: s.tools})
-	}
-	for _, t := range s.tools {
-		result := s.outputs[t.ID]
-		content := result.content
-		if content == "" {
-			content = "(tool output)"
+	lines = append(lines, s.lines...)
+	// Interrupted calls still retain a paired placeholder, in dispatch order.
+	for _, line := range s.lines {
+		for _, call := range line.ToolCalls {
+			if _, ok := s.pending[call.ID]; ok {
+				lines = append(lines, sessionLine{Type: "tool", ToolCall: call.ID, Name: call.Name, Content: "(tool output)"})
+				delete(s.pending, call.ID)
+			}
 		}
-		lines = append(lines, sessionLine{
-			Type: "tool", ToolCall: t.ID, Name: t.Name, Content: content,
-			Verification: result.verification, WorkspaceMutation: result.workspaceMutation,
-		})
 	}
-	s.first = ""
-	s.outputs = nil
+	s.turn, s.first, s.lines, s.pending = false, "", nil, nil
+	s.assistant, s.messageDone = -1, false
 	for _, ln := range lines {
 		b, err := json.Marshal(ln)
 		if err != nil {
-			continue
+			s.err = err
+			return
 		}
 		if _, err := s.file.Write(append(b, '\n')); err != nil {
 			s.err = err
+			return
 		}
 	}
 	if s.err == nil {
@@ -206,8 +233,6 @@ func (s *HarnessSink) EndTurn() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.flushLocked()
-	s.turn = false
-	s.text, s.reason, s.tools = "", "", nil
 }
 
 // Close flushes and closes the underlying file.
@@ -215,5 +240,9 @@ func (s *HarnessSink) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.flushLocked()
-	return s.file.Close()
+	closeErr := s.file.Close()
+	if s.err != nil {
+		return s.err
+	}
+	return closeErr
 }

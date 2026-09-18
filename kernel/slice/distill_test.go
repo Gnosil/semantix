@@ -87,12 +87,12 @@ const distillFixture = `{"kind":5,"session_id":"m","at":"2026-08-30T21:32:00Z","
 {"role":"assistant","content":"working","tool_calls":[{"id":"c1","name":"bash","arguments":{}},{"id":"c1","name":"bash","arguments":{"command":"cd /tmp/run/repos/sympy && rg -n \"class Rational\" sympy/core/numbers.py"}},{"id":"c2","name":"write_file","arguments":{"path":"repro_issue.py"}},{"id":"c3","name":"bash","arguments":{"command":"cd /tmp/run/repos/sympy && python repro_issue.py"}},{"id":"c4","name":"edit_file","arguments":{"path":"sympy/core/numbers.py"}},{"id":"c5","name":"bash","arguments":{"command":"cd /tmp/run/repos/sympy && python -m pytest sympy/core/tests/test_numbers.py -x"}},{"id":"c6","name":"bash","arguments":{"command":"cd /tmp/run/repos/sympy && python -m pytest sympy/core/tests/test_numbers.py -x"}},{"id":"c7","name":"bash","arguments":{"command":"cd /tmp/run/repos/sympy && pip install -e ."}}]}
 {"type":"tool","tool_call_id":"c1","name":"bash","content":"1483:class Rational(Number):"}
 {"type":"tool","tool_call_id":"c1","name":"bash","content":"1483:class Rational(Number):"}
-{"type":"tool","tool_call_id":"c2","name":"write_file","content":"wrote 322 bytes to /tmp/run/repos/sympy/repro_issue.py"}
+{"type":"tool","tool_call_id":"c2","name":"write_file","content":"wrote 322 bytes to /tmp/run/repos/sympy/repro_issue.py","workspace_mutation":true}
 {"type":"tool","tool_call_id":"c3","name":"bash","content":"blocked: non-terminal inline interpreter command"}
-{"type":"tool","tool_call_id":"c4","name":"edit_file","content":"edited /tmp/run/repos/sympy/sympy/core/numbers.py\nActual replacement receipt after write:"}
-{"type":"tool","tool_call_id":"c4","name":"edit_file","content":"edited /tmp/run/repos/sympy/sympy/core/numbers.py\nActual replacement receipt after write:"}
-{"type":"tool","tool_call_id":"c5","name":"bash","content":"FAILED test_numbers.py::test_x\ncommand exited: exit status 1"}
-{"type":"tool","tool_call_id":"c6","name":"bash","content":"3 passed in 1.2s"}
+{"type":"tool","tool_call_id":"c4","name":"edit_file","content":"edited /tmp/run/repos/sympy/sympy/core/numbers.py\nActual replacement receipt after write:","workspace_mutation":true}
+{"type":"tool","tool_call_id":"c4","name":"edit_file","content":"edited /tmp/run/repos/sympy/sympy/core/numbers.py\nActual replacement receipt after write:","workspace_mutation":true}
+{"type":"tool","tool_call_id":"c5","name":"bash","content":"FAILED test_numbers.py::test_x\ncommand exited: exit status 1","verification":"failed"}
+{"type":"tool","tool_call_id":"c6","name":"bash","content":"3 passed in 1.2s","verification":"passed"}
 {"type":"tool","tool_call_id":"c7","name":"bash","content":"Successfully installed sympy"}
 {"role":"assistant","content":"Done — fixed the Rational constructor."}
 `
@@ -130,7 +130,7 @@ func TestDistillCards(t *testing.T) {
 	if strings.Contains(ops, "exit 1") {
 		t.Errorf("repo-ops kept the stale failing outcome:\n%s", ops)
 	}
-	if !strings.Contains(ops, "pip install -e . (ok)") {
+	if !strings.Contains(ops, "pip install -e . (unknown)") {
 		t.Errorf("repo-ops missing build command:\n%s", ops)
 	}
 	if !strings.Contains(ops, "blocked: non-terminal inline interpreter command (seen 1)") {

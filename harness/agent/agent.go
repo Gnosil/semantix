@@ -3100,7 +3100,7 @@ func (a *Agent) startInjectWarm(ctx context.Context) {
 	if !a.prefetchAllowed() {
 		return
 	}
-	input := a.turn.input
+	input := a.turn.turnInput
 	if input == "" {
 		return
 	}

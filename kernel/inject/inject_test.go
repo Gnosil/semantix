@@ -341,6 +341,98 @@ func TestInjectorPolicyAdmitsContextWithStrongEvidence(t *testing.T) {
 	}
 }
 
+func TestInjectorRetainsTopMarginWhenAllCandidatesRejected(t *testing.T) {
+	hits := []slice.Hit{
+		{Score: 1.10, Slice: &slice.Slice{ID: "repair", Type: slice.Context, Content: []byte("cache failure repair")}},
+		{Score: 1.02, Slice: &slice.Slice{ID: "diagnosis", Type: slice.Context, Content: []byte("cache failure diagnosis")}},
+	}
+	inj, err := (&Injector{MinTopMargin: 0.15}).BuildHits("cache failure", hits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(inj.Slices) != 0 || len(inj.Decisions) != len(hits) {
+		t.Fatalf("ambiguous candidates unexpectedly admitted: %+v", inj)
+	}
+	for _, d := range inj.Decisions {
+		if d.Reason != "top_margin_low" {
+			t.Fatalf("decision = %+v, want top_margin_low", d)
+		}
+	}
+	if want := hits[0].Score - hits[1].Score; inj.TopMargin != want {
+		t.Fatalf("rejected TopMargin = %g, want actual score gap %g", inj.TopMargin, want)
+	}
+}
+
+func TestBuildHitsCandidateWindowAfterEligibility(t *testing.T) {
+	for _, k := range []int{0, 5} {
+		t.Run(fmt.Sprintf("K%d", k), func(t *testing.T) {
+			var hits []slice.Hit
+			for i := 0; i < 6; i++ {
+				sl := &slice.Slice{ID: fmt.Sprintf("stale-%d", i), Type: slice.Context, Content: []byte("cache repair"), Meta: slice.SliceMeta{BaseCommit: "old"}}
+				hits = append(hits, slice.Hit{Slice: sl, Score: 20 - float64(i)})
+			}
+			for i := 0; i < 7; i++ {
+				sl := &slice.Slice{ID: fmt.Sprintf("fresh-%d", i), Type: slice.Context, Content: []byte("cache repair"), Meta: slice.SliceMeta{BaseCommit: "current"}}
+				hits = append(hits, slice.Hit{Slice: sl, Score: 10 - float64(i)})
+			}
+			in := &Injector{K: k, CurrentCommit: "current", AllowedTypes: map[slice.SliceType]bool{slice.Context: true}}
+			out, err := in.BuildHits("cache repair", hits)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantSlices, wantDecisions := 7, 13 // K=0 retains the uncapped BuildHits contract.
+			if k > 0 {
+				wantSlices, wantDecisions = 5, 10 // First five rejects + five fresh candidates.
+			}
+			if len(out.Slices) != wantSlices || len(out.Decisions) != wantDecisions || out.TopMargin != 1 {
+				t.Fatalf("K=%d: slices=%d decisions=%d margin=%v, want %d/%d/1", k, len(out.Slices), len(out.Decisions), out.TopMargin, wantSlices, wantDecisions)
+			}
+			for i, sl := range out.Slices {
+				if sl.ID != fmt.Sprintf("fresh-%d", i) {
+					t.Fatalf("eligible order[%d] = %s", i, sl.ID)
+				}
+			}
+			for _, d := range out.Decisions {
+				if strings.HasPrefix(d.ID, "stale-") && (d.Admitted || d.Reason != "stale_commit") {
+					t.Fatalf("stale gate changed: %+v", d)
+				}
+			}
+			if len(hits) != 13 || hits[0].Slice.ID != "stale-0" || hits[6].Slice.ID != "fresh-0" {
+				t.Fatal("BuildHits mutated the caller's hit list")
+			}
+		})
+	}
+}
+
+func TestBuildHitsOriginFloorBeforeCandidateWindowAndMargin(t *testing.T) {
+	for _, k := range []int{0, 5} {
+		t.Run(fmt.Sprintf("K%d", k), func(t *testing.T) {
+			var hits []slice.Hit
+			for i := 0; i < 5; i++ {
+				hits = append(hits, slice.Hit{Score: 100, Slice: &slice.Slice{ID: fmt.Sprintf("import-%d", i), Type: slice.Context, Content: []byte("cache repair"), Meta: slice.SliceMeta{Origin: slice.OriginImport}}})
+			}
+			hits = append(hits,
+				slice.Hit{Score: 3, Slice: &slice.Slice{ID: "trusted", Type: slice.Context, Content: []byte("cache repair"), Meta: slice.SliceMeta{Origin: slice.OriginSessionAuto}}},
+				slice.Hit{Score: 2, Slice: &slice.Slice{ID: "runner", Type: slice.Context, Content: []byte("cache repair"), Meta: slice.SliceMeta{Origin: slice.OriginPrefetch}}},
+			)
+			z := zone.Default()
+			in := &Injector{K: k, MinOrigin: slice.OriginSessionAuto, MinTopMargin: .15, RequireRunnerUp: true, Zones: &z}
+			out, err := in.BuildHits("cache repair", hits)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(out.Slices) != 1 || out.Slices[0].ID != "trusted" || out.TopMargin != 1 || len(out.Decisions) != 7 {
+				t.Fatalf("origin-qualified window = %+v", out)
+			}
+			for _, d := range out.Decisions[:5] {
+				if d.Admitted || d.Reason != "origin_below_floor" {
+					t.Fatalf("origin-qualified rejection = %+v", d)
+				}
+			}
+		})
+	}
+}
+
 // TestInjectorEscapesBlockMarkers is the HIGH-fix regression: a stored slice
 // containing block markers must not break the [semantix-reuse] structure.
 func TestInjectorEscapesBlockMarkers(t *testing.T) {

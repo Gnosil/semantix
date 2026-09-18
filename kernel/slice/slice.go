@@ -148,9 +148,12 @@ func mergeStats(cur *SliceStats, delta SliceStats) {
 // SliceMeta records provenance.
 type SliceMeta struct {
 	SourceSession string
-	TaskType      string
-	Language      string
-	ProjectSlug   string
+	// SourceSessions retains every observed session when Context cards merge.
+	// SourceSession remains the legacy primary source; readers count the union.
+	SourceSessions []string `json:"source_sessions,omitempty"`
+	TaskType       string
+	Language       string
+	ProjectSlug    string
 	// BaseCommit is the repository revision visible when the source session ran.
 	BaseCommit string `json:"base_commit,omitempty"`
 	// Origin is the provenance/trust tag (Issue #279): writing channels

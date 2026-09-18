@@ -226,7 +226,7 @@ func TestNpxVerificationUsesSafeKnownRunners(t *testing.T) {
 		"npx prettier --list-different src/",
 		"npx tsc --noEmit",
 		"npx tsc --project tsconfig.json --noEmit",
-		"npx mocha test/ 2>&1 | tail -40",
+		"npx mocha test/ && echo done",
 	} {
 		if !IsDeliveryVerificationCommand(command) {
 			t.Errorf("%q should be recognized as a known read-only npx verifier", command)

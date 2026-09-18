@@ -73,11 +73,13 @@ def repo_store_key(inst: dict) -> str:
 
 
 def mirror_fingerprint_paths(mirror: Path, workspace: Path) -> list[str]:
-    """Return existing regular workspace files named by tool-call arguments."""
+    """Return all named regular workspace files, or no partial freshness proof."""
     workspace = workspace.resolve()
     found: set[str] = set()
+    complete = True
 
     def visit(value, key: str = "") -> None:
+        nonlocal complete
         if isinstance(value, dict):
             for child_key, child in value.items():
                 visit(child, str(child_key).lower())
@@ -93,27 +95,38 @@ def mirror_fingerprint_paths(mirror: Path, workspace: Path) -> list[str]:
                 pass
             return
         if not isinstance(value, str) or key not in {
-                "path", "paths", "file", "files", "file_path", "filepath", "filename"}:
+                "path", "paths", "file", "files", "file_path", "file_paths",
+                "source_path", "destination_path", "directory", "directories",
+                "dir", "dirs", "cwd", "workdir", "filepath", "filename"}:
             return
         candidate = Path(value)
         if not candidate.is_absolute():
             candidate = workspace / candidate
         try:
-            if candidate.is_symlink():
-                return
+            if value != value.strip() or "," in value:
+                raise ValueError("ambiguous fingerprint argument")
+            relative = candidate.relative_to(workspace)
+            if ".." in relative.parts:
+                raise ValueError("parent traversal")
+            current = workspace
+            for part in relative.parts:
+                current = current / part
+                if current.is_symlink():
+                    raise ValueError("symlink dependency")
             resolved = candidate.resolve(strict=True)
-            relative = resolved.relative_to(workspace)
+            if not resolved.is_file():
+                raise ValueError("dependency is not a regular file")
         except (OSError, ValueError):
+            complete = False
             return
-        if resolved.is_file():
-            found.add(relative.as_posix())
+        found.add(relative.as_posix())
 
     for line in mirror.read_text(encoding="utf-8", errors="replace").splitlines():
         try:
             visit(json.loads(line))
         except json.JSONDecodeError:
             continue
-    return sorted(found)
+    return sorted(found) if complete else []
 
 
 class CountProxy:
@@ -454,6 +467,8 @@ context_window = 128000
         for mirror in mirrors:
             fingerprints = mirror_fingerprint_paths(mirror, workspace)
             ecmd = [self.kernel_bin, "extract",
+                    "--distill", "--consolidate",
+                    "--origin", "session-auto",
                     "--input", str(mirror),
                     "--scope", "project",
                     "--project-db", str(db),

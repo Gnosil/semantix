@@ -753,7 +753,7 @@ func (l *Ledger) HasSuccessfulDeliverySignoffAfter(after int) bool {
 			continue
 		}
 		for _, command := range completeStepVerificationCommands(r.Args) {
-			if !bashCommandIsVerification(command) {
+			if !IsDeliveryVerificationCommand(command) {
 				continue
 			}
 			for j := start; j < i; j++ {
@@ -1131,7 +1131,7 @@ func (l *Ledger) HasSuccessfulVerificationCommandAfter(after int) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	for _, r := range l.receipts[max(after+1, 0):] {
-		if r.Success && r.ToolName == "bash" && bashCommandIsVerification(r.Command) {
+		if r.Success && r.ToolName == "bash" && IsDeliveryVerificationCommand(r.Command) {
 			return true
 		}
 	}
@@ -1630,37 +1630,43 @@ func BashToolCallMixesMutationAndMaskableVerification(args json.RawMessage) bool
 	return analyzed && canMask
 }
 
-// BashToolCallMasksVerificationExit reports the common `check; echo $?` shape.
-// The trailing reporter makes the shell call itself succeed even when the
-// verifier failed, so a successful tool receipt cannot prove the check passed.
-// It is separated from the broader mixed-command classifier so the agent can
-// give a precise recovery instruction instead of inviting repeated rewrites.
+// BashToolCallMasksVerificationExit reports when a later shell stage can hide
+// a verifier failure. Read-only extraction into a terminal verifier and &&
+// chains retain the verifier status; formatting after a verifier does not.
 func BashToolCallMasksVerificationExit(args json.RawMessage) bool {
-	var fields map[string]json.RawMessage
-	if err := json.Unmarshal(args, &fields); err != nil {
+	command, ok := bashCommandFromArgs(args)
+	return ok && bashCommandMasksVerificationExit(command)
+}
+
+func bashCommandMasksVerificationExit(command string) bool {
+	if _, _, ok := shellparse.SplitTopLevel(command); !ok {
 		return false
 	}
-	command := strings.TrimSpace(stringField(fields, "command"))
-	if command == "" || !bashContainsVerificationSegment(command) {
+	file, err := shellparse.ParseBash(command)
+	if err != nil {
 		return false
 	}
-	segments, _, ok := shellparse.SplitTopLevel(command)
-	if !ok {
-		return false
-	}
-	seenVerifier := false
-	for _, segment := range segments {
-		normalized, _ := shellsafe.NormalizeBashSafeRedirectsForMatch(segment)
-		argv, malformed := shellparse.StaticFields(normalized)
-		if malformed == "" && bashSegmentIsVerification(argv) {
-			seenVerifier = true
-			continue
+	var maskedVerifier func(*syntax.Stmt, bool) bool
+	maskedVerifier = func(stmt *syntax.Stmt, masked bool) bool {
+		masked = masked || stmt.Background
+		switch cmd := stmt.Cmd.(type) {
+		case *syntax.BinaryCmd:
+			// Only && preserves failure of the left-hand command. The final
+			// pipeline stage inherits its parent's status propagation.
+			return maskedVerifier(cmd.X, masked || cmd.Op != syntax.AndStmt) || maskedVerifier(cmd.Y, masked)
+		case *syntax.CallExpr:
+			if !masked {
+				return false
+			}
+			source := command[int(cmd.Pos().Offset()):int(cmd.End().Offset())]
+			normalized, _ := shellsafe.NormalizeBashSafeRedirectsForMatch(source)
+			fields, ok := bashStaticArgv(normalized)
+			return ok && bashSegmentIsVerification(fields)
 		}
-		if !seenVerifier || !strings.Contains(segment, "$?") {
-			continue
-		}
-		lower := strings.ToLower(strings.TrimSpace(segment))
-		if strings.HasPrefix(lower, "echo ") || strings.HasPrefix(lower, "printf ") {
+		return false
+	}
+	for i, stmt := range file.Stmts {
+		if maskedVerifier(stmt, i < len(file.Stmts)-1) {
 			return true
 		}
 	}
@@ -1768,7 +1774,7 @@ func ShellContractPreflightMessage(reason string) string {
 			"Chain them with '&&' so a failed step stops the command and stays the result, " +
 			"or run the modification and the verification as separate calls."
 	case "mask_exit":
-		return "blocked: the trailing echo/printf of $? masks the verifier's exit status, so this command would look successful even when the check failed. " +
+		return "blocked: a later shell stage masks the verifier's exit status, so this command would look successful even when the check failed. " +
 			"Run the verifier by itself and let its exit status be the tool result."
 	case "inline_nonterminal":
 		return "blocked: an inline interpreter (python -c, node -e, …) is followed by a segment that can hide its failure. " +
@@ -1864,7 +1870,7 @@ func bashStaticArgv(command string) ([]string, bool) {
 // final-readiness gate on this single classifier so a sign-off cannot claim a
 // command that the final gate will immediately reject.
 func IsDeliveryVerificationCommand(command string) bool {
-	return bashCommandIsVerification(command)
+	return !bashCommandMasksVerificationExit(command) && bashCommandIsVerification(command)
 }
 
 type verificationCommandRecommendation struct {

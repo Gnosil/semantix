@@ -10,7 +10,7 @@ func TestEnvPrefixVerification(t *testing.T) {
 		"GOROOT=/x PATH=/y go test ./internal/evidence/": true,
 		"env GOROOT=/x go test ./internal/evidence/":     true,
 		"cd /tmp && go test ./internal/evidence/":        true,
-		"go test ./internal/evidence/ 2>&1 | tail -3":    true,
+		"go test ./internal/evidence/ 2>&1 | tail -3":    false,
 		"GOROOT=/x rm -rf /":                             false,
 		"GOROOT=/x":                                      false,
 		"FOO=$(whoami) go test ./internal/evidence/":     false,
