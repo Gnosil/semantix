@@ -3703,7 +3703,7 @@ export default function App() {
         },
       },
       { id: "cmd-task-center", group: t("palette.group.commands"), title: t("palette.cmd.taskCenter"), icon: <Activity size={15} />, compact: true, keywords: ["task", "tasks", "center", "任务", "任务中心"], run: () => setTasksOpen("all") },
-      { id: "cmd-terminal", group: t("palette.group.commands"), title: t("rightDock.terminal"), icon: <TerminalSquare size={15} />, compact: true, keywords: ["terminal", "shell", "终端"], run: () => toggleTerminalPanel() },
+      { id: "cmd-terminal", group: t("palette.group.commands"), title: t("terminal.toggle"), icon: <TerminalSquare size={15} />, compact: true, keywords: ["terminal", "shell", "终端"], run: () => toggleTerminalPanel() },
       {
         id: "cmd-reload-runtime",
         group: t("palette.group.commands"),
@@ -4418,11 +4418,11 @@ export default function App() {
               </>
               )}
               {!sidebarImDetailConnection && (
-                <Tooltip label={t("rightDock.terminal")}>
+                <Tooltip label={t("terminal.toggle")}>
                   <button
                     className="topicbar__action-btn topicbar__action-btn--icon topicbar__action-btn--utility"
                     type="button"
-                    aria-label={t("rightDock.terminal")}
+                    aria-label={t("terminal.toggle")}
                     aria-pressed={terminalPanelOpen}
                     onClick={toggleTerminalPanel}
                   >
