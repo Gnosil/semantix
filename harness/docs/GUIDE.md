@@ -354,8 +354,7 @@ Remote-side state lives under the remote host's `~/.semantix/remote/`:
 so it never appears in `ps`), and `serve-<slug>.log`.
 
 In the desktop app, manage hosts under **Settings -> Remote SSH**, then use the
-status-bar chip or the host row's **Remote explorer** button to browse and edit
-files over SFTP, manage port forwards, and start/open the remote workspace.
+status-bar chip to connect, disconnect, and start/open the remote workspace.
 Opening a workspace creates a separate native Semantix window, similar to a
 VS Code Remote SSH window. The primary window owns the SSH tunnel; the remote
 window is an isolated, lightweight shell and does not restore or acquire local
