@@ -138,10 +138,8 @@ await act(async () => {
         open
         tabId="workspace-tab"
         cwd="/repo"
-        maximized={false}
         initialViewMode="files"
         onClose={() => {}}
-        onToggleMaximized={() => {}}
         onOpenInTerminal={() => {}}
       />
     </LocaleProvider>,

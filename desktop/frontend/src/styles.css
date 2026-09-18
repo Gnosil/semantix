@@ -2047,8 +2047,6 @@ a[href] {
 .layout {
   --sidebar-width: var(--sidebar-expanded-width, clamp(264px, 18vw, 300px));
   --chat-min-width: 760px;
-  --workspace-width: 420px;
-  --workspace-resizer-width: 8px;
   --terminal-height: 280px;
   --app-chrome-height: 38px;
   --topicbar-height: 56px;
@@ -2092,35 +2090,6 @@ a[href] {
 }
 .layout--sidebar-collapsed {
   --sidebar-width: 0px;
-  grid-template-columns: 0px minmax(0, 1fr);
-}
-.layout:not(.layout--sidebar-collapsed):not(.layout--workspace-open):not(.layout--workspace-maximized) {
-  grid-template-columns: var(--sidebar-expanded-width) minmax(0, 1fr);
-}
-.layout--workspace-open {
-  --chrome-right-toggle-offset: var(--workspace-width);
-  min-width: min(780px, 100vw);
-  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) minmax(0, var(--workspace-width));
-}
-.layout--workspace-open:not(.layout--sidebar-collapsed) {
-  min-width: min(780px, 100vw);
-  grid-template-columns: var(--sidebar-expanded-width) minmax(0, 1fr) minmax(0, var(--workspace-width));
-}
-.layout--workspace-open.layout--sidebar-collapsed {
-  min-width: min(560px, 100vw);
-  grid-template-columns: 0px minmax(0, 1fr) minmax(0, var(--workspace-width));
-}
-/* Skip dock-column interpolation in creation mode. WebKit can mount the
-   overview at zero inline size and fail to repaint its text on reopen. */
-.app--creation .layout.layout--workspace-open,
-.app--creation .layout.layout--workspace-open.layout--sidebar-collapsed {
-  transition: grid-template-columns 0s, min-width 0s;
-}
-.layout--workspace-maximized {
-  min-width: 0;
-  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
-}
-.layout--workspace-maximized.layout--sidebar-collapsed {
   grid-template-columns: 0px minmax(0, 1fr);
 }
 /* Terminal drawer — an independent bottom panel below the chat pane.
@@ -2185,20 +2154,11 @@ a[href] {
 .layout.layout--terminal-drawer-open .sidebar {
   grid-row: 2 / 4;
 }
-.layout.layout--terminal-drawer-open .workbench-dock {
-  grid-row: 2 / 4;
-}
 /* Chrome-hidden variants: rows shift up by one (3 rows total: content, terminal, statusbar). */
 .layout.layout--workbench-chrome-hidden.layout--terminal-drawer-open .sidebar {
   grid-row: 1 / 3 !important;
 }
-.layout.layout--workbench-chrome-hidden.layout--terminal-drawer-open .workbench-dock {
-  grid-row: 1 / 3 !important;
-}
 .app--creation .layout.layout--creation-chrome-hidden.layout--terminal-drawer-open .sidebar {
-  grid-row: 1 / 3 !important;
-}
-.app--creation .layout.layout--creation-chrome-hidden.layout--terminal-drawer-open .workbench-dock {
   grid-row: 1 / 3 !important;
 }
 .layout.layout--workbench-chrome-hidden.layout--terminal-drawer-open {
@@ -2226,29 +2186,11 @@ a[href] {
 .layout--terminal-open.layout--sidebar-collapsed {
   grid-template-columns: 0px minmax(0, 1fr);
 }
-.layout--terminal-open .workbench-dock {
-  grid-row: 3;
-  grid-column: 2;
-  width: 100%;
-  height: auto;
-  max-width: none;
-  border-top: 1px solid var(--border-soft);
-  border-left: 0;
-}
-.layout--terminal-open .workbench-dock__tools {
-  display: none;
-}
-.layout--terminal-open .workspace-panel-resizer {
-  display: none;
-}
 .layout--terminal-open .statusbar {
   grid-row: 4;
 }
 .layout--workbench-chrome-hidden.layout--terminal-open {
   grid-template-rows: minmax(0, 1fr) minmax(220px, min(42vh, 440px)) var(--statusbar-height);
-}
-.layout--workbench-chrome-hidden.layout--terminal-open .workbench-dock {
-  grid-row: 2;
 }
 
 .layout--workbench-chrome-hidden.layout--terminal-open .statusbar {
@@ -2256,15 +2198,6 @@ a[href] {
 }
 .app--creation .layout--creation-chrome-hidden.layout--terminal-open {
   grid-template-rows: minmax(0, 1fr) minmax(220px, min(42vh, 440px));
-}
-.app--creation .layout--creation-chrome-hidden.layout--terminal-open .workbench-dock {
-  grid-row: 2;
-}
-.layout--workspace-maximized .chat-pane {
-  display: none;
-}
-.layout--workspace-maximized .workspace-panel-resizer {
-  display: none;
 }
 
 .layout--workbench-chrome-hidden {
@@ -2274,10 +2207,7 @@ a[href] {
 }
 
 .layout--workbench-chrome-hidden .sidebar,
-.layout--workbench-chrome-hidden .chat-pane,
-.layout--workbench-chrome-hidden .workspace-panel-resizer,
-.layout--workbench-chrome-hidden .context-inspector,
-.layout--workbench-chrome-hidden .workbench-dock {
+.layout--workbench-chrome-hidden .chat-pane {
   grid-row: 1;
 }
 .layout--workbench-chrome-hidden .terminal-drawer-resizer {
@@ -2298,10 +2228,6 @@ a[href] {
 }
 
 .app--darwin .layout--workbench-chrome-hidden.layout--sidebar-collapsed .topicbar {
-  padding-left: 96px;
-}
-
-.app--darwin .layout--workbench-chrome-hidden.layout--workspace-maximized .workbench-dock__tools {
   padding-left: 96px;
 }
 
@@ -2758,40 +2684,6 @@ a[href] {
 .layout--sidebar-collapsed .sidebar-resizer {
   display: none;
 }
-.workspace-panel-resizer {
-  --wails-draggable: no-drag;
-  position: relative;
-  grid-row: 2;
-  grid-column: 3;
-  align-self: stretch;
-  justify-self: start;
-  width: 1px;
-  min-width: 1px;
-  height: 100%;
-  padding: 0;
-  border: 0;
-  background: var(--border-soft);
-  cursor: col-resize;
-  touch-action: none;
-  z-index: var(--z-layout-resizer-active);
-}
-.workspace-panel-resizer::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: -3px;
-  right: -3px;
-}
-.workspace-panel-resizer::after {
-  display: none;
-}
-.workspace-panel-resizer:hover,
-.workspace-panel-resizer:focus-visible,
-.layout--workspace-resizing .workspace-panel-resizer {
-  background: var(--accent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
-}
 .chat-pane {
   position: relative;
   grid-row: 2;
@@ -2937,6 +2829,13 @@ a[href] {
   flex: 0 0 auto;
   padding: 8px 16px;
   font-size: var(--font-control-small);
+}
+/* Top-of-pane banners share the corner with the floating workspace capsules;
+   keep their trailing actions clear of the cluster. The themed selector outranks
+   the theme-style banner padding overrides further down. */
+.chat-pane > .banner,
+:root[data-theme-style] .chat-pane > .banner {
+  padding-right: 200px;
 }
 .banner--error {
   background: var(--del-bg);
@@ -9759,6 +9658,184 @@ body > .mermaid-diagram--fullscreen {
 }
 
 /* ── workspace side panel ────────────────────────────────────────────────── */
+/* ── Floating workspace ─────────────────────────────────────────────────────
+   The file tree and the change list live in a slide-over panel that overlays
+   the chat pane's right edge; two capsules at the pane's top-right open it and
+   hide while it is open (the panel header carries the view tabs). Nothing here
+   reserves grid space: the chat column keeps its width. */
+.workspace-capsules {
+  position: absolute;
+  top: calc(var(--topicbar-height) + 8px);
+  right: 12px;
+  z-index: var(--z-workspace-float);
+  display: flex;
+  gap: 6px;
+}
+
+.workspace-capsule {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px 0 9px;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-elev) 90%, transparent);
+  color: var(--fg-dim);
+  font: inherit;
+  font-size: calc(12px * var(--font-scale));
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--shadow-1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: color var(--dur-fast), background var(--dur-fast), border-color var(--dur-fast);
+}
+
+.workspace-capsule:hover {
+  color: var(--fg);
+  border-color: var(--border);
+  background: var(--bg-elev);
+}
+
+.workspace-capsule__badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+}
+
+.workspace-float {
+  position: absolute;
+  top: var(--topicbar-height);
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-workspace-float);
+  display: flex;
+  flex-direction: column;
+  width: min(var(--workspace-float-width, 420px), calc(100% - 16px));
+  min-width: 0;
+  background: var(--bg-elev);
+  border-left: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-2);
+  animation: workspace-float-in var(--dur-base) ease;
+}
+
+@keyframes workspace-float-in {
+  from { transform: translateX(24px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-float { animation: none; }
+}
+
+.workspace-float__resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  width: 8px;
+  cursor: col-resize;
+}
+
+.workspace-float__resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  background: transparent;
+  transition: background var(--dur-fast);
+}
+
+.workspace-float__resizer:hover::after,
+.workspace-float__resizer:focus-visible::after {
+  background: var(--accent);
+}
+
+.workspace-float__resizer:focus-visible {
+  outline: none;
+}
+
+.workspace-float__head {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  height: 36px;
+  padding: 0 8px 0 10px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.workspace-float__tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.workspace-float__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg-dim);
+  font: inherit;
+  font-size: calc(12px * var(--font-scale));
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.workspace-float__tab:hover {
+  color: var(--fg);
+  background: var(--bg-elev-2);
+}
+
+.workspace-float__tab--active {
+  color: var(--accent-text, var(--accent));
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-elev));
+}
+
+.workspace-float__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg-dim);
+  cursor: pointer;
+}
+
+.workspace-float__close:hover {
+  background: var(--bg-elev-2);
+  color: var(--fg);
+}
+
+.workspace-float__body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.workspace-float__body > .workspace-panel {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+}
 .workspace-panel {
   --workspace-tree-width: 280px;
   --workspace-tree-rail-width: 44px;
@@ -21277,10 +21354,7 @@ body > .mermaid-diagram--fullscreen {
   .app--darwin .layout--workbench-chrome-hidden .topicbar {
     padding-left: 96px;
   }
-  .app--darwin .layout--workbench-chrome-hidden.layout--workspace-maximized .workbench-dock__tools {
-    padding-left: 96px;
-  }
-  .topbar {
+    .topbar {
     padding: 0 12px 0 82px; /* clear macOS inset traffic lights when the sidebar is hidden */
   }
   .topbar__identity {
@@ -21901,12 +21975,6 @@ body > .mermaid-diagram--fullscreen {
   border-right: 1px solid var(--border-soft);
 }
 
-.app-chrome__panel-toggle--right {
-  right: var(--chrome-right-toggle-offset);
-  border-left: 1px solid var(--border-soft);
-  border-right: 1px solid var(--border-soft);
-}
-
 .layout--resizing .app-chrome__panel-toggle {
   pointer-events: none;
   opacity: 0.65;
@@ -22015,10 +22083,6 @@ body > .mermaid-diagram--fullscreen {
   margin-left: 0;
 }
 
-.app-chrome__tools--workspace-pressed .app-chrome__command {
-  animation: app-chrome-command-follow-toggle 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
 @keyframes app-chrome-command-follow-toggle {
   0% {
     transform: translateX(1px) scale(0.985);
@@ -22050,20 +22114,6 @@ body > .mermaid-diagram--fullscreen {
   user-select: none;
   --wails-draggable: no-drag;
   transition: opacity var(--dur-base) ease;
-}
-
-/* When the workspace panel is closed (no layout--workspace-open or
-   layout--workspace-maximized), make the window controls box transparent so it
-   blends into the title bar / background instead of showing a distinct box. */
-.app--windows-frameless .layout:not(.layout--workspace-open):not(.layout--workspace-maximized) ~ .windows-window-controls {
-  background: transparent;
-  border: none;
-  box-shadow: none;
-}
-:root[data-theme-style] .app--windows-frameless .layout:not(.layout--workspace-open):not(.layout--workspace-maximized) ~ .windows-window-controls {
-  background: transparent;
-  border: none;
-  box-shadow: none;
 }
 
 /* When a drawer/palette overlay is open, dim the window controls so they
@@ -22191,10 +22241,6 @@ body > .mermaid-diagram--fullscreen {
   left: var(--chrome-left-safe-offset);
 }
 
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right {
-  right: 8px;
-}
-
 .app--darwin .app-chrome--tabs .app-chrome__panel-toggle:hover {
   border-color: var(--border-soft);
   background: color-mix(in srgb, var(--fg-faint) 9%, transparent);
@@ -22206,15 +22252,13 @@ body > .mermaid-diagram--fullscreen {
   background: color-mix(in srgb, var(--accent) 9%, transparent);
 }
 
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left,
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right {
+.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left {
   isolation: isolate;
   overflow: hidden;
   color: var(--fg-dim);
 }
 
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left::before,
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right::before {
+.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -22228,8 +22272,7 @@ body > .mermaid-diagram--fullscreen {
     background 0.14s ease;
 }
 
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left svg,
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right svg {
+.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left svg {
   position: relative;
   stroke-width: 1.85;
   transition:
@@ -22237,59 +22280,43 @@ body > .mermaid-diagram--fullscreen {
     transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--active,
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--active {
+.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--active {
   color: var(--fg-dim);
   border-color: transparent;
   background: transparent;
 }
 
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left:hover,
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right:hover {
+.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left:hover {
   color: var(--fg);
   border-color: transparent;
   background: transparent;
 }
 
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left:hover::before,
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right:hover::before {
+.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left:hover::before {
   opacity: 1;
   transform: scale(1);
 }
 
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left:active,
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right:active {
+.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left:active {
   transform: scale(0.94);
 }
 
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left:active::before,
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right:active::before {
+.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left:active::before {
   background: color-mix(in srgb, var(--fg-faint) 22%, transparent);
   opacity: 1;
   transform: scale(0.92);
 }
 
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left:active svg,
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right:active svg {
+.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left:active svg {
   transform: scale(0.92);
 }
 
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--pressed::before,
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--pressed::before {
+.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--pressed::before {
   animation: mac-sidebar-button-press 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--pressed svg,
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--pressed svg {
+.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--pressed svg {
   animation: mac-sidebar-icon-press 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--pressed:not(.app-chrome__panel-toggle--active) svg {
-  animation: mac-workspace-icon-open-press 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--pressed.app-chrome__panel-toggle--active svg {
-  animation: mac-workspace-icon-close-press 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 @keyframes mac-sidebar-button-press {
@@ -22346,20 +22373,17 @@ body > .mermaid-diagram--fullscreen {
 
 @media (prefers-reduced-motion: reduce) {
   .app--darwin .sidebar,
-  .app--darwin .layout,
-  .app--darwin .app-chrome--tabs,
-  .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left,
-  .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right,
-  .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left::before,
-  .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right::before,
-  .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left svg,
-  .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right svg,
-  .app-chrome--native-tabs .app-chrome__panel-toggle,
-  .app-chrome--native-tabs .app-chrome__panel-toggle::before,
-  .app-chrome--native-tabs .app-chrome__panel-toggle svg,
-  .app-chrome--native-tabs .tabbar__tab,
-  .app-chrome--native-tabs .tabbar__new,
-  .app-chrome--native-tabs .tabbar__command {
+.app--darwin .layout,
+.app--darwin .app-chrome--tabs,
+.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left,
+.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left::before,
+.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left svg,
+.app-chrome--native-tabs .app-chrome__panel-toggle,
+.app-chrome--native-tabs .app-chrome__panel-toggle::before,
+.app-chrome--native-tabs .app-chrome__panel-toggle svg,
+.app-chrome--native-tabs .tabbar__tab,
+.app-chrome--native-tabs .tabbar__new,
+.app-chrome--native-tabs .tabbar__command {
     transition: none;
     animation: none;
   }
@@ -22480,13 +22504,6 @@ body > .mermaid-diagram--fullscreen {
   z-index: var(--z-local-raised);
 }
 
-.app--windows .app-chrome--native-tabs .app-chrome__panel-toggle--right,
-.app--linux .app-chrome--native-tabs .app-chrome__panel-toggle--right {
-  right: 8px;
-  border-left: 1px solid transparent;
-  border-right: 1px solid transparent;
-}
-
 .app--windows .app-chrome--native-tabs .app-chrome__panel-toggle::before,
 .app--linux .app-chrome--native-tabs .app-chrome__panel-toggle::before {
   content: "";
@@ -22564,16 +22581,6 @@ body > .mermaid-diagram--fullscreen {
 .app--windows .app-chrome--native-tabs .app-chrome__panel-toggle--pressed svg,
 .app--linux .app-chrome--native-tabs .app-chrome__panel-toggle--pressed svg {
   animation: mac-sidebar-icon-press 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.app--windows .app-chrome--native-tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--pressed:not(.app-chrome__panel-toggle--active) svg,
-.app--linux .app-chrome--native-tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--pressed:not(.app-chrome__panel-toggle--active) svg {
-  animation: mac-workspace-icon-open-press 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.app--windows .app-chrome--native-tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--pressed.app-chrome__panel-toggle--active svg,
-.app--linux .app-chrome--native-tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--pressed.app-chrome__panel-toggle--active svg {
-  animation: mac-workspace-icon-close-press 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .app--windows .app-chrome--native-tabs .tabbar,
@@ -24842,152 +24849,12 @@ body > .mermaid-diagram--fullscreen {
   opacity: 0.45;
 }
 
-.context-inspector,
-.workbench-dock {
-  grid-row: 2;
-  grid-column: 3;
-  min-width: 0;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: var(--workspace-files-bg);
-  border-left: 1px solid var(--border-soft);
-  overflow: hidden;
-}
-
-.workbench-dock {
-  justify-self: stretch;
-  width: 100%;
-  max-width: none;
-  container-type: inline-size;
-}
-
-.layout--workspace-maximized .workbench-dock {
-  width: auto;
-  max-width: none;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .layout {
     transition: none;
   }
 }
 
-.workbench-dock__tools {
-  flex: 0 0 auto;
-  height: 42px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 8px;
-  padding: 7px 10px 3px;
-  border-bottom: 1px solid transparent;
-  --wails-draggable: drag;
-}
-
-.workbench-dock__tabs {
-  --wails-draggable: no-drag;
-  flex: 0 1 auto;
-  width: max-content;
-  max-width: 100%;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  padding: 3px;
-  border-radius: 8px;
-  background: var(--bg);
-  border: 1px solid var(--border-soft);
-}
-
-.workbench-dock__tab {
-  --wails-draggable: no-drag;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  flex: 0 1 auto;
-  min-width: 30px;
-  max-width: 118px;
-  height: 24px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--fg-faint);
-  font: inherit;
-  font-size: 11.5px;
-  font-weight: 560;
-}
-
-.workbench-dock__tab svg {
-  flex: 0 0 auto;
-}
-
-.workbench-dock__tab-label {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.workbench-dock__tab:hover {
-  color: var(--fg-dim);
-}
-
-.workbench-dock__tab--active {
-  background: var(--bg-elev);
-  color: var(--fg);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
-}
-
-@container (max-width: 520px) {
-  .workbench-dock__tabs {
-    width: 100%;
-  }
-
-  .workbench-dock__tab {
-    flex: 1 1 0;
-    max-width: none;
-  }
-}
-
-@container (max-width: 340px) {
-  .workbench-dock__tabs {
-    width: auto;
-  }
-
-  .workbench-dock__tab {
-    flex: 0 0 30px;
-    width: 30px;
-    padding: 0;
-    gap: 0;
-  }
-
-  .workbench-dock__tab-label {
-    display: none;
-  }
-}
-
-.workbench-dock__body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.workbench-dock__body > .workspace-panel {
-  height: 100%;
-}
-
-.workbench-dock__body > .workspace-panel {
-  border-left: none;
-}
-
-.layout--workspace-maximized .context-inspector,
-.layout--workspace-maximized .workbench-dock {
-  grid-column: 2;
-}
 /* ----------------------------------------------------------------------------
  * Native-feel: overscroll containment, reduced-motion, view-transition suppression
  * -------------------------------------------------------------------------- */
@@ -25315,15 +25182,13 @@ body > .mermaid-diagram--fullscreen {
   background: color-mix(in srgb, var(--accent) 9%, transparent);
 }
 
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--active,
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--active {
+.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--active {
   color: var(--fg-dim);
   border-color: transparent;
   background: transparent;
 }
 
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--active:hover,
-.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--active:hover {
+.app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--active:hover {
   color: var(--fg);
 }
 
@@ -25689,34 +25554,6 @@ body > .mermaid-diagram--fullscreen {
   color: var(--ok);
 }
 
-.workbench-dock {
-  background: color-mix(in srgb, var(--bg-elev) 60%, var(--chat-bg));
-  border-left: 1px solid var(--border-soft);
-}
-
-.workbench-dock__tools {
-  height: 52px;
-  padding: 10px 12px 8px;
-  border-bottom-color: var(--border-soft);
-}
-
-.workbench-dock__tabs {
-  width: 100%;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--bg) 72%, transparent);
-}
-
-.workbench-dock__tab {
-  flex: 1 1 0;
-  max-width: none;
-  height: 28px;
-  border-radius: 7px;
-}
-
-.workbench-dock__tab--active {
-  background: var(--bg-elev-2);
-}
-
 .workspace-panel,
 .workspace-files,
 .workspace-preview {
@@ -25937,10 +25774,6 @@ body > .mermaid-diagram--fullscreen {
   display: block;
 }
 
-:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right {
-  right: 8px;
-}
-
 :root[data-theme-style] .app-chrome__panel-toggle:hover,
 :root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle:hover {
   color: var(--fg);
@@ -25956,20 +25789,16 @@ body > .mermaid-diagram--fullscreen {
 }
 
 :root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left:hover,
-:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right:hover,
-:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--active,
-:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--active {
+:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--active {
   border-color: transparent;
   background: transparent;
 }
 
-:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--active,
-:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--active {
+:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--active {
   color: var(--fg-faint);
 }
 
-:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--active:hover,
-:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--active:hover {
+:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--active:hover {
   color: var(--fg);
 }
 
@@ -27560,106 +27389,6 @@ body > .mermaid-diagram--fullscreen {
   background: var(--border-soft);
 }
 
-:root[data-theme-style] .workbench-dock {
-  background: var(--bg-elev);
-  border-left: 1px solid var(--border-soft);
-  box-shadow: none;
-}
-
-:root[data-theme-style] .workbench-dock__tools {
-  height: 40px;
-  padding: 0 12px;
-  border-bottom: 1px solid var(--border-soft);
-}
-
-:root[data-theme-style] .workbench-dock__tabs {
-  position: relative;
-  width: auto;
-  height: 100%;
-  flex: 0 0 auto;
-  display: flex;
-  align-items: stretch;
-  justify-content: flex-start;
-  gap: 2px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-
-:root[data-theme-style] .workbench-dock__tab {
-  position: relative;
-  flex: 0 0 auto;
-  min-width: auto;
-  max-width: none;
-  height: 40px;
-  width: auto;
-  padding: 0 12px 1px;
-  border: 0;
-  border-radius: 0;
-  justify-content: flex-start;
-  gap: 6px;
-  color: var(--fg-faint);
-  font-size: 12.5px;
-  font-weight: 600;
-  background: transparent;
-}
-
-:root[data-theme-style] .workbench-dock__tab svg {
-  width: 14px;
-  height: 14px;
-}
-
-:root[data-theme-style] .workbench-dock__tab-label {
-  display: inline;
-  min-width: auto;
-  overflow: visible;
-  text-overflow: clip;
-}
-
-:root[data-theme-style] .workbench-dock__tab--active {
-  color: var(--fg);
-  background: transparent;
-  box-shadow: none;
-}
-
-:root[data-theme-style] .workbench-dock__tab:hover {
-  color: var(--fg-dim);
-  background: transparent;
-}
-
-:root[data-theme-style] .workbench-dock__tab--active::after {
-  content: "";
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: 1px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--accent);
-  animation: graphite-tab-underline var(--dur-base) var(--ease-out) both;
-}
-
-/* Classic and Workbench use compact text tabs in the right dock. A restrained
-   hairline clarifies each hit target without turning the strip into boxed
-   segmented controls. Creation keeps its separate equal-column treatment. */
-.app--classic .workbench-dock__tab + .workbench-dock__tab,
-.app--workbench .workbench-dock__tab + .workbench-dock__tab {
-  position: relative;
-}
-
-.app--classic .workbench-dock__tab + .workbench-dock__tab::before,
-.app--workbench .workbench-dock__tab + .workbench-dock__tab::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: -1px;
-  width: 1px;
-  height: 16px;
-  background: color-mix(in srgb, var(--border-soft) 86%, transparent);
-  pointer-events: none;
-  transform: translateY(-50%);
-}
 
 :root[data-theme-style] .workspace-panel,
 :root[data-theme-style] .workspace-files,
@@ -28138,34 +27867,26 @@ body > .mermaid-diagram--fullscreen {
   padding-right: calc(var(--chrome-toggle-size) + var(--chrome-toggle-size) + 16px);
 }
 
-:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right {
-  right: 8px;
-}
-
 :root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__tools--fixed {
   right: calc(8px + var(--chrome-toggle-size) + 8px);
 }
 
-:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--active,
-:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--active {
+:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--active {
   color: var(--accent);
 }
 
-:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--active::before,
-:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--active::before {
+:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--active::before {
   opacity: 1;
   transform: scale(1);
   background: var(--accent-soft);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
 }
 
-:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--active:hover,
-:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--active:hover {
+:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--active:hover {
   color: var(--accent);
 }
 
-:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--active:hover::before,
-:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--active:hover::before {
+:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--active:hover::before {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
@@ -29701,10 +29422,7 @@ body > .mermaid-diagram--fullscreen {
 
 .app--creation .layout--creation-chrome-hidden .sidebar,
 .app--creation .layout--creation-chrome-hidden .chat-pane,
-.app--creation .layout--creation-chrome-hidden .sidebar-resizer,
-.app--creation .layout--creation-chrome-hidden .workspace-panel-resizer,
-.app--creation .layout--creation-chrome-hidden .context-inspector,
-.app--creation .layout--creation-chrome-hidden .workbench-dock {
+.app--creation .layout--creation-chrome-hidden .sidebar-resizer {
   grid-row: 1;
 }
 
@@ -29824,16 +29542,6 @@ body > .mermaid-diagram--fullscreen {
 :root[data-theme-style] .app--creation .topicbar__export--open .topicbar__action-btn--utility {
   color: color-mix(in srgb, var(--fg-dim) 88%, transparent);
   opacity: 1;
-}
-
-.app--creation .topicbar__actions .topicbar__chrome-btn--workspace,
-:root[data-theme-style] .app--creation .topicbar__actions .topicbar__chrome-btn--workspace {
-  color: color-mix(in srgb, var(--fg-dim) 78%, transparent);
-}
-
-.app--creation .topicbar__actions .topicbar__chrome-btn--workspace.topicbar__chrome-btn--active,
-:root[data-theme-style] .app--creation .topicbar__actions .topicbar__chrome-btn--workspace.topicbar__chrome-btn--active {
-  color: var(--fg);
 }
 
 /* Creation topicbar: slim ExternalOpener split control to match utility icons. */
@@ -31468,15 +31176,6 @@ body > .mermaid-diagram--fullscreen {
   box-shadow: none;
 }
 
-.app--creation .workspace-panel-resizer,
-.app--creation .workspace-panel-resizer:hover,
-.app--creation .workspace-panel-resizer:focus-visible,
-.app--creation .layout--workspace-resizing .workspace-panel-resizer,
-:root[data-theme-style] .app--creation .workspace-panel-resizer {
-  background: transparent;
-  box-shadow: none;
-}
-
 /* Creation: hide native chat scrollbar and use a controllable custom rail.
    Native WebView2 thumb hover-size is unreliable; custom thumb can snap thick/thin.
    Keep this scrolling layer opaque too: transparent transcript backgrounds can
@@ -31501,7 +31200,7 @@ body > .mermaid-diagram--fullscreen {
   --wails-draggable: no-drag;
   position: absolute;
   top: 0;
-  /* Hug the chat/right-dock seam; keep only a tiny air gap. */
+  /* Hug the chat pane's right edge; keep only a tiny air gap. */
   right: 0;
   bottom: 0;
   z-index: var(--z-inline-sticky);
@@ -31513,7 +31212,7 @@ body > .mermaid-diagram--fullscreen {
 .app--creation .transcript__scrollbar-thumb,
 :root[data-theme-style] .app--creation .transcript__scrollbar-thumb {
   position: absolute;
-  /* Pin to the right edge of the rail so it sits next to the dock border. */
+  /* Pin to the right edge of the rail. */
   right: 1px;
   left: auto;
   width: 3px;
@@ -32470,122 +32169,25 @@ body > .mermaid-diagram--fullscreen {
     --creation-hero-col: min(100%, 520px);
   }
 }
-.app--creation .workbench-dock,
-:root[data-theme-style] .app--creation .workbench-dock {
-  background: color-mix(in srgb, var(--sidebar-bg) 88%, transparent);
-}
 
-.app--creation .workbench-dock .workspace-panel,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-panel,
-.app--creation .workbench-dock .workspace-files,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-files,
-.app--creation .workbench-dock .workspace-preview,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-preview,
-.app--creation .workbench-dock .workspace-preview__body,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-preview__body {
+/* Creation skin for the workspace panel inside the floating host: tree rows
+   match the project tree's density, the Changes overview drops its duplicate
+   breadcrumb row, and commit history stays secondary to live changes. */
+.app--creation .workspace-float .workspace-panel,
+:root[data-theme-style] .app--creation .workspace-float .workspace-panel,
+.app--creation .workspace-float .workspace-files,
+:root[data-theme-style] .app--creation .workspace-float .workspace-files,
+.app--creation .workspace-float .workspace-preview,
+:root[data-theme-style] .app--creation .workspace-float .workspace-preview,
+.app--creation .workspace-float .workspace-preview__body,
+:root[data-theme-style] .app--creation .workspace-float .workspace-preview__body {
   background: transparent;
 }
-
-.app--creation .workbench-dock,
-.app--creation .workbench-dock * {
-  scrollbar-width: none;
-}
-
-.app--creation .workbench-dock *::-webkit-scrollbar {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
-}
-
-.app--creation .workbench-dock__tools,
-:root[data-theme-style] .app--creation .workbench-dock__tools {
-  height: 40px;
-  padding: 0 10px;
-  /* Tabs fill the free strip; each tab centers its own content. */
-  justify-content: flex-start;
-}
-
-.app--creation .workbench-dock__tabs,
-:root[data-theme-style] .app--creation .workbench-dock__tabs {
-  /* Full free strip so each tab can take an equal share and self-center. */
-  width: 100%;
-  flex: 1 1 auto;
-  min-width: 0;
-  max-width: none;
-  display: flex;
-  align-items: stretch;
-  justify-content: flex-start;
-  gap: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  overflow: hidden;
-}
-
-.app--creation .workbench-dock__tab,
-:root[data-theme-style] .app--creation .workbench-dock__tab {
-  /* Equal columns: 文件 / 改动 each center in their half as dock width changes. */
-  flex: 1 1 0;
-  width: auto;
-  min-width: 0;
-  max-width: none;
-  height: 40px;
-  /* Compact icon+label so default Creation dock (~252) shows text on Windows */
-  padding: 0 4px 1px;
-  gap: 4px;
-  justify-content: center;
-  color: color-mix(in srgb, var(--fg-dim) 72%, transparent);
-  font-size: calc(11.5px * var(--font-scale));
-  font-weight: 560;
-  letter-spacing: 0.01em;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-
-/* Emergency only: when the dock is forced below the Creation default (viewport
-   squeeze), drop labels. Equal columns remain so icons stay self-centered. */
-@container (max-width: 250px) {
-  .app--creation .workbench-dock__tab,
-  :root[data-theme-style] .app--creation .workbench-dock__tab {
-    padding: 0;
-    gap: 0;
-  }
-
-  .app--creation .workbench-dock__tab-label,
-  :root[data-theme-style] .app--creation .workbench-dock__tab-label {
-    display: none;
-  }
-
-  .app--creation .workbench-dock__tab--active::after,
-  :root[data-theme-style] .app--creation .workbench-dock__tab--active::after {
-    width: 18px;
-  }
-}
-
-.app--creation .workbench-dock__tab--active,
-:root[data-theme-style] .app--creation .workbench-dock__tab--active {
-  color: var(--fg);
-  font-weight: 620;
-}
-
-.app--creation .workbench-dock__tab--active::after,
-:root[data-theme-style] .app--creation .workbench-dock__tab--active::after {
-  /* Center a short underline under the icon+label cluster, not the full half. */
-  left: 50%;
-  right: auto;
-  width: 36px;
-  transform: translateX(-50%);
-  bottom: 0;
-  height: 1px;
-}
-
 /* Creation workspace tree — align with left project-tree language.
    Virtualized rows estimate 24px (WorkspacePanel useVirtualizer); keep row
    height at/near that value so scroll math does not drift. */
-.app--creation .workbench-dock .workspace-search,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-search {
+.app--creation .workspace-float .workspace-search,
+:root[data-theme-style] .app--creation .workspace-float .workspace-search {
   height: 32px;
   margin: 6px 10px 8px;
   padding: 0 10px;
@@ -32596,40 +32198,34 @@ body > .mermaid-diagram--fullscreen {
   color: color-mix(in srgb, var(--fg-faint) 82%, transparent);
   box-shadow: none;
 }
-
-.app--creation .workbench-dock .workspace-search:focus-within,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-search:focus-within {
+.app--creation .workspace-float .workspace-search:focus-within,
+:root[data-theme-style] .app--creation .workspace-float .workspace-search:focus-within {
   border-color: color-mix(in srgb, var(--accent) 24%, transparent);
   background: color-mix(in srgb, var(--bg-elev) 20%, transparent);
 }
-
-.app--creation .workbench-dock .workspace-search input,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-search input {
+.app--creation .workspace-float .workspace-search input,
+:root[data-theme-style] .app--creation .workspace-float .workspace-search input {
   font-size: calc(12px * var(--font-scale));
   font-weight: 500;
 }
-
-.app--creation .workbench-dock .workspace-search input::placeholder,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-search input::placeholder {
+.app--creation .workspace-float .workspace-search input::placeholder,
+:root[data-theme-style] .app--creation .workspace-float .workspace-search input::placeholder {
   color: color-mix(in srgb, var(--fg-faint) 78%, transparent);
 }
-
-.app--creation .workbench-dock .workspace-files__scope,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-files__scope {
+.app--creation .workspace-float .workspace-files__scope,
+:root[data-theme-style] .app--creation .workspace-float .workspace-files__scope {
   margin: 0 10px 8px;
   padding: 5px 6px 5px 9px;
   border-color: color-mix(in srgb, var(--fg-faint) 8%, transparent);
   border-radius: 9px;
   background: color-mix(in srgb, var(--bg-elev) 10%, transparent);
 }
-
-.app--creation .workbench-dock .workspace-tree,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-tree {
+.app--creation .workspace-float .workspace-tree,
+:root[data-theme-style] .app--creation .workspace-float .workspace-tree {
   padding: 0 6px 10px;
 }
-
-.app--creation .workbench-dock .workspace-tree__row,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-tree__row {
+.app--creation .workspace-float .workspace-tree__row,
+:root[data-theme-style] .app--creation .workspace-float .workspace-tree__row {
   height: 24px;
   min-height: 24px;
   gap: 5px;
@@ -32639,127 +32235,109 @@ body > .mermaid-diagram--fullscreen {
   font-weight: 500;
   background: transparent;
 }
-
-.app--creation .workbench-dock .workspace-tree__row:hover,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-tree__row:hover {
+.app--creation .workspace-float .workspace-tree__row:hover,
+:root[data-theme-style] .app--creation .workspace-float .workspace-tree__row:hover {
   background: color-mix(in srgb, var(--fg-faint) 5%, transparent);
   color: var(--fg);
 }
-
-.app--creation .workbench-dock .workspace-tree__row--active,
-.app--creation .workbench-dock .workspace-tree__row--active:hover,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-tree__row--active,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-tree__row--active:hover {
+.app--creation .workspace-float .workspace-tree__row--active,
+.app--creation .workspace-float .workspace-tree__row--active:hover,
+:root[data-theme-style] .app--creation .workspace-float .workspace-tree__row--active,
+:root[data-theme-style] .app--creation .workspace-float .workspace-tree__row--active:hover {
   background: transparent;
   color: var(--fg);
 }
-
-.app--creation .workbench-dock .workspace-tree__row--active::before,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-tree__row--active::before {
+.app--creation .workspace-float .workspace-tree__row--active::before,
+:root[data-theme-style] .app--creation .workspace-float .workspace-tree__row--active::before {
   top: 5px;
   bottom: 5px;
   width: 2px;
   border-radius: 999px;
   background: var(--tree-row-marker, var(--accent));
 }
-
-.app--creation .workbench-dock .workspace-tree__row--search,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-tree__row--search {
+.app--creation .workspace-float .workspace-tree__row--search,
+:root[data-theme-style] .app--creation .workspace-float .workspace-tree__row--search {
   height: auto;
   min-height: 34px;
   padding-top: 5px;
   padding-bottom: 5px;
 }
-
-.app--creation .workbench-dock .workspace-tree__chev,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-tree__chev {
+.app--creation .workspace-float .workspace-tree__chev,
+:root[data-theme-style] .app--creation .workspace-float .workspace-tree__chev {
   color: color-mix(in srgb, var(--fg-faint) 70%, transparent);
   opacity: 0.78;
 }
-
-.app--creation .workbench-dock .workspace-tree__icon,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-tree__icon {
+.app--creation .workspace-float .workspace-tree__icon,
+:root[data-theme-style] .app--creation .workspace-float .workspace-tree__icon {
   color: color-mix(in srgb, var(--fg-faint) 76%, transparent);
 }
-
-.app--creation .workbench-dock .workspace-tree__icon--dir,
-.app--creation .workbench-dock .workspace-tree__row--active .workspace-tree__icon--dir,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-tree__icon--dir,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-tree__row--active .workspace-tree__icon--dir {
+.app--creation .workspace-float .workspace-tree__icon--dir,
+.app--creation .workspace-float .workspace-tree__row--active .workspace-tree__icon--dir,
+:root[data-theme-style] .app--creation .workspace-float .workspace-tree__icon--dir,
+:root[data-theme-style] .app--creation .workspace-float .workspace-tree__row--active .workspace-tree__icon--dir {
   color: color-mix(in srgb, var(--accent) 86%, var(--fg-dim));
 }
-
-.app--creation .workbench-dock .workspace-tree__row--active .workspace-tree__icon,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-tree__row--active .workspace-tree__icon {
+.app--creation .workspace-float .workspace-tree__row--active .workspace-tree__icon,
+:root[data-theme-style] .app--creation .workspace-float .workspace-tree__row--active .workspace-tree__icon {
   color: color-mix(in srgb, var(--fg-dim) 80%, transparent);
 }
-
-.app--creation .workbench-dock .workspace-tree__name,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-tree__name {
+.app--creation .workspace-float .workspace-tree__name,
+:root[data-theme-style] .app--creation .workspace-float .workspace-tree__name {
   font-size: calc(12px * var(--font-scale));
   font-weight: 500;
   letter-spacing: 0.005em;
 }
-
-.app--creation .workbench-dock .workspace-tree__result-name,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-tree__result-name {
+.app--creation .workspace-float .workspace-tree__result-name,
+:root[data-theme-style] .app--creation .workspace-float .workspace-tree__result-name {
   color: color-mix(in srgb, var(--fg-dim) 88%, var(--fg));
   font-size: calc(12px * var(--font-scale));
   font-weight: 520;
 }
-
-.app--creation .workbench-dock .workspace-tree__result-dir,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-tree__result-dir {
+.app--creation .workspace-float .workspace-tree__result-dir,
+:root[data-theme-style] .app--creation .workspace-float .workspace-tree__result-dir {
   color: color-mix(in srgb, var(--fg-faint) 82%, transparent);
   font-size: calc(10.5px * var(--font-scale));
 }
-
-.app--creation .workbench-dock .workspace-tree__row--search:hover .workspace-tree__result-name,
-.app--creation .workbench-dock .workspace-tree__row--search.workspace-tree__row--active .workspace-tree__result-name,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-tree__row--search:hover .workspace-tree__result-name,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-tree__row--search.workspace-tree__row--active .workspace-tree__result-name {
+.app--creation .workspace-float .workspace-tree__row--search:hover .workspace-tree__result-name,
+.app--creation .workspace-float .workspace-tree__row--search.workspace-tree__row--active .workspace-tree__result-name,
+:root[data-theme-style] .app--creation .workspace-float .workspace-tree__row--search:hover .workspace-tree__result-name,
+:root[data-theme-style] .app--creation .workspace-float .workspace-tree__row--search.workspace-tree__row--active .workspace-tree__result-name {
   color: var(--fg);
 }
-
-.app--creation .workbench-dock .workspace-change,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-change {
+.app--creation .workspace-float .workspace-change,
+:root[data-theme-style] .app--creation .workspace-float .workspace-change {
   min-height: 42px;
   padding: 6px 8px;
   border-radius: 8px;
   color: color-mix(in srgb, var(--fg-dim) 82%, transparent);
   background: transparent;
 }
-
-.app--creation .workbench-dock .workspace-change:hover,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-change:hover {
+.app--creation .workspace-float .workspace-change:hover,
+:root[data-theme-style] .app--creation .workspace-float .workspace-change:hover {
   background: color-mix(in srgb, var(--fg-faint) 5%, transparent);
   color: var(--fg);
 }
-
-.app--creation .workbench-dock .workspace-change--active,
-.app--creation .workbench-dock .workspace-change--active:hover,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-change--active,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-change--active:hover {
+.app--creation .workspace-float .workspace-change--active,
+.app--creation .workspace-float .workspace-change--active:hover,
+:root[data-theme-style] .app--creation .workspace-float .workspace-change--active,
+:root[data-theme-style] .app--creation .workspace-float .workspace-change--active:hover {
   background: color-mix(in srgb, var(--fg-faint) 6%, transparent);
   color: var(--fg);
 }
-
-.app--creation .workbench-dock .workspace-change__name,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-change__name {
+.app--creation .workspace-float .workspace-change__name,
+:root[data-theme-style] .app--creation .workspace-float .workspace-change__name {
   font-size: calc(12px * var(--font-scale));
   font-weight: 540;
 }
-
-.app--creation .workbench-dock .workspace-change__path,
-.app--creation .workbench-dock .workspace-change__detail,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-change__path,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-change__detail {
+.app--creation .workspace-float .workspace-change__path,
+.app--creation .workspace-float .workspace-change__detail,
+:root[data-theme-style] .app--creation .workspace-float .workspace-change__path,
+:root[data-theme-style] .app--creation .workspace-float .workspace-change__detail {
   color: color-mix(in srgb, var(--fg-faint) 84%, transparent);
   font-size: calc(11px * var(--font-scale));
 }
-
-.app--creation .workbench-dock .workspace-change__badge,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-change__badge {
+.app--creation .workspace-float .workspace-change__badge,
+:root[data-theme-style] .app--creation .workspace-float .workspace-change__badge {
   height: 17px;
   padding: 0 5px;
   border-color: color-mix(in srgb, var(--fg-faint) 12%, transparent);
@@ -32768,103 +32346,88 @@ body > .mermaid-diagram--fullscreen {
   font-size: calc(10px * var(--font-scale));
   background: transparent;
 }
-
-.app--creation .workbench-dock .workspace-change__badge--git,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-change__badge--git {
+.app--creation .workspace-float .workspace-change__badge--git,
+:root[data-theme-style] .app--creation .workspace-float .workspace-change__badge--git {
   color: color-mix(in srgb, var(--accent) 82%, var(--fg-dim));
   border-color: color-mix(in srgb, var(--accent) 22%, transparent);
 }
-
-.app--creation .workbench-dock .workspace-change-scope__head,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-change-scope__head {
+.app--creation .workspace-float .workspace-change-scope__head,
+:root[data-theme-style] .app--creation .workspace-float .workspace-change-scope__head {
   border-color: color-mix(in srgb, var(--fg-faint) 8%, transparent);
   border-radius: 9px;
   background: color-mix(in srgb, var(--bg-elev) 10%, transparent);
 }
-
-.app--creation .workbench-dock .workspace-iconbtn,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-iconbtn {
+.app--creation .workspace-float .workspace-iconbtn,
+:root[data-theme-style] .app--creation .workspace-float .workspace-iconbtn {
   border-color: transparent;
   background: transparent;
   color: color-mix(in srgb, var(--fg-faint) 78%, transparent);
   box-shadow: none;
 }
-
-.app--creation .workbench-dock .workspace-iconbtn:hover,
-.app--creation .workbench-dock .workspace-iconbtn--on,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-iconbtn:hover,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-iconbtn--on {
+.app--creation .workspace-float .workspace-iconbtn:hover,
+.app--creation .workspace-float .workspace-iconbtn--on,
+:root[data-theme-style] .app--creation .workspace-float .workspace-iconbtn:hover,
+:root[data-theme-style] .app--creation .workspace-float .workspace-iconbtn--on {
   background: color-mix(in srgb, var(--fg-faint) 6%, transparent);
   color: var(--fg);
 }
-
 /* Creation "Changes" overview: keep the first-line path context, drop the
    second-line breadcrumb meta (duplicate path). Only when no file selected
    (.workspace-panel--changed-overview). File preview keeps normal head/meta. */
-.app--creation .workbench-dock .workspace-panel--changed-overview .workspace-preview__head,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-panel--changed-overview .workspace-preview__head {
+.app--creation .workspace-float .workspace-panel--changed-overview .workspace-preview__head,
+:root[data-theme-style] .app--creation .workspace-float .workspace-panel--changed-overview .workspace-preview__head {
   height: 40px;
   min-height: 40px;
   padding: 0 8px 0 10px;
   border-bottom-color: color-mix(in srgb, var(--fg-faint) 7%, transparent);
 }
-
-.app--creation .workbench-dock .workspace-panel--changed-overview .workspace-current-file,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-panel--changed-overview .workspace-current-file {
+.app--creation .workspace-float .workspace-panel--changed-overview .workspace-current-file,
+:root[data-theme-style] .app--creation .workspace-float .workspace-panel--changed-overview .workspace-current-file {
   gap: 7px;
 }
-
-.app--creation .workbench-dock .workspace-panel--changed-overview .workspace-current-file__icon,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-panel--changed-overview .workspace-current-file__icon {
+.app--creation .workspace-float .workspace-panel--changed-overview .workspace-current-file__icon,
+:root[data-theme-style] .app--creation .workspace-float .workspace-panel--changed-overview .workspace-current-file__icon {
   color: color-mix(in srgb, var(--accent) 78%, var(--fg-faint));
 }
-
-.app--creation .workbench-dock .workspace-panel--changed-overview .workspace-current-file__text,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-panel--changed-overview .workspace-current-file__text {
+.app--creation .workspace-float .workspace-panel--changed-overview .workspace-current-file__text,
+:root[data-theme-style] .app--creation .workspace-float .workspace-panel--changed-overview .workspace-current-file__text {
   gap: 1px;
 }
-
 /* First layer: path under the panel title (keep). */
-.app--creation .workbench-dock .workspace-panel--changed-overview .workspace-current-file__name,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-panel--changed-overview .workspace-current-file__name {
+.app--creation .workspace-float .workspace-panel--changed-overview .workspace-current-file__name,
+:root[data-theme-style] .app--creation .workspace-float .workspace-panel--changed-overview .workspace-current-file__name {
   color: color-mix(in srgb, var(--fg-dim) 88%, transparent);
   font-size: calc(12px * var(--font-scale));
   font-weight: 560;
   letter-spacing: 0.005em;
 }
-
-.app--creation .workbench-dock .workspace-panel--changed-overview .workspace-current-file__path,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-panel--changed-overview .workspace-current-file__path {
+.app--creation .workspace-float .workspace-panel--changed-overview .workspace-current-file__path,
+:root[data-theme-style] .app--creation .workspace-float .workspace-panel--changed-overview .workspace-current-file__path {
   color: color-mix(in srgb, var(--fg-faint) 80%, transparent);
   font-size: calc(11px * var(--font-scale));
 }
-
 /* Recent-files dropdown is not useful on Changes overview. */
-.app--creation .workbench-dock .workspace-panel--changed-overview .workspace-current-file__recent,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-panel--changed-overview .workspace-current-file__recent {
+.app--creation .workspace-float .workspace-panel--changed-overview .workspace-current-file__recent,
+:root[data-theme-style] .app--creation .workspace-float .workspace-panel--changed-overview .workspace-current-file__recent {
   display: none;
 }
-
 /* Second layer: breadcrumb path row (hide — duplicates the first path). */
-.app--creation .workbench-dock .workspace-panel--changed-overview .workspace-preview__meta,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-panel--changed-overview .workspace-preview__meta {
+.app--creation .workspace-float .workspace-panel--changed-overview .workspace-preview__meta,
+:root[data-theme-style] .app--creation .workspace-float .workspace-panel--changed-overview .workspace-preview__meta {
   display: none;
 }
-
-.app--creation .workbench-dock .workspace-panel--changed-overview .workspace-preview__body,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-panel--changed-overview .workspace-preview__body {
+.app--creation .workspace-float .workspace-panel--changed-overview .workspace-preview__body,
+:root[data-theme-style] .app--creation .workspace-float .workspace-panel--changed-overview .workspace-preview__body {
   padding: 8px 10px 14px;
 }
-
 /* Commit history is available for audit, but secondary to live file changes. */
-.app--creation .workbench-dock .workspace-commit-history,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-commit-history {
+.app--creation .workspace-float .workspace-commit-history,
+:root[data-theme-style] .app--creation .workspace-float .workspace-commit-history {
   margin-top: 2px;
   border-top: 1px solid color-mix(in srgb, var(--fg-faint) 7%, transparent);
 }
-
-.app--creation .workbench-dock .workspace-commit-history__toggle,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-commit-history__toggle {
+.app--creation .workspace-float .workspace-commit-history__toggle,
+:root[data-theme-style] .app--creation .workspace-float .workspace-commit-history__toggle {
   --wails-draggable: no-drag;
   display: flex;
   align-items: center;
@@ -32881,152 +32444,131 @@ body > .mermaid-diagram--fullscreen {
   font-weight: 540;
   text-align: left;
 }
-
-.app--creation .workbench-dock .workspace-commit-history__toggle:hover,
-.app--creation .workbench-dock .workspace-commit-history__toggle:focus-visible,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-commit-history__toggle:hover,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-commit-history__toggle:focus-visible {
+.app--creation .workspace-float .workspace-commit-history__toggle:hover,
+.app--creation .workspace-float .workspace-commit-history__toggle:focus-visible,
+:root[data-theme-style] .app--creation .workspace-float .workspace-commit-history__toggle:hover,
+:root[data-theme-style] .app--creation .workspace-float .workspace-commit-history__toggle:focus-visible {
   background: color-mix(in srgb, var(--fg-faint) 5%, transparent);
   color: color-mix(in srgb, var(--fg-dim) 90%, transparent);
 }
-
-.app--creation .workbench-dock .workspace-commit-history__toggle svg,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-commit-history__toggle svg {
+.app--creation .workspace-float .workspace-commit-history__toggle svg,
+:root[data-theme-style] .app--creation .workspace-float .workspace-commit-history__toggle svg {
   flex: 0 0 auto;
 }
-
-.app--creation .workbench-dock .workspace-commit-history__toggle small,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-commit-history__toggle small {
+.app--creation .workspace-float .workspace-commit-history__toggle small,
+:root[data-theme-style] .app--creation .workspace-float .workspace-commit-history__toggle small {
   margin-left: auto;
   color: color-mix(in srgb, var(--fg-faint) 64%, transparent);
   font-size: calc(10.5px * var(--font-scale));
   font-weight: 500;
 }
-
-.app--creation .workbench-dock .workspace-commit-history--open .workspace-git-history__list,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-commit-history--open .workspace-git-history__list {
+.app--creation .workspace-float .workspace-commit-history--open .workspace-git-history__list,
+:root[data-theme-style] .app--creation .workspace-float .workspace-commit-history--open .workspace-git-history__list {
   padding: 0 0 4px;
 }
-
-.app--creation .workbench-dock .workspace-git-history,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-git-history {
+.app--creation .workspace-float .workspace-git-history,
+:root[data-theme-style] .app--creation .workspace-float .workspace-git-history {
   gap: 8px;
 }
-
-.app--creation .workbench-dock .workspace-git-history__list,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-git-history__list {
+.app--creation .workspace-float .workspace-git-history__list,
+:root[data-theme-style] .app--creation .workspace-float .workspace-git-history__list {
   gap: 2px;
 }
-
-.app--creation .workbench-dock .workspace-git-history__item,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-git-history__item {
+.app--creation .workspace-float .workspace-git-history__item,
+:root[data-theme-style] .app--creation .workspace-float .workspace-git-history__item {
   border: 0;
   border-radius: 8px;
   background: transparent;
   overflow: hidden;
 }
-
-.app--creation .workbench-dock .workspace-git-history__item--expanded,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-git-history__item--expanded {
+.app--creation .workspace-float .workspace-git-history__item--expanded,
+:root[data-theme-style] .app--creation .workspace-float .workspace-git-history__item--expanded {
   background: color-mix(in srgb, var(--fg-faint) 4%, transparent);
 }
-
-.app--creation .workbench-dock .workspace-git-history__head,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-git-history__head {
+.app--creation .workspace-float .workspace-git-history__head,
+:root[data-theme-style] .app--creation .workspace-float .workspace-git-history__head {
   padding: 8px 9px 7px;
   border-radius: 8px;
   color: color-mix(in srgb, var(--fg-dim) 90%, var(--fg));
   font-size: calc(12px * var(--font-scale));
 }
-
-.app--creation .workbench-dock .workspace-git-history__head:hover,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-git-history__head:hover {
+.app--creation .workspace-float .workspace-git-history__head:hover,
+:root[data-theme-style] .app--creation .workspace-float .workspace-git-history__head:hover {
   background: color-mix(in srgb, var(--fg-faint) 5%, transparent);
   color: var(--fg);
 }
-
-.app--creation .workbench-dock .workspace-git-history__head-top,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-git-history__head-top {
+.app--creation .workspace-float .workspace-git-history__head-top,
+:root[data-theme-style] .app--creation .workspace-float .workspace-git-history__head-top {
   gap: 6px;
 }
-
-.app--creation .workbench-dock .workspace-git-history__head-top svg,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-git-history__head-top svg {
+.app--creation .workspace-float .workspace-git-history__head-top svg,
+:root[data-theme-style] .app--creation .workspace-float .workspace-git-history__head-top svg {
   flex: 0 0 auto;
   color: color-mix(in srgb, var(--fg-faint) 72%, transparent);
 }
-
-.app--creation .workbench-dock .workspace-git-history__message,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-git-history__message {
+.app--creation .workspace-float .workspace-git-history__message,
+:root[data-theme-style] .app--creation .workspace-float .workspace-git-history__message {
   color: inherit;
   font-size: calc(12px * var(--font-scale));
   font-weight: 540;
 }
-
-.app--creation .workbench-dock .workspace-git-history__head-bottom,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-git-history__head-bottom {
+.app--creation .workspace-float .workspace-git-history__head-bottom,
+:root[data-theme-style] .app--creation .workspace-float .workspace-git-history__head-bottom {
   gap: 6px;
   margin-top: 2px;
   padding-left: 20px;
 }
-
-.app--creation .workbench-dock .workspace-git-history__author,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-git-history__author {
+.app--creation .workspace-float .workspace-git-history__author,
+:root[data-theme-style] .app--creation .workspace-float .workspace-git-history__author {
   color: color-mix(in srgb, var(--fg-faint) 88%, transparent);
   font-size: calc(11px * var(--font-scale));
   font-weight: 500;
 }
-
-.app--creation .workbench-dock .workspace-git-history__date,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-git-history__date {
+.app--creation .workspace-float .workspace-git-history__date,
+:root[data-theme-style] .app--creation .workspace-float .workspace-git-history__date {
   color: color-mix(in srgb, var(--fg-faint) 72%, transparent);
   font-size: calc(10.5px * var(--font-scale));
 }
-
-.app--creation .workbench-dock .workspace-git-history__hash,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-git-history__hash {
+.app--creation .workspace-float .workspace-git-history__hash,
+:root[data-theme-style] .app--creation .workspace-float .workspace-git-history__hash {
   margin-left: 4px;
   color: color-mix(in srgb, var(--fg-faint) 64%, transparent);
   opacity: 1;
   font-size: calc(10.5px * var(--font-scale));
 }
-
-.app--creation .workbench-dock .workspace-git-history__detail,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-git-history__detail {
+.app--creation .workspace-float .workspace-git-history__detail,
+:root[data-theme-style] .app--creation .workspace-float .workspace-git-history__detail {
   padding: 6px 8px 10px 20px;
   border-top: 0;
   background: transparent;
 }
-
-.app--creation .workbench-dock .workspace-git-history__file,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-git-history__file {
+.app--creation .workspace-float .workspace-git-history__file,
+:root[data-theme-style] .app--creation .workspace-float .workspace-git-history__file {
   gap: 6px;
   padding: 5px 7px;
   border-radius: 6px;
   color: color-mix(in srgb, var(--fg-dim) 84%, transparent);
   font-size: calc(11.5px * var(--font-scale));
 }
-
-.app--creation .workbench-dock .workspace-git-history__file:hover,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-git-history__file:hover {
+.app--creation .workspace-float .workspace-git-history__file:hover,
+:root[data-theme-style] .app--creation .workspace-float .workspace-git-history__file:hover {
   background: color-mix(in srgb, var(--fg-faint) 6%, transparent);
   color: var(--fg);
 }
-
-.app--creation .workbench-dock .workspace-empty,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-empty {
+.app--creation .workspace-float .workspace-empty,
+:root[data-theme-style] .app--creation .workspace-float .workspace-empty {
   color: color-mix(in srgb, var(--fg-faint) 82%, transparent);
   font-size: calc(12px * var(--font-scale));
 }
-
-.app--creation .workbench-dock .workspace-note,
-:root[data-theme-style] .app--creation .workbench-dock .workspace-note {
+.app--creation .workspace-float .workspace-note,
+:root[data-theme-style] .app--creation .workspace-float .workspace-note {
   border-color: color-mix(in srgb, var(--fg-faint) 10%, transparent);
   border-radius: 8px;
   background: color-mix(in srgb, var(--bg-elev) 10%, transparent);
   color: color-mix(in srgb, var(--fg-dim) 88%, transparent);
   font-size: calc(11.5px * var(--font-scale));
 }
+
 /* Topic shortcut badges (Cmd/Ctrl+1-9 overlay) */
 
 .project-tree__topic-shortcut {
@@ -33111,10 +32653,10 @@ body > .mermaid-diagram--fullscreen {
 }
 
 .app--windows-frameless.app--creation {
-  /* Match Creation topicbar / dock tools (40px) so caption buttons are not taller
+  /* Match the Creation topicbar height (40px) so caption buttons are not taller
      than the title strip. classic/workbench keep their own heights. */
   --windows-window-controls-height: 40px;
-  /* Tighter caption buttons free horizontal room for dock tabs at narrow widths.
+  /* Tighter caption buttons free horizontal room at narrow widths.
      classic/workbench keep the standard 46×3 = 138 strip. */
   --windows-window-control-width: 36px;
   --windows-window-controls-width: 108px;
@@ -33128,72 +32670,9 @@ body > .mermaid-diagram--fullscreen {
   padding-right: calc(var(--windows-frameless-titlebar-tools-offset) + var(--chrome-panel-control-size, 30px) + 18px);
 }
 
-.app--windows-frameless .app-chrome--native-tabs .app-chrome__panel-toggle--right,
-:root[data-theme-style] .app--windows-frameless .app-chrome--native-tabs .app-chrome__panel-toggle--right {
-  right: calc(var(--windows-frameless-titlebar-tools-offset) + 8px);
-}
-
 .app--windows-frameless .topicbar,
 :root[data-theme-style] .app--windows-frameless .topicbar {
   padding-right: var(--windows-window-controls-safe);
-}
-
-/* When workspace panel is open the workbench-dock covers the right edge, so the
-   topicbar no longer needs the window-controls safe space — use the normal 18px
-   padding instead to prevent buttons from being pushed off-screen or overlapping
-   the dock. */
-.app--windows-frameless .layout--workspace-open .topicbar,
-.app--windows-frameless .layout--workspace-maximized .topicbar,
-:root[data-theme-style] .app--windows-frameless .layout--workspace-open .topicbar,
-:root[data-theme-style] .app--windows-frameless .layout--workspace-maximized .topicbar {
-  padding-right: 18px;
-}
-
-/* Workbench hides AppChrome, so its dock is also the native title surface.
-   Keep the Windows caption buttons on a dedicated first row and render the
-   complete dock tab strip below it, matching Classic's separated chrome. */
-.app--windows-frameless.app--workbench .workbench-dock__tools,
-:root[data-theme-style] .app--windows-frameless.app--workbench .workbench-dock__tools {
-  position: relative;
-  height: calc(40px + var(--windows-window-controls-height));
-  padding: var(--windows-window-controls-height) 12px 0;
-}
-
-.app--windows-frameless.app--workbench .workbench-dock__tools::before,
-:root[data-theme-style] .app--windows-frameless.app--workbench .workbench-dock__tools::before {
-  content: "";
-  position: absolute;
-  top: calc(var(--windows-window-controls-height) - 1px);
-  right: 0;
-  left: 0;
-  height: 1px;
-  background: var(--border-soft);
-  pointer-events: none;
-}
-
-/* Creation sets tools padding via shorthand; re-assert the Windows safe
-   inset with higher specificity so 「文件 / 改动」 cannot sit under min/max/close.
-   Tabs fill this free strip; each tab is an equal column that self-centers. */
-.app--windows-frameless.app--creation .workbench-dock__tools,
-:root[data-theme-style] .app--windows-frameless.app--creation .workbench-dock__tools {
-  padding-left: 8px;
-  padding-right: calc(var(--windows-window-controls-width) + 6px);
-  justify-content: flex-start;
-}
-
-.app--windows-frameless.app--creation .workbench-dock__tabs,
-:root[data-theme-style] .app--windows-frameless.app--creation .workbench-dock__tabs {
-  width: 100%;
-  flex: 1 1 auto;
-  max-width: none;
-  min-width: 0;
-  overflow: hidden;
-  justify-content: flex-start;
-}
-
-.app--windows-frameless .workbench-dock__tabs,
-:root[data-theme-style] .app--windows-frameless .workbench-dock__tabs {
-  max-width: calc(100% - 4px);
 }
 
 @media (max-width: 820px) {
@@ -33209,15 +32688,9 @@ body > .mermaid-diagram--fullscreen {
   }
 
   .app .sidebar,
-  :root[data-theme-style] .app .sidebar,
-  .app .sidebar-resizer,
-  :root[data-theme-style] .app .sidebar-resizer,
-  .app .workspace-panel-resizer,
-  :root[data-theme-style] .app .workspace-panel-resizer,
-  .app .context-inspector,
-  :root[data-theme-style] .app .context-inspector,
-  .app .workbench-dock,
-  :root[data-theme-style] .app .workbench-dock {
+:root[data-theme-style] .app .sidebar,
+.app .sidebar-resizer,
+:root[data-theme-style] .app .sidebar-resizer {
     display: none !important;
   }
 
@@ -33308,8 +32781,8 @@ body > .mermaid-diagram--fullscreen {
   transform: translateY(0.5px) scale(0.94) !important;
 }
 
-/* Windows 控制框在 Creation 下默认用 --bg-elev（近纯白），与右侧 workbench-dock
-   的统一底色（sidebar-bg 88%）有明显色差。改用相同底色，让控制框与右侧面板连成一片。 */
+/* Windows 控制框在 Creation 下默认用 --bg-elev（近纯白），与侧栏底色（sidebar-bg 88%）
+   有明显色差；改用相同底色让控制框融入外壳。 */
 .app--windows.app--creation .windows-window-controls,
 :root[data-theme-style] .app--windows.app--creation .windows-window-controls {
   background: color-mix(in srgb, var(--sidebar-bg) 88%, transparent);
@@ -33592,8 +33065,6 @@ body > .mermaid-diagram--fullscreen {
 /* Home: shell elements — controlled by paneOpacity (面板透明度) */
 :root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="home"] .app:not(.app--creation) .sidebar,
 :root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="home"] .app:not(.app--creation) .topicbar,
-:root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="home"] .app:not(.app--creation) .workbench-dock,
-:root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="home"] .app:not(.app--creation) .workbench-dock__tools,
 :root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="home"] .app:not(.app--creation) .workspace-panel,
 :root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="home"] .app:not(.app--creation) .statusbar {
   background: color-mix(in srgb, var(--bg-elev) var(--theme-pane-shell-pct, 60%), transparent) !important;
@@ -33710,8 +33181,6 @@ body > .mermaid-diagram--fullscreen {
 /* Task: shell elements — controlled by paneOpacity (面板透明度) */
 :root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="task"] .app:not(.app--creation) .sidebar,
 :root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="task"] .app:not(.app--creation) .topicbar,
-:root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="task"] .app:not(.app--creation) .workbench-dock,
-:root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="task"] .app:not(.app--creation) .workbench-dock__tools,
 :root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="task"] .app:not(.app--creation) .workspace-panel,
 :root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="task"] .app:not(.app--creation) .statusbar {
   background: color-mix(in srgb, var(--bg-elev) var(--theme-pane-task-shell-pct, 78%), transparent) !important;
@@ -33826,8 +33295,6 @@ body > .mermaid-diagram--fullscreen {
 /* Fallback: scene-independent transparency for data-theme-pack */
 :root[data-theme-pack][data-theme-has-bg="true"] .app:not(.app--creation) .sidebar,
 :root[data-theme-pack][data-theme-has-bg="true"] .app:not(.app--creation) .topicbar,
-:root[data-theme-pack][data-theme-has-bg="true"] .app:not(.app--creation) .workbench-dock,
-:root[data-theme-pack][data-theme-has-bg="true"] .app:not(.app--creation) .workbench-dock__tools,
 :root[data-theme-pack][data-theme-has-bg="true"] .app:not(.app--creation) .workspace-panel,
 :root[data-theme-pack][data-theme-has-bg="true"] .app:not(.app--creation) .statusbar {
   background: color-mix(in srgb, var(--bg-elev) 80%, transparent) !important;
@@ -36187,7 +35654,6 @@ body > .mermaid-diagram--fullscreen {
 }
 :root[data-terminal-theme="dark"] .terminal-panel { color-scheme: dark; }
 :root[data-terminal-theme="light"] .terminal-panel { color-scheme: light; }
-.workbench-dock--terminal { min-width: 0; }
 .terminal-panel { display: flex; flex-direction: column; height: 100%; min-width: 0; background: var(--terminal-bg); color: var(--terminal-fg); }
 .terminal-panel__header { display: flex; align-items: center; justify-content: space-between; min-height: 38px; padding: 0 10px; border-bottom: 1px solid var(--terminal-border); background: var(--terminal-surface); }
 .terminal-panel__identity, .terminal-panel__actions { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -36271,15 +35737,3 @@ body > .mermaid-diagram--fullscreen {
   padding-bottom: 4px !important;
 }
 
-/* Classic and Workbench share the same compact four-view strip at the dock's
-   minimum width. Creation keeps its equal-column tab treatment. */
-@container (max-width: 420px) {
-  .app--classic .workbench-dock__tab,
-  .app--workbench .workbench-dock__tab,
-  :root[data-theme-style] .app--classic .workbench-dock__tab,
-  :root[data-theme-style] .app--workbench .workbench-dock__tab {
-    padding-left: 10px;
-    padding-right: 10px;
-    gap: 4px;
-  }
-}

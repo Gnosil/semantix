@@ -136,7 +136,6 @@ clipsSingleLine(".statusbar__model");
 for (const selector of [
   ".sidebar-im__summary-label",
   ".sidebar-im__summary-status",
-  ".workbench-dock__tab-label",
   ".workspace-files__scope-title",
   ".workspace-files__scope-meta",
   ".topbar__model",
@@ -145,12 +144,6 @@ for (const selector of [
 ]) {
   clipsSingleLine(selector);
 }
-
-eq(
-  finalDeclaration(".app--creation .layout.layout--workspace-open", "transition"),
-  "grid-template-columns 0s, min-width 0s",
-  "creation dock skips zero-width grid interpolation on open",
-);
 
 eq(finalDeclaration(".composer-modebar", "overflow"), "hidden", "chat mode switcher contains enlarged labels");
 eq(finalDeclaration(".composer-meta__control--profile", "flex"), "0 0 auto", "work mode selector sizes to its localized label");
