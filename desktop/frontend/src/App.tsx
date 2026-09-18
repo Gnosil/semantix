@@ -4132,15 +4132,25 @@ export default function App() {
           </section>
 
           <section className="sidebar__section sidebar__section--sessions" aria-label={t("sidebar.sessions")}>
-            <Suspense fallback={null}>
-              <TaskMonitorPanel
-                tabID={activeTabId ?? ""}
-                initialScope="all"
-                variant="sidebar"
-                initialOpen
-                onOpenSession={openTaskMonitorSession}
-              />
-            </Suspense>
+            <ProjectTree
+              activeScope={activeTab?.scope}
+              activeWorkspaceRoot={activeTab?.workspaceRoot}
+              activeTopicId={activeTab?.topicId}
+              activeSessionPath={activeTab?.sessionPath}
+              imTopicSources={imTopicSources}
+              onOpenTopic={handleOpenTopic}
+              onAddProject={async () => {
+                await switchFolder();
+              }}
+              onRenameTopic={renameTopic}
+              onTopicsChanged={refreshProjectsAndTabs}
+              refreshSignal={projectRevision}
+              timeFilter={topicTimeFilter}
+              onTimeFilterChange={setTopicTimeFilter}
+              variant={sidebarWorkbench ? "workbench" : sidebarCreation ? "creation" : "classic"}
+              layout="sessions"
+              searchExpanded={false}
+            />
           </section>
 
           <nav className="sidebar__nav sidebar__nav--footer" aria-label={t("sidebar.utilityActions")}>
