@@ -4138,6 +4138,7 @@ export default function App() {
                 tabID={activeTabId}
                 initialScope="all"
                 variant="sidebar"
+                initialOpen
                 onOpenSession={openTaskMonitorSession}
               />
             </Suspense>

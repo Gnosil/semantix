@@ -2340,17 +2340,37 @@ a[href] {
 .sidebar__section--sessions .taskmonitor {
   min-width: 0;
 }
+.taskmonitor--sidebar {
+  background: transparent;
+}
+
 .taskmonitor--sidebar .taskmonitor__head {
   height: 28px;
   min-height: 28px;
-  padding: 0 2px;
+  padding: 2px 2px 0 8px;
+  gap: 6px;
 }
 
 .taskmonitor--sidebar .taskmonitor__title {
+  flex: 1 1 auto;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--fg-dim);
-  letter-spacing: 0.02em;
+  text-align: left;
+}
+
+.taskmonitor--sidebar .taskmonitor__count {
+  background: var(--bg-elev-2);
+  color: var(--fg-dim);
+  line-height: 16px;
+  height: 16px;
+}
+
+.taskmonitor--sidebar .taskmonitor__toggle,
+.taskmonitor--sidebar .taskmonitor__refresh {
+  width: 24px;
+  height: 24px;
+  color: var(--fg-dim);
 }
 
 .taskmonitor--sidebar .taskmonitor__filters {
