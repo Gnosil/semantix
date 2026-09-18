@@ -1526,38 +1526,6 @@ export interface RemoteConnectionStatus {
   attempt?: number;
 }
 
-export interface RemoteDirEntry {
-  name: string;
-  path: string;
-  isDir: boolean;
-  size: number;
-  mtimeUnix: number;
-  symlink: boolean;
-}
-
-export interface RemoteFilePreview {
-  path: string;
-  body: string;
-  size: number;
-  mtimeUnix: number;
-  truncated: boolean;
-  binary: boolean;
-  err?: string;
-}
-
-export interface RemoteWriteResult {
-  ok: boolean;
-  conflict: boolean;
-  newMtimeUnix: number;
-}
-
-export interface RemoteForwardInput {
-  localPort: number;
-  remoteHost: string;
-  remotePort: number;
-  label: string;
-}
-
 export interface RemoteForwardView {
   id: string;
   hostId: string;

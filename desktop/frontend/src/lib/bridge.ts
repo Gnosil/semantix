@@ -17,11 +17,6 @@ import type {
   RemoteHostView,
   RemoteHostInput,
   RemoteConnectionStatus,
-  RemoteDirEntry,
-  RemoteFilePreview,
-  RemoteWriteResult,
-  RemoteForwardInput,
-  RemoteForwardView,
   RemoteServerView,
   RemoteForwardsEvent,
   RemoteLegacyWorkbenchData,
@@ -626,19 +621,7 @@ export interface AppBindings extends SessionCatalogBindings, HistoryCatalogBindi
   RemoteConnectionStatuses(): Promise<RemoteConnectionStatus[]>;
   ConfirmRemoteHostKey(hostId: string, accept: boolean): Promise<void>;
   ConfirmRemoteSecret(hostId: string, promptId: string, secret: string, accept: boolean): Promise<void>;
-  ListRemoteDir(hostId: string, path: string): Promise<RemoteDirEntry[]>;
-  ReadRemoteFile(hostId: string, path: string): Promise<RemoteFilePreview>;
-  WriteRemoteFile(hostId: string, path: string, body: string, expectMtimeUnix: number): Promise<RemoteWriteResult>;
-  MkdirRemote(hostId: string, path: string): Promise<void>;
-  RenameRemotePath(hostId: string, oldPath: string, newPath: string): Promise<void>;
-  DeleteRemotePath(hostId: string, path: string, recursive: boolean): Promise<void>;
-  RemoteForwards(hostId: string): Promise<RemoteForwardView[]>;
-  AddRemoteForward(hostId: string, input: RemoteForwardInput): Promise<RemoteForwardView>;
-  RemoveRemoteForward(hostId: string, forwardId: string): Promise<void>;
   OpenRemoteWorkspace(hostId: string, workspace: string): Promise<void>;
-  StopRemoteServer(hostId: string): Promise<void>;
-  RemoteServerStatus(hostId: string): Promise<RemoteServerView>;
-  RemoteServerLogs(hostId: string, tailLines: number): Promise<string>;
   RemoteLastWorkspace(hostId: string): Promise<string>;
   ScanRemoteLegacyWorkbenchData(): Promise<RemoteLegacyWorkbenchData>;
   CleanRemoteLegacyWorkbenchData(target: "mirrors" | "trust"): Promise<void>;
@@ -5317,45 +5300,7 @@ function makeMockApp(): AppBindings {
       mockRemoteConn[hostId] = accept ? "connected" : "stopped";
       __emitMockRemote("status", { hostId, state: mockRemoteConn[hostId] });
     },
-    async ListRemoteDir(_hostId, path) {
-      const base = path.replace(/\/$/, "");
-      return [
-        { name: "src", path: `${base}/src`, isDir: true, size: 0, mtimeUnix: 1_700_000_000, symlink: false },
-        { name: "README.md", path: `${base}/README.md`, isDir: false, size: 1024, mtimeUnix: 1_700_000_500, symlink: false },
-      ];
-    },
-    async ReadRemoteFile(_hostId, path) {
-      return { path, body: `# Mock remote file\n${path}\n`, size: 40, mtimeUnix: 1_700_000_500, truncated: false, binary: false };
-    },
-    async WriteRemoteFile(_hostId, _path, _body, _expectMtimeUnix) {
-      return { ok: true, conflict: false, newMtimeUnix: 1_700_000_900 };
-    },
-    async MkdirRemote() {},
-    async RenameRemotePath() {},
-    async DeleteRemotePath() {},
-    async RemoteForwards(hostId) {
-      return mockRemoteForwards[hostId] ?? [];
-    },
-    async AddRemoteForward(hostId, input) {
-      const view: RemoteForwardView = { id: `L:${input.localPort}`, hostId, ...input, state: "active" };
-      mockRemoteForwards[hostId] = [...(mockRemoteForwards[hostId] ?? []), view];
-      __emitMockRemote("forwards", { hostId, forwards: mockRemoteForwards[hostId] });
-      return view;
-    },
-    async RemoveRemoteForward(hostId, forwardId) {
-      mockRemoteForwards[hostId] = (mockRemoteForwards[hostId] ?? []).filter((f) => f.id !== forwardId);
-      __emitMockRemote("forwards", { hostId, forwards: mockRemoteForwards[hostId] });
-    },
     async OpenRemoteWorkspace() {},
-    async StopRemoteServer(hostId) {
-      __emitMockRemote("server", { hostId, workspace: "", state: "stopped" });
-    },
-    async RemoteServerStatus(hostId) {
-      return { hostId, workspace: "~/app", state: "stopped" };
-    },
-    async RemoteServerLogs() {
-      return "mock serve log line 1\nmock serve log line 2\n";
-    },
     async RemoteLastWorkspace() {
       return "~/app";
     },
@@ -5395,4 +5340,3 @@ let mockRemoteHosts: RemoteHostView[] = [
   { id: "demo", label: "demo", host: "192.168.1.10", port: 22, user: "dev", identityFile: "", proxyJump: "", defaultWorkspace: "~/app", serveInstall: "auto", useSSHConfig: false },
 ];
 const mockRemoteConn: Record<string, RemoteConnectionStatus["state"]> = {};
-const mockRemoteForwards: Record<string, RemoteForwardView[]> = {};
