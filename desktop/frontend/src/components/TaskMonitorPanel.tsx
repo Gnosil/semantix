@@ -6,6 +6,7 @@ import {
   Clock,
   List,
   Loader2,
+  MessagesSquare,
   RotateCw,
   X,
   XCircle,
@@ -349,6 +350,7 @@ export function TaskMonitorPanel({
           {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </button>
         <span className="taskmonitor__title">
+          {variant === "sidebar" && <MessagesSquare size={13} className="taskmonitor__title-icon" aria-hidden="true" />}
           {variant === "sidebar" ? t("sidebar.sessions") : summaryMode ? t("summary.session") : t("summary.tasks")}
         </span>
         <span className="taskmonitor__count">{tasks.length}</span>

@@ -4131,11 +4131,10 @@ export default function App() {
             />
           </section>
 
-          {activeTabId && (
           <section className="sidebar__section sidebar__section--sessions" aria-label={t("sidebar.sessions")}>
             <Suspense fallback={null}>
               <TaskMonitorPanel
-                tabID={activeTabId}
+                tabID={activeTabId ?? ""}
                 initialScope="all"
                 variant="sidebar"
                 initialOpen
@@ -4143,7 +4142,6 @@ export default function App() {
               />
             </Suspense>
           </section>
-          )}
 
           <nav className="sidebar__nav sidebar__nav--footer" aria-label={t("sidebar.utilityActions")}>
             <Tooltip label={t("sidebar.trash")} fill side="right" disabled={sidebarNavTooltipDisabled}>
