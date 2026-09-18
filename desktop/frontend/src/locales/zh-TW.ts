@@ -43,6 +43,8 @@ export const zhTW: Record<DictKey, string> = {
   "sidebar.conversations": "會話",
   "sidebar.trash": "回收站",
   "sidebar.automation": "自動化",
+  "sidebar.newTask": "新建任務",
+  "sidebar.search": "搜尋",
   "sidebar.workspace": "工作區",
   "sidebar.changeWorkspace": "更改",
   "sidebar.navigation": "Semantix 導航",

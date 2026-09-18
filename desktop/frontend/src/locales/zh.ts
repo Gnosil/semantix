@@ -52,6 +52,8 @@ export const zh: Record<DictKey, string> = {
   "sidebar.conversations": "会话",
   "sidebar.trash": "回收站",
   "sidebar.automation": "自动化",
+  "sidebar.newTask": "新建任务",
+  "sidebar.search": "搜索",
   "sidebar.memorySkills": "记忆与技能",
   "sidebar.workspace": "工作区",
   "sidebar.changeWorkspace": "更改",

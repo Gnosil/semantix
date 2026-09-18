@@ -2,7 +2,6 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type
 import { ShellExpandProvider, useShellExpand } from "./lib/shellExpand";
 import {
   Activity,
-  Command,
   Copy as RestoreIcon,
   Download,
   Minus,
@@ -4047,93 +4046,64 @@ export default function App() {
 
         <aside className={sidebarClassName} aria-label={t("sidebar.navigation")}>
           {sidebarWorkbench ? (
-            <>
-              <div className="sidebar__head" aria-hidden={sidebarCollapsed}>
-                <div className="sidebar__brand sidebar__brand--workbench">
-                  <img src={logoWordmark} alt="Semantix" className="sidebar__brand-logo sidebar__brand-logo--workbench" draggable={false} />
-                </div>
+            <div className="sidebar__head" aria-hidden={sidebarCollapsed}>
+              <div className="sidebar__brand sidebar__brand--workbench">
+                <img src={logoWordmark} alt="Semantix" className="sidebar__brand-logo sidebar__brand-logo--workbench" draggable={false} />
               </div>
-
-              <div className="sidebar__quick-actions">
-                <button
-                  className="sidebar__quick-action"
-                  type="button"
-                  onClick={() => {
-                    void handleNewTab();
-                  }}
-                >
-                  <MessageSquare size={18} aria-hidden="true" />
-                  <span>{t("topbar.newSession")}</span>
-                </button>
-              </div>
-            </>
+            </div>
           ) : (
-            <>
-              <div className="sidebar__brand" aria-hidden={sidebarCollapsed}>
-                <img src={logoWordmark} alt="Semantix" className="sidebar__brand-logo" draggable={false} />
-              </div>
-
+            <div className="sidebar__brand" aria-hidden={sidebarCollapsed}>
+              <img src={logoWordmark} alt="Semantix" className="sidebar__brand-logo" draggable={false} />
+            </div>
+          )}
+          <nav className="sidebar__nav sidebar__nav--primary" aria-label={t("sidebar.navigation")}>
+            <Tooltip label={t("sidebar.newTask")} fill side="right" disabled={sidebarNavTooltipDisabled}>
               <button
-                className="sidebar__new"
+                className="sidebar__navitem"
                 onClick={() => {
                   void handleNewTab();
                 }}
               >
-                <SquarePen size={18} />
-                <span>{sidebarCreation ? t("creation.sidebar.newChat") : t("topbar.newSession")}</span>
+                <SquarePen size={15} />
+                <span>{t("sidebar.newTask")}</span>
               </button>
-            </>
-          )}
-
-          {sidebarCreation && (
-            <section className="sidebar-feature-zone" aria-label={t("settings.title")}>
-              <div className="sidebar-feature-zone__title">{t("creation.sidebar.features")}</div>
-              <div className="sidebar-feature-zone__items">
-                <button
-                  className="sidebar-feature-zone__item"
-                  type="button"
-                  onClick={() => {
-                    closeTransientOverlays();
-                    setSettingsTarget("skills");
-                  }}
-                >
-                  <Command size={14} aria-hidden="true" />
-                  <span>{t("creation.sidebar.skills")}</span>
-                </button>
-                <button
-                  className="sidebar-feature-zone__item"
-                  type="button"
-                  onClick={() => {
-                    closeTransientOverlays();
-                    setSettingsTarget("memory");
-                  }}
-                >
-                  <Brain size={14} aria-hidden="true" />
-                  <span>{t("settings.tab.memory")}</span>
-                </button>
-                <button
-                  className="sidebar-feature-zone__item"
-                  type="button"
-                  onClick={() => {
-                    closeTransientOverlays();
-                    setSettingsTarget("bots");
-                  }}
-                >
-                  <MessageSquare size={14} aria-hidden="true" />
-                  <span>{t("creation.sidebar.messageChannels")}</span>
-                </button>
-                <button
-                  className="sidebar-feature-zone__item"
-                  type="button"
-                  onClick={() => setHeartbeatOpen(true)}
-                >
-                  <AlarmClock size={14} aria-hidden="true" />
-                  <span>{t("sidebar.automation")}</span>
-                </button>
-              </div>
-            </section>
-          )}
-
+            </Tooltip>
+            <Tooltip label={t("sidebar.search")} fill side="right" disabled={sidebarNavTooltipDisabled}>
+              <button
+                className={`sidebar__navitem sidebar__navitem--search${sidebarSearchOpen ? " sidebar__navitem--active" : ""}`}
+                type="button"
+                aria-pressed={sidebarSearchOpen}
+                onClick={() => {
+                  setSidebarSearchOpen((open) => !open);
+                  setSidebarSearchFocusSignal((signal) => signal + 1);
+                }}
+              >
+                <Search size={15} />
+                <span>{t("sidebar.search")}</span>
+              </button>
+            </Tooltip>
+            <Tooltip label={t("heartbeat.scheduler")} fill side="right" disabled={sidebarNavTooltipDisabled}>
+              <button
+                className="sidebar__navitem"
+                onClick={() => setHeartbeatOpen(true)}
+              >
+                <AlarmClock size={15} />
+                <span>{t("sidebar.automation")}</span>
+              </button>
+            </Tooltip>
+            <Tooltip label={t("sidebar.plugins")} fill side="right" disabled={sidebarNavTooltipDisabled}>
+              <button
+                className="sidebar__navitem"
+                onClick={() => {
+                  closeTransientOverlays();
+                  setSettingsTarget("plugins");
+                }}
+              >
+                <Puzzle size={15} />
+                <span>{t("sidebar.plugins")}</span>
+              </button>
+            </Tooltip>
+          </nav>
           <section className="sidebar__section sidebar__section--projects">
             <ProjectTree
               activeScope={activeTab?.scope}
@@ -4153,7 +4123,7 @@ export default function App() {
               timeFilter={topicTimeFilter}
               onTimeFilterChange={setTopicTimeFilter}
               variant={sidebarWorkbench ? "workbench" : sidebarCreation ? "creation" : "classic"}
-              searchExpanded={!sidebarCreation || sidebarSearchOpen}
+              searchExpanded={sidebarSearchOpen}
               searchFocusSignal={sidebarSearchFocusSignal}
               showShortcutBadges={showTopicBadges}
               shortcutPlatform={desktopPlatform}
@@ -4161,97 +4131,41 @@ export default function App() {
             />
           </section>
 
-          {sidebarWorkbench ? (
-            <nav className="sidebar__nav sidebar__nav--footer">
-              <div className="sidebar__utility-row" aria-label={t("sidebar.utilityActions")}>
-                <Tooltip label={t("sidebar.trash")} fill side="top">
-                  <button
-                    className="sidebar__utility-button"
-                    type="button"
-                    onClick={() => void openTrash()}
-                  >
-                    <Trash2 size={16} aria-hidden="true" />
-                    <span className="sr-only">{t("sidebar.trash")}</span>
-                  </button>
-                </Tooltip>
-                <Tooltip label={t("heartbeat.scheduler")} fill side="top">
-                  <button
-                    className="sidebar__utility-button"
-                    type="button"
-                    onClick={() => setHeartbeatOpen(true)}
-                  >
-                    <AlarmClock size={16} aria-hidden="true" />
-                    <span className="sr-only">{t("sidebar.automation")}</span>
-                  </button>
-                </Tooltip>
-                <Tooltip label={t("topbar.settings")} fill side="top">
-                  <button
-                    className="sidebar__utility-button"
-                    type="button"
-                    onClick={() => {
-                      closeTransientOverlays();
-                      setSettingsTarget("general");
-                    }}
-                  >
-                    <SettingsIcon size={16} aria-hidden="true" />
-                    <span className="sr-only">{t("topbar.settings")}</span>
-                  </button>
-                </Tooltip>
-              </div>
-            </nav>
-          ) : (
-            <nav className="sidebar__nav">
-              {sidebarCreation && (
-                <Tooltip label={t("projectTree.searchPlaceholder")} fill side="right" disabled={sidebarNavTooltipDisabled}>
-                  <button
-                    className={`sidebar__navitem sidebar__navitem--search${sidebarSearchOpen ? " sidebar__navitem--active" : ""}`}
-                    type="button"
-                    aria-label={t("projectTree.searchPlaceholder")}
-                    aria-pressed={sidebarSearchOpen}
-                    onClick={() => {
-                      setSidebarSearchOpen((open) => !open);
-                      setSidebarSearchFocusSignal((signal) => signal + 1);
-                    }}
-                  >
-                    <Search size={15} />
-                    <span>{t("tabBar.commandSearchCompact")}</span>
-                  </button>
-                </Tooltip>
-              )}
-              <Tooltip label={t("sidebar.trash")} fill side="right" disabled={sidebarNavTooltipDisabled}>
-                <button
-                  className="sidebar__navitem"
-                  onClick={() => void openTrash()}
-                >
-                  <Trash2 size={15} />
-                  <span>{t("sidebar.trash")}</span>
-                </button>
-              </Tooltip>
-              {!sidebarCreation && (
-                <Tooltip label={t("heartbeat.scheduler")} fill side="right" disabled={sidebarNavTooltipDisabled}>
-                  <button
-                    className="sidebar__navitem"
-                    onClick={() => setHeartbeatOpen(true)}
-                  >
-                    <AlarmClock size={15} />
-                    <span>{t("sidebar.automation")}</span>
-                  </button>
-                </Tooltip>
-              )}
-              <Tooltip label={t("topbar.settings")} fill side="right" disabled={sidebarNavTooltipDisabled}>
-                <button
-                  className="sidebar__navitem"
-                  onClick={() => {
-                    closeTransientOverlays();
-                    setSettingsTarget("general");
-                  }}
-                >
-                  <SettingsIcon size={15} />
-                  <span>{t("topbar.settings")}</span>
-                </button>
-              </Tooltip>
-            </nav>
+          {activeTabId && (
+          <section className="sidebar__section sidebar__section--tasks" aria-label={t("summary.tasks")}>
+            <Suspense fallback={null}>
+              <TaskMonitorPanel
+                tabID={activeTabId}
+                initialScope="all"
+                onOpenSession={openTaskMonitorSession}
+              />
+            </Suspense>
+          </section>
           )}
+
+          <nav className="sidebar__nav sidebar__nav--footer" aria-label={t("sidebar.utilityActions")}>
+            <Tooltip label={t("sidebar.trash")} fill side="right" disabled={sidebarNavTooltipDisabled}>
+              <button
+                className="sidebar__navitem"
+                onClick={() => void openTrash()}
+              >
+                <Trash2 size={15} />
+                <span>{t("sidebar.trash")}</span>
+              </button>
+            </Tooltip>
+            <Tooltip label={t("topbar.settings")} fill side="right" disabled={sidebarNavTooltipDisabled}>
+              <button
+                className="sidebar__navitem"
+                onClick={() => {
+                  closeTransientOverlays();
+                  setSettingsTarget("general");
+                }}
+              >
+                <SettingsIcon size={15} />
+                <span>{t("topbar.settings")}</span>
+              </button>
+            </Tooltip>
+          </nav>
 
         </aside>
         <button
