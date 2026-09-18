@@ -2329,7 +2329,7 @@ a[href] {
   flex-direction: column;
 }
 
-.sidebar__section--tasks {
+.sidebar__section--sessions {
   flex: 0 1 auto;
   max-height: 42%;
   overflow-y: auto;
@@ -2337,8 +2337,69 @@ a[href] {
   border-top: 1px solid var(--border-soft);
 }
 
-.sidebar__section--tasks .taskmonitor {
+.sidebar__section--sessions .taskmonitor {
   min-width: 0;
+}
+.taskmonitor--sidebar .taskmonitor__head {
+  height: 28px;
+  min-height: 28px;
+  padding: 0 2px;
+}
+
+.taskmonitor--sidebar .taskmonitor__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-dim);
+  letter-spacing: 0.02em;
+}
+
+.taskmonitor--sidebar .taskmonitor__filters {
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.taskmonitor--sidebar .taskmonitor__filters select,
+.taskmonitor--sidebar .taskmonitor__filters input {
+  height: 30px;
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg-elev) 72%, var(--bg-soft));
+  color: var(--fg-dim);
+  font: inherit;
+  font-size: 13px;
+  padding: 0 8px;
+}
+
+.taskmonitor--sidebar .taskmonitor__filters input {
+  flex: 1 1 auto;
+  color: var(--fg);
+}
+
+.taskmonitor--sidebar .taskmonitor__expand {
+  min-height: 30px;
+  border-radius: 8px;
+  padding: 0 8px;
+  font-size: 13px;
+}
+
+.taskmonitor--sidebar .taskmonitor__expand:hover,
+.taskmonitor--sidebar .taskmonitor__expand:focus-visible {
+  background: var(--sidebar-hover);
+}
+
+.taskmonitor--sidebar .taskmonitor__id {
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--fg);
+}
+
+.taskmonitor--sidebar .taskmonitor__time {
+  font-size: 11px;
+}
+
+.taskmonitor--sidebar .taskmonitor__project {
+  font-size: 11px;
 }
 .sidebar-im {
   flex: 0 0 auto;

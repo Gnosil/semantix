@@ -4132,11 +4132,12 @@ export default function App() {
           </section>
 
           {activeTabId && (
-          <section className="sidebar__section sidebar__section--tasks" aria-label={t("summary.tasks")}>
+          <section className="sidebar__section sidebar__section--sessions" aria-label={t("sidebar.sessions")}>
             <Suspense fallback={null}>
               <TaskMonitorPanel
                 tabID={activeTabId}
                 initialScope="all"
+                variant="sidebar"
                 onOpenSession={openTaskMonitorSession}
               />
             </Suspense>
