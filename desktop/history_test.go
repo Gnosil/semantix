@@ -1214,17 +1214,6 @@ func TestResumeSessionForTabDetachesRunningRuntimeForDifferentSessionPath(t *tes
 	if visible.ActivityStatus != "" {
 		t.Fatalf("detached runtime event changed visible tab status to %q", visible.ActivityStatus)
 	}
-	detached.sink.Emit(event.Event{Kind: event.ToolResult, Tool: event.Tool{
-		Name:   "read_file",
-		Args:   `{"path":"detached.go","offset":3,"limit":7}`,
-		Output: "package main",
-	}})
-	if got := detached.telemetrySnapshot().ReadFiles; len(got) != 1 || got[0].Path != "detached.go" || got[0].Offset != 3 || got[0].Limit != 7 {
-		t.Fatalf("detached runtime read telemetry = %+v", got)
-	}
-	if got := visible.telemetrySnapshot().ReadFiles; len(got) != 0 {
-		t.Fatalf("detached runtime read telemetry was recorded on visible tab: %+v", got)
-	}
 	detached.sink.Emit(event.Event{Kind: event.Usage, Usage: &provider.Usage{PromptTokens: 42}})
 	detached.sink.Emit(event.Event{Kind: event.TurnDone})
 	if detached.usageTelemetry.PromptTokens != 42 {

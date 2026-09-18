@@ -1,9 +1,7 @@
 export type LayoutSizeKey =
   | "sidebarWidth"
   | "sidebarWidthGraphite"
-  | "rightDockWidth"
-  | "rightDockTreeWidth"
-  | "rightDockPreviewWidth"
+  | "workspaceFloatWidth"
   | "workspaceFileTreePanelWidth"
   | "workspaceTreeWidth"
   | "composerHeight"
@@ -19,9 +17,7 @@ const STORAGE_KEY = "semantix.layoutPreferences.v1";
 const LEGACY_SIZE_KEYS: Record<LayoutSizeKey, string[]> = {
   sidebarWidth: ["semantix.sidebar.width"],
   sidebarWidthGraphite: [],
-  rightDockWidth: [],
-  rightDockTreeWidth: [],
-  rightDockPreviewWidth: [],
+  workspaceFloatWidth: [],
   workspaceFileTreePanelWidth: [],
   workspaceTreeWidth: ["semantix.workspaceTree.width"],
   composerHeight: ["semantix.composerHeight"],

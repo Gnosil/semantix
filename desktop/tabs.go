@@ -208,8 +208,6 @@ type WorkspaceTab struct {
 	closing  bool
 	saveCond *sync.Cond
 
-	// readTelemetry tracks files read during this tab's session.
-	readTelemetry  []readFileRecord
 	usageTelemetry sessionUsageStats
 	// runtimeCostQuote is an automatic wallet-currency hint for the live tab.
 	// It is deliberately outside usageTelemetry so it cannot be persisted into
@@ -259,15 +257,6 @@ const (
 	topicStatusError               = "error"
 )
 
-type readFileRecord struct {
-	Path      string `json:"path"`
-	Turn      int    `json:"turn"`
-	Time      int64  `json:"time"`
-	Offset    int    `json:"offset,omitempty"`
-	Limit     int    `json:"limit,omitempty"`
-	Truncated bool   `json:"truncated,omitempty"`
-}
-
 type sessionUsageStats struct {
 	PromptTokens     int `json:"promptTokens"`
 	CompletionTokens int `json:"completionTokens"`
@@ -280,25 +269,11 @@ type sessionUsageStats struct {
 	// across persisted telemetry repricing without changing hit-rate totals.
 	CacheWriteBilledTokens float64 `json:"cacheWriteBilledTokens,omitempty"`
 	Estimated              bool    `json:"estimated,omitempty"`
-	// LastUsedTokens is the executor-reported context fill (prompt+completion)
-	// from the most recent turn. It is persisted so the status bar / context
-	// panel can show a meaningful fill percentage after a session rebind
-	// rebuilds the controller (which resets the in-memory executor state).
-	LastUsedTokens int `json:"lastUsedTokens,omitempty"`
-	// Per-turn token breakdown from the most recent turn. Persisted separately
-	// from the cumulative totals above so the context-panel donut chart and
-	// type breakdown survive a session rebind (which resets executor.LastUsage).
-	LastPromptTokens     int     `json:"lastPromptTokens,omitempty"`
-	LastCompletionTokens int     `json:"lastCompletionTokens,omitempty"`
-	LastReasoningTokens  int     `json:"lastReasoningTokens,omitempty"`
-	LastCacheHitTokens   int     `json:"lastCacheHitTokens,omitempty"`
-	LastCacheMissTokens  int     `json:"lastCacheMissTokens,omitempty"`
-	LastEstimated        bool    `json:"lastEstimated,omitempty"`
-	RequestCount         int     `json:"requestCount"`
-	ElapsedMs            int64   `json:"elapsedMs"`
-	SessionCost          float64 `json:"sessionCost,omitempty"`
-	SessionCurrency      string  `json:"sessionCurrency,omitempty"`
-	SessionCostUsd       float64 `json:"sessionCostUsd,omitempty"`
+	RequestCount           int     `json:"requestCount"`
+	ElapsedMs              int64   `json:"elapsedMs"`
+	SessionCost            float64 `json:"sessionCost,omitempty"`
+	SessionCurrency        string  `json:"sessionCurrency,omitempty"`
+	SessionCostUsd         float64 `json:"sessionCostUsd,omitempty"`
 	// SessionCostComplete is false when any entry lacks a shared display valuation.
 	SessionCostComplete bool `json:"sessionCostComplete,omitempty"`
 	// CostLedger stores occurrence-time quotes keyed by model+source+fingerprint+rateDate.
@@ -374,9 +349,8 @@ func (s *sessionUsageStats) cacheTokenDelta(source string, u *provider.Usage, se
 }
 
 type tabTelemetrySnapshot struct {
-	Version   int               `json:"version"`
-	ReadFiles []readFileRecord  `json:"readFiles"`
-	Usage     sessionUsageStats `json:"usage"`
+	Version int               `json:"version"`
+	Usage   sessionUsageStats `json:"usage"`
 }
 
 func cloneStringPtr(v *string) *string {
@@ -658,7 +632,6 @@ func cloneDetachedRuntimeTab(tab *WorkspaceTab, key, path string) *WorkspaceTab 
 		return nil
 	}
 	tab.telemMu.Lock()
-	readTelemetry := append([]readFileRecord(nil), tab.readTelemetry...)
 	usageTelemetry := cloneSessionUsageStats(tab.usageTelemetry)
 	telemetrySessionKey := tab.telemetrySessionKey
 	tab.telemMu.Unlock()
@@ -680,7 +653,6 @@ func cloneDetachedRuntimeTab(tab *WorkspaceTab, key, path string) *WorkspaceTab 
 		runtimeID:           tab.runtimeID,
 		sink:                tab.sink,
 		ActivityStatus:      tab.ActivityStatus,
-		readTelemetry:       readTelemetry,
 		usageTelemetry:      usageTelemetry,
 		telemetrySessionKey: telemetrySessionKey,
 		displayState:        tab.displayBufferState(),
@@ -765,7 +737,6 @@ func applyRuntimeTab(target, source *WorkspaceTab, path string, wailsCtx context
 		return
 	}
 	source.telemMu.Lock()
-	readTelemetry := append([]readFileRecord(nil), source.readTelemetry...)
 	usageTelemetry := cloneSessionUsageStats(source.usageTelemetry)
 	telemetrySessionKey := source.telemetrySessionKey
 	source.telemMu.Unlock()
@@ -796,7 +767,7 @@ func applyRuntimeTab(target, source *WorkspaceTab, path string, wailsCtx context
 	target.toolApprovalMode = source.toolApprovalMode
 	target.disabledMCP = cloneServerViewMap(source.disabledMCP)
 	target.mcpOrder = append([]string(nil), source.mcpOrder...)
-	target.replaceTelemetry(tabTelemetrySnapshot{ReadFiles: readTelemetry, Usage: usageTelemetry}, telemetrySessionKey)
+	target.replaceTelemetry(tabTelemetrySnapshot{Usage: usageTelemetry}, telemetrySessionKey)
 	if app != nil {
 		key := sessionRuntimeKey(path)
 		rt := app.runtimeForTabLocked(source)
@@ -935,12 +906,6 @@ func (a *App) attachExistingSessionRuntime(tab *WorkspaceTab, path string, wails
 	return true
 }
 
-func (t *WorkspaceTab) recordReadFile(rec readFileRecord) {
-	t.telemMu.Lock()
-	t.readTelemetry = append(t.readTelemetry, rec)
-	t.telemMu.Unlock()
-}
-
 func (t *WorkspaceTab) recordTurnStarted(now int64) {
 	t.telemMu.Lock()
 	if t.usageTelemetry.activeTurnStartedAt == 0 {
@@ -956,25 +921,6 @@ func (t *WorkspaceTab) recordTurnDone(now int64) {
 		t.usageTelemetry.activeTurnStartedAt = 0
 	}
 	t.telemMu.Unlock()
-}
-
-// contextTelemetryFromUsage returns the latest-attempt context shape for
-// rebind-surviving Last* telemetry fields. Prefer Context* when set (multi-
-// attempt sampling recovery); otherwise fall back to billable totals / the
-// per-event cache delta already computed for this Usage event.
-//
-// When a Context shape is present, ContextCacheHit/Miss are kept even if both
-// are zero — many providers omit cache splits, and falling back to the
-// event's aggregated cache would re-inflate multi-attempt totals.
-func contextTelemetryFromUsage(u *provider.Usage, eventCacheHit, eventCacheMiss int) (prompt, completion, reasoning, hit, miss int) {
-	if u == nil {
-		return 0, 0, 0, eventCacheHit, eventCacheMiss
-	}
-	if u.ContextPromptTokens > 0 || u.ContextCompletionTokens > 0 {
-		return u.ContextPromptTokens, u.ContextCompletionTokens, u.ContextReasoningTokens,
-			u.ContextCacheHitTokens, u.ContextCacheMissTokens
-	}
-	return u.PromptTokens, u.CompletionTokens, u.ReasoningTokens, eventCacheHit, eventCacheMiss
 }
 
 func (t *WorkspaceTab) recordUsage(e event.Event) {
@@ -1002,20 +948,6 @@ func (t *WorkspaceTab) recordUsage(e event.Event) {
 		requestCount = 1
 	}
 	t.usageTelemetry.RequestCount += requestCount
-	if source == event.UsageSourceExecutor {
-		// Persist the latest-attempt context shape for rebind fallback — never
-		// the multi-attempt billable aggregate (PromptTokens/CompletionTokens
-		// after stream recovery). ContextSnapshot semantics are latest
-		// prompt+completion; Context* fields carry that shape.
-		prompt, completion, reasoning, hit, miss := contextTelemetryFromUsage(u, cacheHitTokens, cacheMissTokens)
-		t.usageTelemetry.LastUsedTokens = prompt + completion
-		t.usageTelemetry.LastPromptTokens = prompt
-		t.usageTelemetry.LastCompletionTokens = completion
-		t.usageTelemetry.LastReasoningTokens = reasoning
-		t.usageTelemetry.LastCacheHitTokens = hit
-		t.usageTelemetry.LastCacheMissTokens = miss
-		t.usageTelemetry.LastEstimated = u.Estimated
-	}
 	if t.usageTelemetry.Sources == nil {
 		t.usageTelemetry.Sources = map[string]usageSourceStats{}
 	}
@@ -1117,8 +1049,6 @@ func (a *App) repriceTabUsageForCurrentCurrency(tab *WorkspaceTab) {
 func (t *WorkspaceTab) telemetrySnapshot() tabTelemetrySnapshot {
 	t.telemMu.Lock()
 	defer t.telemMu.Unlock()
-	records := make([]readFileRecord, len(t.readTelemetry))
-	copy(records, t.readTelemetry)
 	usage := t.usageTelemetry
 	if started := usage.activeTurnStartedAt; started > 0 {
 		now := time.Now().UnixMilli()
@@ -1132,7 +1062,7 @@ func (t *WorkspaceTab) telemetrySnapshot() tabTelemetrySnapshot {
 	}
 	usage.activeTurnStartedAt = 0
 	usage.sourceSessionCache = nil
-	return tabTelemetrySnapshot{Version: 3, ReadFiles: records, Usage: usage}
+	return tabTelemetrySnapshot{Version: 3, Usage: usage}
 }
 
 // displayTelemetrySnapshot overlays the live wallet hint onto a copy used by
@@ -1162,7 +1092,6 @@ func (t *WorkspaceTab) displayTelemetrySnapshot() tabTelemetrySnapshot {
 
 func (t *WorkspaceTab) resetTelemetry(sessionPath string) {
 	t.telemMu.Lock()
-	t.readTelemetry = nil
 	t.usageTelemetry = sessionUsageStats{}
 	t.runtimeCostDisplayCurrency = ""
 	t.runtimeCostQuote = nil
@@ -1194,7 +1123,6 @@ func (t *WorkspaceTab) syncTelemetryToSession(sessionPath string) {
 	snapshot := loadTelemetry(sessionPath + ".telemetry.json")
 	t.telemMu.Lock()
 	if t.telemetrySessionKey != key {
-		t.readTelemetry = snapshot.ReadFiles
 		t.usageTelemetry = snapshot.Usage
 		t.runtimeCostDisplayCurrency = ""
 		t.runtimeCostQuote = nil
@@ -1575,10 +1503,6 @@ func (s *tabEventSink) Emit(e event.Event) {
 			}
 		}
 	}
-	// Record read_file successes in the tab's telemetry.
-	if e.Kind == event.ToolResult && e.Tool.Name == "read_file" && e.Tool.Err == "" {
-		s.recordReadTelemetry(e)
-	}
 	if app != nil {
 		s.recordDisplay(e)
 	}
@@ -1873,64 +1797,6 @@ func (a *App) emitReady(ctx context.Context, tabID ...string) {
 			return
 		}
 		a.runtimeEvents.Emit(ctx, "agent:ready")
-	}
-}
-
-func (s *tabEventSink) recordReadTelemetry(e event.Event) {
-	tabID, app := s.binding()
-	if app == nil {
-		return
-	}
-	app.mu.RLock()
-	tab := app.tabByEventSinkIDLocked(tabID)
-	var ctrl control.SessionAPI
-	if tab != nil {
-		ctrl = tab.Ctrl
-	}
-	app.mu.RUnlock()
-	if tab == nil {
-		return
-	}
-	turn := 0
-	if ctrl != nil {
-		turn = ctrl.Turn()
-	}
-
-	// Parse read_file args: {"path": "...", "offset": N, "limit": N}
-	var args struct {
-		Path   string `json:"path"`
-		Offset int    `json:"offset"`
-		Limit  int    `json:"limit"`
-	}
-	path := e.Tool.Args
-	offset := 0
-	limit := 0
-	if err := json.Unmarshal([]byte(e.Tool.Args), &args); err == nil && args.Path != "" {
-		path = args.Path
-		offset = args.Offset
-		limit = args.Limit
-	}
-
-	truncated := e.Tool.Truncated || strings.Contains(e.Tool.Output, "truncated") ||
-		strings.Contains(e.Tool.Output, "File truncated")
-
-	sp := ""
-	if ctrl != nil {
-		sp = ctrl.SessionPath()
-	}
-	if sp != "" {
-		tab.syncTelemetryToSession(sp)
-	}
-	tab.recordReadFile(readFileRecord{
-		Path:      path,
-		Turn:      turn,
-		Time:      time.Now().UnixMilli(),
-		Offset:    offset,
-		Limit:     limit,
-		Truncated: truncated,
-	})
-	if sp != "" {
-		_ = saveTelemetry(sp+".telemetry.json", tab.telemetrySnapshot())
 	}
 }
 
@@ -6384,9 +6250,6 @@ func saveTelemetry(path string, snapshot tabTelemetrySnapshot) error {
 	if snapshot.Version == 0 {
 		snapshot.Version = 3
 	}
-	if snapshot.ReadFiles == nil {
-		snapshot.ReadFiles = []readFileRecord{}
-	}
 	b, err := json.MarshalIndent(snapshot, "", "  ")
 	if err != nil {
 		return err
@@ -6401,13 +6264,10 @@ func saveTelemetry(path string, snapshot tabTelemetrySnapshot) error {
 func loadTelemetry(path string) tabTelemetrySnapshot {
 	b, err := readFileUTF8(path)
 	if err != nil {
-		return tabTelemetrySnapshot{Version: 3, ReadFiles: []readFileRecord{}}
+		return tabTelemetrySnapshot{Version: 3}
 	}
 	var snapshot tabTelemetrySnapshot
-	if err := json.Unmarshal(b, &snapshot); err == nil && (snapshot.Version > 0 || snapshot.ReadFiles != nil) {
-		if snapshot.ReadFiles == nil {
-			snapshot.ReadFiles = []readFileRecord{}
-		}
+	if err := json.Unmarshal(b, &snapshot); err == nil && snapshot.Version > 0 {
 		if snapshot.Usage.SessionCost == 0 && snapshot.Usage.SessionCostUsd > 0 {
 			snapshot.Usage.SessionCost = snapshot.Usage.SessionCostUsd
 		}
@@ -6443,11 +6303,8 @@ func loadTelemetry(path string) tabTelemetrySnapshot {
 		}
 		return snapshot
 	}
-	var records []readFileRecord
-	if err := json.Unmarshal(b, &records); err != nil || records == nil {
-		records = []readFileRecord{}
-	}
-	return tabTelemetrySnapshot{Version: 1, ReadFiles: records}
+	// Pre-v1 sidecars were a bare read-file array with no usage data; treat them as empty.
+	return tabTelemetrySnapshot{Version: 3}
 }
 
 // project tree
@@ -7192,147 +7049,6 @@ func topicSummaryKey(scope, workspaceRoot, topicID string) string {
 func projectSessionNodeKey(scope, sessionPath string) string {
 	sum := sha256.Sum256([]byte(sessionRuntimeKey(sessionPath)))
 	return scope + "_session_" + hex.EncodeToString(sum[:8])
-}
-
-// ContextPanelInfo is the right-side panel's data for one tab.
-type ContextPanelInfo struct {
-	UsedTokens       int  `json:"usedTokens"`
-	WindowTokens     int  `json:"windowTokens"`
-	PromptTokens     int  `json:"promptTokens"`
-	CompletionTokens int  `json:"completionTokens"`
-	TotalTokens      int  `json:"totalTokens"`
-	ReasoningTokens  int  `json:"reasoningTokens"`
-	CacheHitTokens   int  `json:"cacheHitTokens"`
-	CacheMissTokens  int  `json:"cacheMissTokens"`
-	Estimated        bool `json:"estimated,omitempty"`
-	// Session-cumulative token counts (from telemetry, atomic snapshot).
-	// Separate from the per-turn fields above so existing consumers (status bar
-	// turn tokens, donut chart) are unaffected.
-	SessionCacheHitTokens   int                         `json:"sessionCacheHitTokens"`
-	SessionCacheMissTokens  int                         `json:"sessionCacheMissTokens"`
-	SessionCompletionTokens int                         `json:"sessionCompletionTokens"`
-	SessionEstimated        bool                        `json:"sessionEstimated,omitempty"`
-	RequestCount            int                         `json:"requestCount"`
-	ElapsedMs               int64                       `json:"elapsedMs"`
-	SessionCost             float64                     `json:"sessionCost"`
-	SessionCurrency         string                      `json:"sessionCurrency,omitempty"`
-	SessionCostUsd          float64                     `json:"sessionCostUsd,omitempty"`
-	SessionCostComplete     bool                        `json:"sessionCostComplete,omitempty"`
-	SessionCostEstimated    bool                        `json:"sessionCostEstimated,omitempty"`
-	SessionBillingMode      string                      `json:"sessionBillingMode,omitempty"`
-	SessionCostQuote        *billing.CostQuote          `json:"sessionCostQuote,omitempty"`
-	Sources                 map[string]usageSourceStats `json:"sources,omitempty"`
-	Mock                    bool                        `json:"mock,omitempty"`
-	ReadFiles               []readFileRecord            `json:"readFiles"`
-	ChangedFiles            []ChangedFileInfo           `json:"changedFiles"`
-}
-
-type ChangedFileInfo struct {
-	Path         string   `json:"path"`
-	OldPath      string   `json:"oldPath,omitempty"`
-	Sources      []string `json:"sources"`
-	GitStatus    string   `json:"gitStatus,omitempty"`
-	Turns        []int    `json:"turns"`
-	LatestPrompt string   `json:"latestPrompt,omitempty"`
-	LatestTime   int64    `json:"latestTime,omitempty"`
-}
-
-// ContextPanel returns the context usage, read files, and changed files for a
-// specific tab.
-func (a *App) ContextPanel(tabID string) ContextPanelInfo {
-	a.mu.RLock()
-	tab, ok := a.tabs[tabID]
-	var ctrl control.SessionAPI
-	if ok && tab != nil {
-		ctrl = tab.Ctrl
-	}
-	a.mu.RUnlock()
-	if !ok {
-		return ContextPanelInfo{ReadFiles: []readFileRecord{}, ChangedFiles: []ChangedFileInfo{}}
-	}
-
-	info := ContextPanelInfo{ReadFiles: []readFileRecord{}, ChangedFiles: []ChangedFileInfo{}}
-	if ctrl != nil {
-		if sp := ctrl.SessionPath(); sp != "" {
-			tab.syncTelemetryToSession(sp)
-		}
-		_, window := ctrl.ContextSnapshot()
-		info.WindowTokens = window
-		// This panel breaks the last turn down into segments, so its total must
-		// be that turn's usage and not the live-view measurement the status-bar
-		// gauge reports — otherwise the segments stop summing to the total.
-		if u := ctrl.LastUsage(); u != nil {
-			info.UsedTokens = u.PromptTokens + u.CompletionTokens
-		}
-		if info.UsedTokens == 0 {
-			if snap := tab.displayTelemetrySnapshot(); snap.Usage.LastUsedTokens > 0 {
-				info.UsedTokens = snap.Usage.LastUsedTokens
-			}
-		}
-		if u := ctrl.LastUsage(); u != nil {
-			info.PromptTokens = u.PromptTokens
-			info.CompletionTokens = u.CompletionTokens
-			info.ReasoningTokens = u.ReasoningTokens
-			info.CacheHitTokens = u.CacheHitTokens
-			info.CacheMissTokens = u.CacheMissTokens
-			info.Estimated = u.Estimated
-		} else {
-			// Executor rebuilt (session rebind): fall back to the telemetry-
-			// persisted per-turn breakdown so the donut chart and type
-			// breakdown show the last turn's composition instead of "other".
-			snap := tab.displayTelemetrySnapshot()
-			info.PromptTokens = snap.Usage.LastPromptTokens
-			info.CompletionTokens = snap.Usage.LastCompletionTokens
-			info.ReasoningTokens = snap.Usage.LastReasoningTokens
-			info.CacheHitTokens = snap.Usage.LastCacheHitTokens
-			info.CacheMissTokens = snap.Usage.LastCacheMissTokens
-			info.Estimated = snap.Usage.LastEstimated
-		}
-	}
-
-	telemetry := tab.displayTelemetrySnapshot()
-	if records := telemetry.ReadFiles; records != nil {
-		info.ReadFiles = records
-	}
-	usage := telemetry.Usage
-	info.TotalTokens = usage.TotalTokens
-	info.RequestCount = usage.RequestCount
-	info.ElapsedMs = usage.ElapsedMs
-	info.SessionCost = usage.SessionCost
-	info.SessionCurrency = usage.SessionCurrency
-	info.SessionCostUsd = usage.SessionCostUsd
-	info.SessionCostComplete = usage.SessionCostComplete
-	info.SessionCostEstimated = true
-	info.SessionCostQuote = usage.SessionCostQuote
-	if usage.SessionCostQuote != nil {
-		info.SessionBillingMode = usage.SessionCostQuote.BillingMode
-		info.SessionCostEstimated = usage.SessionCostQuote.Estimated
-		if !usage.SessionCostQuote.Complete {
-			info.SessionCostComplete = false
-		}
-	}
-	info.Sources = usage.Sources
-	info.SessionCacheHitTokens = usage.CacheHitTokens
-	info.SessionCacheMissTokens = usage.CacheMissTokens
-	info.SessionCompletionTokens = usage.CompletionTokens
-	info.SessionEstimated = usage.Estimated
-
-	// Gather workspace changes for this tab's root.
-	if ctrl != nil && tab.WorkspaceRoot != "" {
-		for _, meta := range ctrl.Checkpoints() {
-			for _, path := range meta.Paths {
-				info.ChangedFiles = append(info.ChangedFiles, ChangedFileInfo{
-					Path:         path,
-					Sources:      []string{"session"},
-					Turns:        []int{meta.Turn},
-					LatestPrompt: meta.Prompt,
-					LatestTime:   meta.Time.UnixMilli(),
-				})
-			}
-		}
-	}
-
-	return info
 }
 
 // utility

@@ -1,4 +1,4 @@
-import { PanelLeft, PanelRight, Search } from "lucide-react";
+import { PanelLeft, Search } from "lucide-react";
 import { TabBar } from "./TabBar";
 import type { TabMeta } from "../lib/types";
 import { useT } from "../lib/i18n";
@@ -17,12 +17,7 @@ interface AppChromeProps {
   sidebarExpandBlocked: boolean;
   sidebarCollapsed: boolean;
   sidebarToggleTitle: string;
-  workspacePanelMaximized: boolean;
-  workspacePanelRenderable: boolean;
-  workspaceTogglePressed: boolean;
-  workspacePanelLabel: string;
   onToggleSidebar: () => void;
-  onToggleWorkspacePanel: () => void;
   onTabChange: (tabId: string) => void;
   onTabClose: (tabId: string) => void;
   onTabsClose: (tabIds: string[], nextActiveTabId?: string) => void;
@@ -43,12 +38,7 @@ export function AppChrome({
   sidebarExpandBlocked,
   sidebarCollapsed,
   sidebarToggleTitle,
-  workspacePanelMaximized,
-  workspacePanelRenderable,
-  workspaceTogglePressed,
-  workspacePanelLabel,
   onToggleSidebar,
-  onToggleWorkspacePanel,
   onTabChange,
   onTabClose,
   onTabsClose,
@@ -129,7 +119,6 @@ export function AppChrome({
             className={[
               "app-chrome__tools",
               "app-chrome__tools--fixed",
-              workspaceTogglePressed ? "app-chrome__tools--workspace-pressed" : "",
             ].filter(Boolean).join(" ")}
             aria-label={t("tabBar.commandSearch")}
           >
@@ -156,7 +145,6 @@ export function AppChrome({
           <div
             className={[
               "app-chrome__tools",
-              workspaceTogglePressed ? "app-chrome__tools--workspace-pressed" : "",
             ].filter(Boolean).join(" ")}
             aria-label={t("tabBar.commandSearch")}
           >
@@ -177,22 +165,6 @@ export function AppChrome({
         </>
       )}
 
-      {!workspacePanelMaximized && (
-        <button
-          className={[
-            "app-chrome__panel-toggle",
-            "app-chrome__panel-toggle--right",
-            workspacePanelRenderable ? "app-chrome__panel-toggle--active" : "",
-            workspaceTogglePressed ? "app-chrome__panel-toggle--pressed" : "",
-          ].filter(Boolean).join(" ")}
-          type="button"
-          onClick={onToggleWorkspacePanel}
-          aria-label={workspacePanelLabel}
-          aria-pressed={workspacePanelRenderable}
-        >
-          <PanelRight size={16} />
-        </button>
-      )}
     </header>
   );
 }

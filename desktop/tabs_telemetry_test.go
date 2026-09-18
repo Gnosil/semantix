@@ -30,18 +30,20 @@ func (p usageProvider) Stream(_ context.Context, _ provider.Request) (<-chan pro
 	return ch, nil
 }
 
-func TestTelemetryLoadsLegacyReadFileArray(t *testing.T) {
+func TestTelemetryLoadsLegacyReadFileArrayAsEmpty(t *testing.T) {
+	// Pre-v1 sidecars were a bare read-file array; they carry no usage data
+	// and must load as an empty current-version snapshot instead of failing.
 	path := filepath.Join(t.TempDir(), "session.jsonl.telemetry.json")
 	if err := os.WriteFile(path, []byte(`[{"path":"README.md","turn":2,"time":1000}]`), 0o644); err != nil {
 		t.Fatalf("write legacy telemetry: %v", err)
 	}
 
 	got := loadTelemetry(path)
-	if len(got.ReadFiles) != 1 || got.ReadFiles[0].Path != "README.md" {
-		t.Fatalf("legacy read files = %+v", got.ReadFiles)
+	if got.Version != 3 {
+		t.Fatalf("legacy telemetry version = %d, want 3", got.Version)
 	}
-	if got.Usage.RequestCount != 0 {
-		t.Fatalf("legacy usage request count = %d, want 0", got.Usage.RequestCount)
+	if got.Usage.RequestCount != 0 || got.Usage.TotalTokens != 0 {
+		t.Fatalf("legacy usage = %+v, want zero", got.Usage)
 	}
 }
 
@@ -62,7 +64,7 @@ func TestWorkspaceTabAggregatesSessionUsageTelemetry(t *testing.T) {
 	if got.RequestCount != 3 || got.PromptTokens != 100 || got.CompletionTokens != 40 || got.TotalTokens != 140 || got.ReasoningTokens != 10 {
 		t.Fatalf("usage tokens = %+v", got)
 	}
-	if !got.Estimated || got.LastEstimated {
+	if !got.Estimated {
 		t.Fatalf("usage lost estimated marker: %+v", got)
 	}
 	if got.CacheHitTokens != 70 || got.CacheMissTokens != 30 {
@@ -95,8 +97,8 @@ func TestWorkspaceTabAggregatesSessionUsageTelemetry(t *testing.T) {
 	if !context.Estimated {
 		t.Fatalf("context usage lost estimated marker: %+v", context)
 	}
-	if panel := app.ContextPanel("tab"); panel.TotalTokens != 140 || panel.Estimated || !panel.SessionEstimated {
-		t.Fatalf("context panel usage = %+v, want exact executor turn and estimated session", panel)
+	if context.RequestCount != 3 || context.ElapsedMs != 1500 {
+		t.Fatalf("context usage requests/elapsed = %d/%d, want 3/1500", context.RequestCount, context.ElapsedMs)
 	}
 }
 
@@ -107,13 +109,12 @@ func TestWorkspaceTabMarksEstimatedExecutorTurn(t *testing.T) {
 		UsageSource: event.UsageSourceExecutor,
 	})
 	got := tab.telemetrySnapshot().Usage
-	if !got.Estimated || !got.LastEstimated {
+	if !got.Estimated {
 		t.Fatalf("executor usage lost estimated marker: %+v", got)
 	}
 	app := &App{tabs: map[string]*WorkspaceTab{"tab": tab}}
-	panel := app.ContextPanel("tab")
-	if !panel.SessionEstimated {
-		t.Fatalf("executor panel session usage lost estimated marker: %+v", panel)
+	if info := app.ContextUsageForTab("tab"); !info.Estimated {
+		t.Fatalf("executor context usage lost estimated marker: %+v", info)
 	}
 }
 
@@ -309,97 +310,6 @@ func TestWorkspaceTabTracksPlannerAndExecutorCacheBySource(t *testing.T) {
 	}
 }
 
-func TestWorkspaceTabKeepsLastContextScopedToExecutor(t *testing.T) {
-	tab := &WorkspaceTab{}
-	tab.recordUsage(event.Event{
-		Usage: &provider.Usage{
-			PromptTokens:     100,
-			CompletionTokens: 20,
-			TotalTokens:      120,
-			ReasoningTokens:  8,
-			CacheHitTokens:   70,
-			CacheMissTokens:  30,
-		},
-		UsageSource: event.UsageSourceExecutor,
-	})
-	tab.recordUsage(event.Event{
-		Usage: &provider.Usage{
-			PromptTokens:     900,
-			CompletionTokens: 90,
-			TotalTokens:      990,
-			ReasoningTokens:  40,
-			CacheHitTokens:   10,
-			CacheMissTokens:  890,
-		},
-		UsageSource: event.UsageSourceSubagent,
-	})
-
-	got := tab.telemetrySnapshot().Usage
-	if got.LastUsedTokens != 120 ||
-		got.LastPromptTokens != 100 ||
-		got.LastCompletionTokens != 20 ||
-		got.LastReasoningTokens != 8 ||
-		got.LastCacheHitTokens != 70 ||
-		got.LastCacheMissTokens != 30 {
-		t.Fatalf("last executor usage overwritten by ancillary source: %+v", got)
-	}
-	if got.TotalTokens != 1110 || got.Sources[event.UsageSourceSubagent].TotalTokens != 990 {
-		t.Fatalf("all-source totals lost while preserving executor usage: %+v", got)
-	}
-}
-
-func TestTelemetryLastContextRoundTripAndLegacyDefaults(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "session.jsonl.telemetry.json")
-	want := tabTelemetrySnapshot{
-		Version: 2,
-		Usage: sessionUsageStats{
-			PromptTokens:           100,
-			TotalTokens:            120,
-			CacheWriteTokens:       5,
-			CacheWriteBilledTokens: 10,
-			LastUsedTokens:         120,
-			LastPromptTokens:       100,
-			LastCompletionTokens:   20,
-			LastReasoningTokens:    8,
-			LastCacheHitTokens:     70,
-			LastCacheMissTokens:    30,
-		},
-	}
-	if err := saveTelemetry(path, want); err != nil {
-		t.Fatalf("save telemetry: %v", err)
-	}
-	got := loadTelemetry(path).Usage
-	if got.LastUsedTokens != want.Usage.LastUsedTokens ||
-		got.LastPromptTokens != want.Usage.LastPromptTokens ||
-		got.LastCompletionTokens != want.Usage.LastCompletionTokens ||
-		got.LastReasoningTokens != want.Usage.LastReasoningTokens ||
-		got.LastCacheHitTokens != want.Usage.LastCacheHitTokens ||
-		got.LastCacheMissTokens != want.Usage.LastCacheMissTokens {
-		t.Fatalf("last context round trip = %+v, want %+v", got, want.Usage)
-	}
-	if got.CacheWriteTokens != 5 || got.CacheWriteBilledTokens != 10 {
-		t.Fatalf("cache-write round trip = raw %d billed %v, want 5/10", got.CacheWriteTokens, got.CacheWriteBilledTokens)
-	}
-
-	if err := os.WriteFile(path, []byte(`{"version":2,"usage":{"promptTokens":50,"totalTokens":50}}`), 0o644); err != nil {
-		t.Fatalf("write pre-last-context telemetry: %v", err)
-	}
-	legacy := loadTelemetry(path).Usage
-	if legacy.CacheWriteTokens != 0 || legacy.CacheWriteBilledTokens != 0 {
-		t.Fatalf("legacy cache-write fields = raw %d billed %v, want zero defaults", legacy.CacheWriteTokens, legacy.CacheWriteBilledTokens)
-	}
-	if legacy.LastUsedTokens != 0 ||
-		legacy.LastPromptTokens != 0 ||
-		legacy.LastCompletionTokens != 0 ||
-		legacy.LastReasoningTokens != 0 ||
-		legacy.LastCacheHitTokens != 0 ||
-		legacy.LastCacheMissTokens != 0 {
-		t.Fatalf("legacy telemetry last context = %+v, want zero defaults", legacy)
-	}
-}
-
-// The gauge measures the rebound session's own view, so it no longer needs the
-// persisted last-used fallback. The panel breakdown still comes from telemetry.
 func TestContextGaugeMeasuresLiveViewAfterRebind(t *testing.T) {
 	ag := agent.New(
 		usageProvider{usage: nil},
@@ -435,156 +345,8 @@ func TestContextGaugeMeasuresLiveViewAfterRebind(t *testing.T) {
 	if want := tab.Ctrl.ContextMaintenanceSnapshot().ProjectedTokens; context.Used != want || context.Window != 200 {
 		t.Fatalf("context gauge = used:%d window:%d, want %d/200 — the live view, not the persisted 120", context.Used, context.Window, want)
 	}
-	panel := app.ContextPanel("tab")
-	if panel.UsedTokens != 120 ||
-		panel.PromptTokens != 100 ||
-		panel.CompletionTokens != 20 ||
-		panel.ReasoningTokens != 8 ||
-		panel.CacheHitTokens != 70 ||
-		panel.CacheMissTokens != 30 {
-		t.Fatalf("context panel fallback = %+v, want persisted executor breakdown", panel)
-	}
-}
-
-// TestContextFallbackUsesLatestAttemptAfterMultiAttemptUsage locks the stream-
-// recovery telemetry contract: billable Prompt/Completion may be 2×30K, but
-// Last* fields and the panel breakdown must use Context* from the latest
-// attempt. The gauge itself measures the live view instead.
-func TestContextFallbackUsesLatestAttemptAfterMultiAttemptUsage(t *testing.T) {
-	ag := agent.New(
-		usageProvider{usage: nil},
-		tool.NewRegistry(),
-		agent.NewSession("system"),
-		agent.Options{ContextWindow: 200_000},
-		event.Discard,
-	)
-	tab := &WorkspaceTab{
-		ID:    "tab",
-		Ctrl:  control.New(control.Options{Executor: ag, Sink: event.Discard}),
-		Scope: "global",
-		Ready: true,
-	}
-	// Two 30K prompt attempts: billable sum 60K+5, latest context 30K+2.
-	tab.recordUsage(event.Event{
-		Usage: &provider.Usage{
-			PromptTokens:            60_000,
-			CompletionTokens:        5,
-			TotalTokens:             60_005,
-			CacheMissTokens:         60_000,
-			ContextPromptTokens:     30_000,
-			ContextCompletionTokens: 2,
-			ContextReasoningTokens:  1,
-			ContextCacheMissTokens:  30_000,
-		},
-		UsageSource: event.UsageSourceExecutor,
-	})
-	got := tab.telemetrySnapshot().Usage
-	if got.LastUsedTokens != 30_002 ||
-		got.LastPromptTokens != 30_000 ||
-		got.LastCompletionTokens != 2 ||
-		got.LastReasoningTokens != 1 ||
-		got.LastCacheMissTokens != 30_000 {
-		t.Fatalf("last context from multi-attempt usage = %+v, want latest 30000+2", got)
-	}
-	// Session billable totals still accumulate the full aggregate.
-	if got.PromptTokens != 60_000 || got.CompletionTokens != 5 {
-		t.Fatalf("session billable totals = prompt %d completion %d, want 60000/5", got.PromptTokens, got.CompletionTokens)
-	}
-
-	app := &App{tabs: map[string]*WorkspaceTab{"tab": tab}}
-	context := app.ContextUsageForTab("tab")
-	if want := tab.Ctrl.ContextMaintenanceSnapshot().ProjectedTokens; context.Used != want {
-		t.Fatalf("context gauge = %d, want the live view %d (never the billable 60005)", context.Used, want)
-	}
-	panel := app.ContextPanel("tab")
-	if panel.UsedTokens != 30_002 ||
-		panel.PromptTokens != 30_000 ||
-		panel.CompletionTokens != 2 ||
-		panel.ReasoningTokens != 1 ||
-		panel.CacheMissTokens != 30_000 {
-		t.Fatalf("rebind context panel = %+v, want latest-attempt breakdown", panel)
-	}
-}
-
-// Providers that omit cache split report ContextCache 0/0 with a valid Context
-// prompt/completion shape. Last* cache must stay 0/0 — not fall back to the
-// multi-attempt billable cache aggregate.
-func TestContextTelemetryKeepsZeroCacheWhenContextShapePresent(t *testing.T) {
-	tab := &WorkspaceTab{ID: "tab", Scope: "global", Ready: true}
-	tab.recordUsage(event.Event{
-		Usage: &provider.Usage{
-			PromptTokens:            60_000,
-			CompletionTokens:        5,
-			TotalTokens:             60_005,
-			CacheMissTokens:         60_000, // billable aggregate from retries
-			ContextPromptTokens:     30_000,
-			ContextCompletionTokens: 2,
-			// ContextCache* intentionally zero: provider did not report a split.
-		},
-		UsageSource: event.UsageSourceExecutor,
-		SessionHit:  0,
-		SessionMiss: 60_000,
-	})
-	got := tab.telemetrySnapshot().Usage
-	if got.LastPromptTokens != 30_000 || got.LastCompletionTokens != 2 {
-		t.Fatalf("last context tokens = prompt %d completion %d, want 30000/2", got.LastPromptTokens, got.LastCompletionTokens)
-	}
-	if got.LastCacheHitTokens != 0 || got.LastCacheMissTokens != 0 {
-		t.Fatalf("last cache = hit %d miss %d, want 0/0 (unreported), not aggregate 60000", got.LastCacheHitTokens, got.LastCacheMissTokens)
-	}
-	if got.LastUsedTokens != 30_002 {
-		t.Fatalf("LastUsedTokens = %d, want 30002", got.LastUsedTokens)
-	}
-}
-
-func TestContextPanelUsesLastUsageBreakdownWithTelemetryTotal(t *testing.T) {
-	lastUsage := &provider.Usage{
-		PromptTokens:     10,
-		CompletionTokens: 4,
-		TotalTokens:      14,
-		CacheHitTokens:   7,
-		CacheMissTokens:  3,
-		ReasoningTokens:  2,
-	}
-	ag := agent.New(
-		usageProvider{usage: lastUsage},
-		tool.NewRegistry(),
-		agent.NewSession("system"),
-		agent.Options{ContextWindow: 200},
-		event.Discard,
-	)
-	if err := ag.Run(context.Background(), "hello"); err != nil {
-		t.Fatal(err)
-	}
-	tab := &WorkspaceTab{
-		ID:    "tab",
-		Ctrl:  control.New(control.Options{Executor: ag, Sink: event.Discard}),
-		Scope: "global",
-		Ready: true,
-	}
-	tab.recordUsage(event.Event{
-		Usage: &provider.Usage{
-			PromptTokens:     100,
-			CompletionTokens: 40,
-			TotalTokens:      140,
-			CacheHitTokens:   70,
-			CacheMissTokens:  30,
-			ReasoningTokens:  10,
-		},
-	})
-	app := &App{tabs: map[string]*WorkspaceTab{"tab": tab}}
-
-	panel := app.ContextPanel("tab")
-	if panel.TotalTokens != 140 {
-		t.Fatalf("context panel total tokens = %d, want telemetry total 140", panel.TotalTokens)
-	}
-	if panel.PromptTokens != 10 || panel.CompletionTokens != 4 || panel.ReasoningTokens != 2 {
-		t.Fatalf("context panel breakdown = prompt:%d completion:%d reasoning:%d, want last usage 10/4/2",
-			panel.PromptTokens, panel.CompletionTokens, panel.ReasoningTokens)
-	}
-	if panel.CacheHitTokens != 7 || panel.CacheMissTokens != 3 {
-		t.Fatalf("context panel cache breakdown = hit:%d miss:%d, want last usage 7/3",
-			panel.CacheHitTokens, panel.CacheMissTokens)
+	if context.RequestCount != 2 {
+		t.Fatalf("context usage request count = %d, want 2 (one per usage event)", context.RequestCount)
 	}
 }
 
