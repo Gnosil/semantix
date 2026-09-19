@@ -6983,12 +6983,10 @@ body > .mermaid-diagram--fullscreen {
 }
 
 .composer-meta__control--approval {
-  flex: 0 1 auto;
-  min-width: 216px;
-  max-width: min(420px, 48vw);
-  margin-inline-start: 2px;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 6px;
 }
 
@@ -7062,11 +7060,23 @@ body > .mermaid-diagram--fullscreen {
 }
 
 .composer-meta .composer__btn--send,
-.composer-meta .composer__btn--stop {
-  width: 26px;
-  height: 26px;
-  min-width: 26px;
+.composer-meta .composer__btn--stop,
+:root[data-theme-style] .composer-meta .composer__btn--send,
+:root[data-theme-style] .composer-meta .composer__btn--stop {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
   border-radius: var(--r-sm);
+  background: var(--control-primary-bg, var(--accent));
+  color: var(--control-primary-fg, #fff);
+  box-shadow: none;
+}
+
+.composer-meta .composer__btn--send:not(:disabled):hover,
+:root[data-theme-style] .composer-meta .composer__btn--send:not(:disabled):hover {
+  background: color-mix(in srgb, var(--control-primary-bg, var(--accent)) 86%, #000);
+  transform: none;
+  box-shadow: none;
 }
 
 .composer-more-trigger {
@@ -7190,33 +7200,6 @@ body > .mermaid-diagram--fullscreen {
     width: fit-content;
     max-width: min(240px, 42vw);
   }
-
-  .composer-meta__control--approval {
-    flex-basis: 178px;
-    min-width: 164px;
-    max-width: 178px;
-  }
-
-  
-  .composer-meta__control--profile {
-    max-width: 126px;
-  }
-
-  .composer-meta__control--intent {
-    max-width: 128px;
-  }
-
-  
-  .composer-meta__control--effort {
-    display: none;
-  }
-
-  .composer-meta__control--more {
-    display: inline-flex;
-    flex: 0 0 86px;
-    width: 86px;
-    max-width: 86px;
-  }
 }
 
 @container (max-width: 560px) {
@@ -7245,53 +7228,6 @@ body > .mermaid-diagram--fullscreen {
     max-width: none;
   }
 
-  .composer-meta__control--approval {
-    flex-basis: 92px;
-    min-width: 86px;
-    max-width: 92px;
-  }
-
-  .composer-meta__control--profile {
-    flex-basis: 68px;
-    width: 68px;
-    max-width: 68px;
-  }
-
-  
-  .composer-meta__control--intent {
-    flex-basis: 72px;
-    width: 72px;
-    max-width: 72px;
-  }
-
-  
-  
-  
-  
-  .composer-meta__control--effort {
-    display: none;
-  }
-
-  .composer-meta__control--more {
-    flex-basis: 38px;
-    width: 38px;
-    max-width: 38px;
-  }
-
-  .composer-more-trigger {
-    padding-inline: 0;
-  }
-
-  .composer-more-trigger span {
-    display: none;
-  }
-
-  .composer-more-trigger--effort svg:last-child {
-    display: none;
-  }
-
-  
-  
   .composer-meta .modelsw__trigger {
     gap: 6px;
     padding-inline: 6px;
