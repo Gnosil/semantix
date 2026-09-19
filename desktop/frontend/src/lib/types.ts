@@ -558,36 +558,6 @@ export interface SessionRecoveryFailedEvent {
   reason?: "lease_held" | "lease_unavailable" | string;
 }
 
-export interface ContextPanelInfo {
-  usedTokens: number;
-  windowTokens: number;
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-  reasoningTokens: number;
-  cacheHitTokens: number;
-  cacheMissTokens: number;
-  estimated?: boolean;
-  sessionCacheHitTokens: number;
-  sessionCacheMissTokens: number;
-  sessionCompletionTokens: number;
-  sessionEstimated?: boolean;
-  requestCount?: number;
-  elapsedMs?: number;
-  sessionCost?: number;
-  sessionCurrency?: string;
-  // Deprecated compatibility alias. Prefer sessionCost + sessionCurrency.
-  sessionCostUsd?: number;
-  sessionCostComplete?: boolean;
-  sessionCostEstimated?: boolean;
-  sessionBillingMode?: string;
-  sessionCostQuote?: CostQuote;
-  sources?: Record<string, UsageSourceStats>;
-  mock?: boolean;
-  readFiles: ReadFileRecord[];
-  changedFiles: ChangedFileInfo[];
-}
-
 export interface UsageSourceStats {
   promptTokens: number;
   completionTokens: number;
@@ -600,25 +570,6 @@ export interface UsageSourceStats {
   sessionCost?: number;
   sessionCurrency?: string;
   sessionCostUsd?: number;
-}
-
-export interface ReadFileRecord {
-  path: string;
-  turn: number;
-  time: number;
-  offset?: number;
-  limit?: number;
-  truncated?: boolean;
-}
-
-export interface ChangedFileInfo {
-  path: string;
-  oldPath?: string;
-  sources: string[];
-  gitStatus?: string;
-  turns: number[];
-  latestPrompt?: string;
-  latestTime?: number;
 }
 
 // Bound-method payloads (desktop/app.go).
@@ -881,6 +832,8 @@ export interface ContextInfo {
   estimated?: boolean;
   sessionCostComplete?: boolean;
   sessionCostQuote?: CostQuote;
+  requestCount?: number;
+  elapsedMs?: number;
   sources?: Record<string, UsageSourceStats>;
   maintenance?: ContextMaintenanceInfo;
 }
@@ -1571,38 +1524,6 @@ export interface RemoteConnectionStatus {
   fingerprint?: RemoteFingerprintView;
   secretPrompt?: RemoteSecretPromptView;
   attempt?: number;
-}
-
-export interface RemoteDirEntry {
-  name: string;
-  path: string;
-  isDir: boolean;
-  size: number;
-  mtimeUnix: number;
-  symlink: boolean;
-}
-
-export interface RemoteFilePreview {
-  path: string;
-  body: string;
-  size: number;
-  mtimeUnix: number;
-  truncated: boolean;
-  binary: boolean;
-  err?: string;
-}
-
-export interface RemoteWriteResult {
-  ok: boolean;
-  conflict: boolean;
-  newMtimeUnix: number;
-}
-
-export interface RemoteForwardInput {
-  localPort: number;
-  remoteHost: string;
-  remotePort: number;
-  label: string;
 }
 
 export interface RemoteForwardView {

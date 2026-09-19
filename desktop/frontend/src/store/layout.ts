@@ -1,15 +1,14 @@
-// layout owns the desktop shell's geometry state — sidebar + right-dock widths
-// and the sidebar collapse flag — as a selectable store rather than App-local
-// useState. Components read a single slice via selector (only that slice
-// re-renders), with no prop drilling. The geometry constants, clamps, and the
-// localStorage-backed load/save helpers live here too: they are layout-domain
-// knowledge that belongs with the store, and keeping them here lets the store
-// initialize itself from persisted state at module load without depending on App.
+// layout owns the desktop shell's geometry state — sidebar width, the sidebar
+// collapse flag, the floating workspace panel and the terminal drawer — as a
+// selectable store rather than App-local useState. Components read a single
+// slice via selector (only that slice re-renders), with no prop drilling. The
+// geometry constants, clamps, and the localStorage-backed load/save helpers
+// live here too: they are layout-domain knowledge that belongs with the store,
+// and keeping them here lets the store initialize itself from persisted state
+// at module load without depending on App.
 //
-// Persistence behavior is intentionally unchanged from the previous App-local
-// implementation: the store's setters are pure (state only), and callers keep
-// invoking the exported save* helpers exactly where they did before, so the
-// on-disk localStorage schema and write timing are byte-identical.
+// The store's setters are pure (state only); callers invoke the exported save*
+// helpers where a preference should survive a restart.
 
 import type { Dispatch, SetStateAction } from "react";
 import { create } from "zustand";
@@ -27,22 +26,14 @@ export const CREATION_SIDEBAR_DEFAULT_WIDTH = CREATION_SIDEBAR_MIN_WIDTH;
 export const SIDEBAR_MAX_WIDTH = 300;
 const SIDEBAR_VIEWPORT_RATIO = 0.18;
 
-const RIGHT_DOCK_TREE_DEFAULT_WIDTH = 300;
-export const RIGHT_DOCK_TREE_MIN_WIDTH = 300;
-// Creation file-tree dock stays tighter than classic 300. With Creation's
-// narrower Windows caption strip (~108px), 252 is enough for icon+label tabs.
-export const CREATION_RIGHT_DOCK_TREE_MIN_WIDTH = 252;
-export const CREATION_RIGHT_DOCK_TREE_DEFAULT_WIDTH = CREATION_RIGHT_DOCK_TREE_MIN_WIDTH;
-export const RIGHT_DOCK_TREE_MAX_WIDTH = 560;
-export const RIGHT_DOCK_PREVIEW_DEFAULT_WIDTH = 660;
-export const RIGHT_DOCK_PREVIEW_MIN_WIDTH = 420;
-export const RIGHT_DOCK_MIN_RENDER_WIDTH = 280;
-// Creation tree mode may render below the classic 280 floor when the viewport squeezes.
-export const CREATION_RIGHT_DOCK_MIN_RENDER_WIDTH = 236;
-export const RIGHT_DOCK_MAX_WIDTH = 860;
-const WORKSPACE_PANEL_OPEN_KEY = "semantix.workspacePanel.open";
-// First-launch default when no preference is stored (matches post-#6371 UX).
-const WORKSPACE_PANEL_DEFAULT_OPEN = true;
+// The floating workspace panel (files / changes) slides in over the chat pane
+// from the right edge. One width serves both views: it grows on demand when a
+// preview or a commit diff needs the dual-pane layout and stays there until
+// the user drags it back.
+export const WORKSPACE_FLOAT_DEFAULT_WIDTH = 420;
+export const WORKSPACE_FLOAT_MIN_WIDTH = 320;
+export const WORKSPACE_FLOAT_MAX_WIDTH = 860;
+export const WORKSPACE_FLOAT_WIDE_WIDTH = 660;
 
 export function clampSidebarWidth(width: number): number {
   return Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, Math.round(width)));
@@ -56,20 +47,8 @@ function clampStoredSidebarWidth(width: number): number {
   return Math.min(SIDEBAR_MAX_WIDTH, Math.max(CREATION_SIDEBAR_MIN_WIDTH, Math.round(width)));
 }
 
-export function clampRightDockPreviewWidth(width: number): number {
-  return Math.min(RIGHT_DOCK_MAX_WIDTH, Math.max(RIGHT_DOCK_PREVIEW_MIN_WIDTH, Math.round(width)));
-}
-
-export function clampRightDockTreeWidth(width: number): number {
-  return Math.min(RIGHT_DOCK_TREE_MAX_WIDTH, Math.max(RIGHT_DOCK_TREE_MIN_WIDTH, Math.round(width)));
-}
-
-export function clampCreationRightDockTreeWidth(width: number): number {
-  return Math.min(RIGHT_DOCK_TREE_MAX_WIDTH, Math.max(CREATION_RIGHT_DOCK_TREE_MIN_WIDTH, Math.round(width)));
-}
-
-function clampStoredRightDockTreeWidth(width: number): number {
-  return Math.min(RIGHT_DOCK_TREE_MAX_WIDTH, Math.max(CREATION_RIGHT_DOCK_TREE_MIN_WIDTH, Math.round(width)));
+export function clampWorkspaceFloatWidth(width: number): number {
+  return Math.min(WORKSPACE_FLOAT_MAX_WIDTH, Math.max(WORKSPACE_FLOAT_MIN_WIDTH, Math.round(width)));
 }
 
 export function defaultSidebarWidth(): number {
@@ -81,14 +60,6 @@ export function defaultSidebarWidth(): number {
 
 export function defaultCreationSidebarWidth(): number {
   return CREATION_SIDEBAR_DEFAULT_WIDTH;
-}
-
-export function defaultRightDockTreeWidth(): number {
-  return RIGHT_DOCK_TREE_DEFAULT_WIDTH;
-}
-
-export function defaultCreationRightDockTreeWidth(): number {
-  return CREATION_RIGHT_DOCK_TREE_DEFAULT_WIDTH;
 }
 
 function loadSidebarCollapsed(): boolean {
@@ -117,32 +88,23 @@ export function saveSidebarWidth(width: number): void {
   saveLayoutSize("sidebarWidthGraphite", width, clampStoredSidebarWidth);
 }
 
-function loadRightDockTreeWidth(): number {
-  return loadLayoutSize("rightDockTreeWidth", defaultRightDockTreeWidth(), clampStoredRightDockTreeWidth);
+function loadWorkspaceFloatWidth(): number {
+  return loadLayoutSize("workspaceFloatWidth", WORKSPACE_FLOAT_DEFAULT_WIDTH, clampWorkspaceFloatWidth);
 }
 
-export function saveRightDockTreeWidth(width: number): void {
-  saveLayoutSize("rightDockTreeWidth", width, clampStoredRightDockTreeWidth);
+export function saveWorkspaceFloatWidth(width: number): void {
+  saveLayoutSize("workspaceFloatWidth", width, clampWorkspaceFloatWidth);
 }
 
-function loadRightDockPreviewWidth(): number {
-  return loadLayoutSize("rightDockPreviewWidth", RIGHT_DOCK_PREVIEW_DEFAULT_WIDTH, clampRightDockPreviewWidth);
-}
+// workspaceFloatMode selects which view the floating panel shows; the panel
+// itself starts closed on every launch (only its width is a durable
+// preference). (Resize drag flags, button-press animation flags, measured
+// footer height, and viewport width stay as useState in App.tsx.)
+export type WorkspaceFloatMode = "files" | "changed";
 
-export function saveRightDockPreviewWidth(width: number): void {
-  saveLayoutSize("rightDockPreviewWidth", width, clampRightDockPreviewWidth);
-}
-
-// rightDockMode selects what the right dock shows. workspacePanelOpen is
-// restored from localStorage (same pattern as sidebarCollapsed) so a collapsed
-// dock survives restart. maximized/preview stay session-local — they are view
-// layout, not a durable preference. (Resize drag flags, button-press animation
-// flags, measured footer height, and viewport width stay as useState in App.tsx.)
-export type RightDockMode = "context" | "files" | "changed" | "remote";
-
-// terminalPanelOpen is independent from rightDockMode — the terminal is a
-// bottom drawer that coexists with the workspace panel, not a mode of it.
-// Persisted to localStorage so it survives restart.
+// terminalPanelOpen is independent from the workspace panel — the terminal is
+// a bottom drawer that coexists with it. Persisted to localStorage so it
+// survives restart.
 const TERMINAL_PANEL_OPEN_KEY = "semantix.terminalPanel.open";
 const TERMINAL_PANEL_DEFAULT_OPEN = false;
 
@@ -202,45 +164,19 @@ export function clampTerminalHeight(height: number, viewportHeight: number): num
   return Math.min(max, Math.max(TERMINAL_MIN_HEIGHT, Math.round(height)));
 }
 
-function loadWorkspacePanelOpen(): boolean {
-  if (typeof window === "undefined") return WORKSPACE_PANEL_DEFAULT_OPEN;
-  try {
-    const raw = window.localStorage.getItem(WORKSPACE_PANEL_OPEN_KEY);
-    if (raw === null) return WORKSPACE_PANEL_DEFAULT_OPEN;
-    return raw !== "0";
-  } catch {
-    return WORKSPACE_PANEL_DEFAULT_OPEN;
-  }
-}
-
-export function saveWorkspacePanelOpen(open: boolean): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(WORKSPACE_PANEL_OPEN_KEY, open ? "1" : "0");
-  } catch {
-    /* ignore storage failures */
-  }
-}
-
 export type LayoutState = {
   sidebarCollapsed: boolean;
   sidebarWidth: number;
-  rightDockTreeWidth: number;
-  rightDockPreviewWidth: number;
-  workspacePanelOpen: boolean;
-  workspacePanelMaximized: boolean;
-  workspacePreviewActive: boolean;
-  rightDockMode: RightDockMode;
+  workspaceFloatOpen: boolean;
+  workspaceFloatMode: WorkspaceFloatMode;
+  workspaceFloatWidth: number;
   terminalPanelOpen: boolean;
   terminalHeight: number;
   setSidebarCollapsed: (collapsed: boolean) => void;
   setSidebarWidth: (width: number) => void;
-  setRightDockTreeWidth: (width: number) => void;
-  setRightDockPreviewWidth: (width: number) => void;
-  setWorkspacePanelOpen: Dispatch<SetStateAction<boolean>>;
-  setWorkspacePanelMaximized: Dispatch<SetStateAction<boolean>>;
-  setWorkspacePreviewActive: Dispatch<SetStateAction<boolean>>;
-  setRightDockMode: Dispatch<SetStateAction<RightDockMode>>;
+  setWorkspaceFloatOpen: Dispatch<SetStateAction<boolean>>;
+  setWorkspaceFloatMode: Dispatch<SetStateAction<WorkspaceFloatMode>>;
+  setWorkspaceFloatWidth: (width: number) => void;
   setTerminalPanelOpen: Dispatch<SetStateAction<boolean>>;
   setTerminalHeight: (height: number) => void;
 };
@@ -248,22 +184,16 @@ export type LayoutState = {
 export const useLayoutStore = create<LayoutState>((set) => ({
   sidebarCollapsed: loadSidebarCollapsed(),
   sidebarWidth: loadSidebarWidth(),
-  rightDockTreeWidth: loadRightDockTreeWidth(),
-  rightDockPreviewWidth: loadRightDockPreviewWidth(),
-  workspacePanelOpen: loadWorkspacePanelOpen(),
-  workspacePanelMaximized: false,
-  workspacePreviewActive: false,
-  rightDockMode: "context",
+  workspaceFloatOpen: false,
+  workspaceFloatMode: "files",
+  workspaceFloatWidth: loadWorkspaceFloatWidth(),
   terminalPanelOpen: loadTerminalPanelOpen(),
   terminalHeight: loadTerminalHeight(),
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
   setSidebarWidth: (width) => set({ sidebarWidth: width }),
-  setRightDockTreeWidth: (width) => set({ rightDockTreeWidth: width }),
-  setRightDockPreviewWidth: (width) => set({ rightDockPreviewWidth: width }),
-  setWorkspacePanelOpen: (update) => set((s) => ({ workspacePanelOpen: applySetState(s.workspacePanelOpen, update) })),
-  setWorkspacePanelMaximized: (update) => set((s) => ({ workspacePanelMaximized: applySetState(s.workspacePanelMaximized, update) })),
-  setWorkspacePreviewActive: (update) => set((s) => ({ workspacePreviewActive: applySetState(s.workspacePreviewActive, update) })),
-  setRightDockMode: (update) => set((s) => ({ rightDockMode: applySetState(s.rightDockMode, update) })),
+  setWorkspaceFloatOpen: (update) => set((s) => ({ workspaceFloatOpen: applySetState(s.workspaceFloatOpen, update) })),
+  setWorkspaceFloatMode: (update) => set((s) => ({ workspaceFloatMode: applySetState(s.workspaceFloatMode, update) })),
+  setWorkspaceFloatWidth: (width) => set({ workspaceFloatWidth: width }),
   setTerminalPanelOpen: (update) => set((s) => ({ terminalPanelOpen: applySetState(s.terminalPanelOpen, update) })),
   setTerminalHeight: (height) => set({ terminalHeight: height }),
 }));
@@ -272,8 +202,5 @@ export function applyLayoutStyleDefaults(style: "classic" | "workbench" | "creat
   const state = useLayoutStore.getState();
   if (loadOptionalLayoutSize("sidebarWidthGraphite", clampStoredSidebarWidth) === null) {
     state.setSidebarWidth(style === "creation" ? defaultCreationSidebarWidth() : defaultSidebarWidth());
-  }
-  if (loadOptionalLayoutSize("rightDockTreeWidth", clampStoredRightDockTreeWidth) === null) {
-    state.setRightDockTreeWidth(style === "creation" ? defaultCreationRightDockTreeWidth() : defaultRightDockTreeWidth());
   }
 }

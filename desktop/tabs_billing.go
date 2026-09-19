@@ -42,7 +42,6 @@ func (t *WorkspaceTab) replaceTelemetry(snapshot tabTelemetrySnapshot, sessionKe
 		return
 	}
 	t.telemMu.Lock()
-	t.readTelemetry = append([]readFileRecord(nil), snapshot.ReadFiles...)
 	t.usageTelemetry = cloneSessionUsageStats(snapshot.Usage)
 	t.runtimeCostDisplayCurrency = ""
 	t.runtimeCostQuote = nil

@@ -14,11 +14,8 @@ import {
   FileText,
   Folder,
   FolderTree,
-  FolderX,
   GitBranch,
-  Maximize2,
   MessageSquarePlus,
-  Minimize2,
   RefreshCw,
   Search,
   X,
@@ -196,11 +193,8 @@ export function WorkspacePanel({
   open,
   tabId,
   cwd,
-  maximized,
   panelWidth,
   onClose,
-  onToggleMaximized,
-  onPreviewModeChange,
   onAddToChat,
   onAddCodeToChat,
   onOpenInTerminal,
@@ -212,7 +206,6 @@ export function WorkspacePanel({
   changeRevealRequest,
   fileListRequest,
   changeListRequest,
-  showViewTabs = true,
   workspaceScopeKey: workspaceScopeKeyProp,
   workspaceMemoryKey: workspaceMemoryKeyProp,
   workspaceMemoryVisitId: workspaceMemoryVisitIdProp,
@@ -222,11 +215,8 @@ export function WorkspacePanel({
   open: boolean;
   tabId?: string;
   cwd?: string;
-  maximized: boolean;
   panelWidth?: number;
   onClose: () => void;
-  onToggleMaximized: () => void;
-  onPreviewModeChange?: (active: boolean) => void;
   onAddToChat?: (text: string) => void;
   onAddCodeToChat?: (path: string, code: string) => void;
   onOpenInTerminal?: (path: string) => void;
@@ -238,7 +228,6 @@ export function WorkspacePanel({
   changeRevealRequest?: WorkspaceRevealRequest | null;
   fileListRequest?: WorkspaceFileListRequest | null;
   changeListRequest?: WorkspaceChangeListRequest | null;
-  showViewTabs?: boolean;
   workspaceScopeKey?: string;
   workspaceMemoryKey?: string;
   workspaceMemoryVisitId?: number;
@@ -1133,8 +1122,6 @@ export function WorkspacePanel({
   );
   const actualTreeVisible = changedMode ? false : treeVisible && (!previewVisible || splitPanesFit);
   const previewModeActive = open && (filePreviewActive || changeDetailActive);
-  const embeddedDockMode = !showViewTabs;
-  const showFileTools = true;
   const effectiveTreeWidth = useMemo(
     () =>
       resolveWorkspaceSplitTreeWidth({
@@ -1174,23 +1161,17 @@ export function WorkspacePanel({
     [effectiveTreeWidth],
   );
 
+  // Entering preview / diff detail needs the dual-pane width; the host grows
+  // to fit and keeps that width until the user resizes.
   useEffect(() => {
     if (lastPreviewModeActiveRef.current === previewModeActive) return;
     lastPreviewModeActiveRef.current = previewModeActive;
-    onPreviewModeChange?.(previewModeActive);
-  }, [onPreviewModeChange, previewModeActive]);
+    if (previewModeActive) onRequestPanelWidth?.(WORKSPACE_DUAL_PANEL_TARGET_WIDTH);
+  }, [onRequestPanelWidth, previewModeActive]);
 
   useEffect(() => {
     if (open && !treeVisible && !previewVisible) onClose();
   }, [onClose, open, previewVisible, treeVisible]);
-
-  const hideTreeOrClosePanel = useCallback(() => {
-    if (previewVisible) {
-      setTreeVisible(false);
-    } else {
-      onClose();
-    }
-  }, [onClose, previewVisible]);
 
   const showTreeEvenSplit = useCallback(() => {
     setTreeWidth(initialWorkspaceSplitTreeWidth({
@@ -1525,7 +1506,7 @@ export function WorkspacePanel({
   return (
     <aside
       ref={panelRef}
-      className={`workspace-panel${embeddedDockMode ? " workspace-panel--embedded" : ""}${showTreeRail ? " workspace-panel--with-tree-rail" : ""}${changedMode ? " workspace-panel--detail-only" : ""}${changedMode && !selectedPath ? " workspace-panel--changed-overview" : ""}${previewVisible && actualTreeVisible ? " workspace-panel--split-preview" : ""}${actualTreeVisible ? "" : " workspace-panel--tree-hidden"}${previewVisible ? "" : " workspace-panel--preview-hidden"}${treeResizing ? " workspace-panel--tree-resizing" : ""}`}
+      className={`workspace-panel workspace-panel--embedded${showTreeRail ? " workspace-panel--with-tree-rail" : ""}${changedMode ? " workspace-panel--detail-only" : ""}${changedMode && !selectedPath ? " workspace-panel--changed-overview" : ""}${previewVisible && actualTreeVisible ? " workspace-panel--split-preview" : ""}${actualTreeVisible ? "" : " workspace-panel--tree-hidden"}${previewVisible ? "" : " workspace-panel--preview-hidden"}${treeResizing ? " workspace-panel--tree-resizing" : ""}`}
       aria-label={t("workspace.title")}
       style={panelStyle}
       onKeyDownCapture={(event) => {
@@ -1582,11 +1563,6 @@ export function WorkspacePanel({
                 </button>
               </Tooltip>
             )}
-            <Tooltip label={maximized ? t("workspace.restore") : t("workspace.maximize")}>
-              <button className="workspace-iconbtn" onClick={onToggleMaximized}>
-                {maximized ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
-              </button>
-            </Tooltip>
             {selectedPath && (
               <Tooltip label={t("workspace.closePreview")}>
                 <button className="workspace-iconbtn" onClick={closePreviewArea}>
@@ -2057,65 +2033,32 @@ export function WorkspacePanel({
       )}
 
       <section className="workspace-files">
-        {showFileTools && (
-          <div className={`workspace-files__tools${embeddedDockMode ? " workspace-files__tools--embedded" : ""}`}>
-            {showViewTabs && (
-              <Tooltip label={previewVisible ? t("workspace.hideTree") : t("workspace.close")}>
-                <button
-                  className="workspace-iconbtn workspace-iconbtn--on"
-                  type="button"
-                  aria-label={previewVisible ? t("workspace.hideTree") : t("workspace.close")}
-                  onClick={hideTreeOrClosePanel}
-                >
-                  {previewVisible ? <FolderX size={15} /> : <X size={15} />}
-                </button>
-              </Tooltip>
-            )}
-            {showViewTabs && (
-              <div className="workspace-files__tabs" role="tablist" aria-label={t("workspace.viewMode")}>
-                <button
-                  className={viewMode === "files" ? "workspace-files__tab workspace-files__tab--active" : "workspace-files__tab"}
-                  onClick={() => setViewMode("files")}
-                >
-                  {t("workspace.filesTab")}
-                </button>
-                <button
-                  className={viewMode === "changed" ? "workspace-files__tab workspace-files__tab--active" : "workspace-files__tab"}
-                  onClick={() => {
-                    setViewMode("changed");
-                  }}
-                >
-                  <GitBranch size={13} />
-                  {t("workspace.changedTab")}
-                </button>
-              </div>
-            )}
-            <Tooltip label={t("workspace.refreshChanges")}>
-              <button
-                className="workspace-iconbtn"
-                type="button"
-                aria-label={t("workspace.refreshChanges")}
-                aria-busy={loadingPreview || loadingHistory}
-                onClick={() => {
-                  refreshWorkspaceList();
-                  void refreshSelected();
-                }}
-              >
-                <RefreshCw size={14} />
-              </button>
-            </Tooltip>
-            {workspaceRefresh.watchState !== "active" && (
-              <span
-                className="workspace-watch-status"
-                role="status"
-                title={t(workspaceRefresh.watchState === "degraded" ? "workspace.watchDegraded" : "workspace.watchUnavailable")}
-                aria-label={t(workspaceRefresh.watchState === "degraded" ? "workspace.watchDegraded" : "workspace.watchUnavailable")}
-              >
-                •
-              </span>
-            )}
-          </div>
-        )}
+        <div className="workspace-files__tools workspace-files__tools--embedded">
+          <Tooltip label={t("workspace.refreshChanges")}>
+            <button
+              className="workspace-iconbtn"
+              type="button"
+              aria-label={t("workspace.refreshChanges")}
+              aria-busy={loadingPreview || loadingHistory}
+              onClick={() => {
+                refreshWorkspaceList();
+                void refreshSelected();
+              }}
+            >
+              <RefreshCw size={14} />
+            </button>
+          </Tooltip>
+          {workspaceRefresh.watchState !== "active" && (
+            <span
+              className="workspace-watch-status"
+              role="status"
+              title={t(workspaceRefresh.watchState === "degraded" ? "workspace.watchDegraded" : "workspace.watchUnavailable")}
+              aria-label={t(workspaceRefresh.watchState === "degraded" ? "workspace.watchDegraded" : "workspace.watchUnavailable")}
+            >
+              •
+            </span>
+          )}
+        </div>
 
         <div className="workspace-search">
           <Search size={14} />

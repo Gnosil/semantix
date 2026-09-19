@@ -25,7 +25,7 @@
     "pretest": "pnpm test:terminal && pnpm test:task-monitor && tsx src/__tests__/rich-composer-selection.test.tsx && tsx src/__tests__/context-center-contract.test.ts && tsx src/__tests__/provider-model-cache.test.ts && tsx src/__tests__/format-tokens.test.ts && pnpm test:usage-stats && pnpm test:settings-responsive && pnpm test:composer-menu-viewport && pnpm test:transcript",
     "test:composer-menu-viewport": "tsx src/__tests__/composer-menu-viewport.test.ts && tsx src/__tests__/virtual-menu-identity.test.tsx",
     "test": "node scripts/test-todo-visibility.mjs && node scripts/run-tests.mjs",
-    "test:remote": "tsx src/__tests__/remote-workspace-launch.test.ts && tsx src/__tests__/remote-store.test.ts && tsx src/__tests__/remote-error-ux.test.tsx && tsx src/__tests__/remote-hosts-page.test.tsx && tsx src/__tests__/remote-secret-dialog.test.tsx && node --import ./scripts/svg-stub-register.mjs --import tsx src/__tests__/remote-server-panel.test.tsx && tsx src/__tests__/statusbar-workspace.test.tsx",
+    "test:remote": "tsx src/__tests__/remote-workspace-launch.test.ts && tsx src/__tests__/remote-store.test.ts && tsx src/__tests__/remote-error-ux.test.tsx && tsx src/__tests__/remote-hosts-page.test.tsx && tsx src/__tests__/remote-secret-dialog.test.tsx && tsx src/__tests__/statusbar-workspace.test.tsx",
     "test:performance": "tsx src/__tests__/history-performance-benchmark.tsx",
     "test:bench": "PLAYWRIGHT_BROWSERS_PATH=.pw-browsers node bench/run.mjs",
     "test:typecheck": "tsc --noEmit -p tsconfig.test.json",

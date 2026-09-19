@@ -17,7 +17,6 @@ import (
 type fakeRemoteKernel struct {
 	hosts           []RemoteHostView
 	statuses        []RemoteConnectionStatusView
-	writeResult     RemoteWriteResult
 	ensureView      RemoteServerView
 	ensureToken     string
 	ensureErr       error
@@ -84,32 +83,11 @@ func (f *fakeRemoteKernel) ResolveSecret(hostID, promptID, secret string, accept
 	f.secretCalls = append(f.secretCalls, remoteSecretAnswer{secret: secret, accept: accept})
 	return nil
 }
-func (f *fakeRemoteKernel) ListDir(context.Context, string, string) ([]RemoteDirEntry, error) {
-	return []RemoteDirEntry{{Name: "file.txt"}}, nil
-}
-func (f *fakeRemoteKernel) ReadFile(context.Context, string, string) (RemoteFilePreview, error) {
-	return RemoteFilePreview{Body: "hi"}, nil
-}
-func (f *fakeRemoteKernel) WriteFile(context.Context, string, string, string, int64) (RemoteWriteResult, error) {
-	return f.writeResult, nil
-}
-func (f *fakeRemoteKernel) Mkdir(context.Context, string, string) error          { return nil }
-func (f *fakeRemoteKernel) Rename(context.Context, string, string, string) error { return nil }
-func (f *fakeRemoteKernel) Delete(context.Context, string, string, bool) error   { return nil }
-func (f *fakeRemoteKernel) Forwards(string) []RemoteForwardView                  { return nil }
-func (f *fakeRemoteKernel) AddForward(string, RemoteForwardInput) (RemoteForwardView, error) {
-	return RemoteForwardView{}, nil
-}
-func (f *fakeRemoteKernel) RemoveForward(string, string) error { return nil }
 func (f *fakeRemoteKernel) EnsureServer(context.Context, string, string) (RemoteServerView, string, error) {
 	return f.ensureView, f.ensureToken, f.ensureErr
 }
-func (f *fakeRemoteKernel) StopServer(string) error              { return nil }
 func (f *fakeRemoteKernel) ServerStatus(string) RemoteServerView { return f.ensureView }
-func (f *fakeRemoteKernel) ServerLogs(context.Context, string, int) (string, error) {
-	return "log line", nil
-}
-func (f *fakeRemoteKernel) Close() error { f.closed = true; return nil }
+func (f *fakeRemoteKernel) Close() error                         { f.closed = true; return nil }
 
 func appWithFakeKernel(fake *fakeRemoteKernel) *App {
 	a := &App{ctx: context.Background()}
@@ -118,7 +96,7 @@ func appWithFakeKernel(fake *fakeRemoteKernel) *App {
 }
 
 func TestRemoteBindingsDelegateToKernel(t *testing.T) {
-	fake := &fakeRemoteKernel{writeResult: RemoteWriteResult{OK: true, NewMtimeUnix: 42}}
+	fake := &fakeRemoteKernel{}
 	a := appWithFakeKernel(fake)
 
 	if _, err := a.AddRemoteHost(RemoteHostInput{Label: "box", Host: "10.0.0.1"}); err != nil {
@@ -127,14 +105,6 @@ func TestRemoteBindingsDelegateToKernel(t *testing.T) {
 	hosts, _ := a.RemoteHosts()
 	if len(hosts) != 1 || hosts[0].ID != "box" {
 		t.Fatalf("hosts = %+v", hosts)
-	}
-	entries, err := a.ListRemoteDir("box", "/")
-	if err != nil || len(entries) != 1 {
-		t.Fatalf("ListRemoteDir = %+v, %v", entries, err)
-	}
-	res, err := a.WriteRemoteFile("box", "/f", "data", 0)
-	if err != nil || !res.OK || res.NewMtimeUnix != 42 {
-		t.Fatalf("WriteRemoteFile = %+v, %v", res, err)
 	}
 }
 

@@ -183,7 +183,6 @@ export function StatusBar({
   onConnectRemote,
   onDisconnectRemote,
   onManageRemote,
-  onOpenRemote,
   onOpenRemoteWorkspace,
   remoteHosts = [],
   remoteStatuses = {},
@@ -217,7 +216,6 @@ export function StatusBar({
   onConnectRemote?: (host: RemoteHostView) => void;
   onDisconnectRemote?: (hostId: string) => void;
   onManageRemote?: () => void;
-  onOpenRemote?: (hostId: string) => void;
   onOpenRemoteWorkspace?: (host: RemoteHostView) => void;
   remoteHosts?: RemoteHostView[];
   remoteStatuses?: Record<string, RemoteConnectionStatus>;
@@ -453,7 +451,6 @@ export function StatusBar({
         <RemoteStatusBarChip
           hosts={remoteHosts}
           statuses={remoteStatuses}
-          onOpen={onOpenRemote}
           onOpenWorkspace={onOpenRemoteWorkspace}
           onConnect={onConnectRemote}
           onDisconnect={onDisconnectRemote}
@@ -649,7 +646,6 @@ const REMOTE_STATE_SEVERITY: Record<string, number> = {
 function RemoteStatusBarChip({
   hosts,
   statuses,
-  onOpen,
   onOpenWorkspace,
   onConnect,
   onDisconnect,
@@ -657,7 +653,6 @@ function RemoteStatusBarChip({
 }: {
   hosts: RemoteHostView[];
   statuses: Record<string, RemoteConnectionStatus>;
-  onOpen?: (hostId: string) => void;
   onOpenWorkspace?: (host: RemoteHostView) => void;
   onConnect?: (host: RemoteHostView) => void;
   onDisconnect?: (hostId: string) => void;
@@ -729,20 +724,13 @@ function RemoteStatusBarChip({
               const target = `${host.user ? `${host.user}@` : ""}${host.host}${host.port && host.port !== 22 ? `:${host.port}` : ""}`;
               return (
                 <div className={`remote-switcher__host remote-switcher__host--${stateClass}`} key={host.id}>
-                  <button
-                    type="button"
-                    className="remote-switcher__host-main"
-                    onClick={() => {
-                      setOpen(false);
-                      onOpen?.(host.id);
-                    }}
-                  >
+                  <div className="remote-switcher__host-main">
                     <span className={`remote-switcher__state remote-switcher__state--${stateClass}`} aria-hidden="true" />
                     <span className="remote-switcher__copy">
                       <strong>{host.label}</strong>
                       <small>{stateLabel} · {host.defaultWorkspace || target}</small>
                     </span>
-                  </button>
+                  </div>
                     <span className="remote-switcher__actions">
                     <button
                       type="button"
