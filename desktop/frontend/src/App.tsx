@@ -4154,7 +4154,8 @@ export default function App() {
           </section>
 
           <nav className="sidebar__nav sidebar__nav--footer" aria-label={t("sidebar.utilityActions")}>
-            <Tooltip label={t("sidebar.trash")} fill side="right" disabled={sidebarNavTooltipDisabled}>
+            {/* 回收站入口暂时从侧栏隐藏，代码保留；命令面板 cmd-trash 仍可打开回收站 */}
+            {/* <Tooltip label={t("sidebar.trash")} fill side="right" disabled={sidebarNavTooltipDisabled}>
               <button
                 className="sidebar__navitem"
                 onClick={() => void openTrash()}
@@ -4162,7 +4163,7 @@ export default function App() {
                 <Trash2 size={15} />
                 <span>{t("sidebar.trash")}</span>
               </button>
-            </Tooltip>
+            </Tooltip> */}
             <Tooltip label={t("topbar.settings")} fill side="right" disabled={sidebarNavTooltipDisabled}>
               <button
                 className="sidebar__navitem"
