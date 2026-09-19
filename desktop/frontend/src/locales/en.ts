@@ -727,6 +727,7 @@ export const en = {
   "composer.accessMenuTitle": "Tool access ({shortcut} toggles YOLO)",
   "composer.accessAsk": "Ask first",
   "composer.accessAskTitle": "Ask before approval-gated tool calls; Ask is not read-only",
+  "composer.contextDotTitle": "Context {used} / {total}",
   "composer.accessAskDesc": "Approval-gated writes and shell commands ask first; this is not a read-only mode.",
   "composer.accessAuto": "Auto approve",
   "composer.accessAutoTitle": "Execute automatically and ask only for user-owned plan decisions",

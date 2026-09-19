@@ -728,6 +728,7 @@ export const zh: Record<DictKey, string> = {
   "composer.accessMenuTitle": "工具权限（{shortcut} 切换 Yolo）",
   "composer.accessAsk": "需要批准",
   "composer.accessAskTitle": "需审批的工具调用会先询问；询问不是只读模式",
+  "composer.contextDotTitle": "上下文 {used} / {total}",
   "composer.accessAskDesc": "需审批的写入与命令会先询问；这不是只读模式。",
   "composer.accessAuto": "自动批准",
   "composer.accessAutoTitle": "自动执行，只在需要用户决定计划时询问",

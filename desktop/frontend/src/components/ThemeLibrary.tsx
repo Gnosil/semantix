@@ -487,9 +487,9 @@ function ThemeLibCard({
 }) {
   const t = useT();
   const kind = themePackKind(pack);
-  const lightBg = pack.tokens?.light?.bg || "#f4f3ef";
+  const lightBg = pack.tokens?.light?.bg || "#f2f4f6";
   const darkBg = pack.tokens?.dark?.bg || "#0c0d10";
-  const accent = pack.tokens?.dark?.accent || pack.tokens?.light?.accent || "#ff6a3d";
+  const accent = pack.tokens?.dark?.accent || pack.tokens?.light?.accent || "#68d0a0";
   const thumbStyle: Record<string, string> = pack.backgroundUrl
     ? { backgroundImage: `url("${pack.backgroundUrl}")`, backgroundSize: "cover" }
     : { ["--thumb-light"]: lightBg, ["--thumb-dark"]: darkBg };

@@ -2372,6 +2372,7 @@ export const zhTW: Record<DictKey, string> = {
   "composer.accessMenuTitle": "工具權限（{shortcut} 切換 Yolo）",
   "composer.accessAsk": "需要批准",
   "composer.accessAskTitle": "需審批的工具呼叫會先詢問；詢問不是唯讀模式",
+  "composer.contextDotTitle": "上下文 {used} / {total}",
   "composer.accessAskDesc": "需審批的寫入與命令會先詢問；這不是唯讀模式。",
   "composer.accessAuto": "自動批准",
   "composer.accessAutoTitle": "自動執行，只在需要使用者決定計畫時詢問",

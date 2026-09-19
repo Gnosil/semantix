@@ -742,7 +742,7 @@ export function ThemeGallery({
                         ) : (
                           <div
                             className="theme-gallery-card__swatches"
-                            style={{ background: `linear-gradient(120deg, ${pack.tokens?.light?.bg || "#f4f3ef"}, ${pack.tokens?.dark?.accent || pack.tokens?.light?.accent || "#ff6a3d"})` }}
+                            style={{ background: `linear-gradient(120deg, ${pack.tokens?.light?.bg || "#f2f4f6"}, ${pack.tokens?.dark?.accent || pack.tokens?.light?.accent || "#68d0a0"})` }}
                           />
                         )}
                         {active ? (
