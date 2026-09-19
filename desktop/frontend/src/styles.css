@@ -21,11 +21,11 @@
   color-scheme: dark;
 
   /* surfaces */
-  --bg: #090a0c;
-  --bg-soft: #111319;
-  --bg-elev: #191b22;
-  --bg-elev-2: #222631;
-  --sidebar-bg: #0c0e12;
+  --bg: #0d0f12;
+  --bg-soft: #14171c;
+  --bg-elev: #1a1e24;
+  --bg-elev-2: #20242c;
+  --sidebar-bg: #101318;
   --sidebar-hover: #181c24;
   --sidebar-active: rgba(217, 119, 87, 0.13);
   --chat-bg: var(--bg);
@@ -35,8 +35,8 @@
   --workspace-selection-bg: var(--sidebar-active);
   --workspace-selection-fg: var(--accent);
   --workspace-selection-bar: var(--accent);
-  --border: #343945;
-  --border-soft: #252a34;
+  --border: #2a2f3a;
+  --border-soft: #212631;
 
   /* text */
   --fg: #f4f5f7;
@@ -109,8 +109,19 @@
   --danger: #e5484d;
   --danger-fg: #fff;
   --shell-accent: #22c55e;
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.22);
-  --shadow-2: 0 14px 40px rgba(0, 0, 0, 0.28);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.28);
+  --shadow-focus: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+
+  /* lightweight visual scale: radii, durations */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-full: 999px;
+  --dur-fast: 120ms;
+  --dur-med: 200ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 
   /* z-index scale */
   --z-transcript-scene-image: 0;
@@ -524,8 +535,6 @@
   --control-primary-fg: #0c0d10;
   --code-bg: #101115;
   --grad: linear-gradient(120deg, #ff6a3d, #ff9a52);
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-2: 0 14px 40px rgba(0, 0, 0, 0.6);
   --r-s: 5px;
   --r: 8px;
   --r-l: 11px;
@@ -593,8 +602,6 @@
   --code-bg: #f6f5f1;
   --focus-ring: 0 0 0 3px rgba(255, 90, 44, 0.16);
   --grad: linear-gradient(120deg, #ff5a2c, #ff8a3d);
-  --shadow-1: 0 1px 2px rgba(20, 22, 28, 0.06);
-  --shadow-2: 0 12px 34px rgba(20, 22, 28, 0.14);
   --r-s: 5px;
   --r: 8px;
   --r-l: 11px;
@@ -662,8 +669,6 @@
     --code-bg: #f6f5f1;
     --focus-ring: 0 0 0 3px rgba(255, 90, 44, 0.16);
     --grad: linear-gradient(120deg, #ff5a2c, #ff8a3d);
-    --shadow-1: 0 1px 2px rgba(20, 22, 28, 0.06);
-    --shadow-2: 0 12px 34px rgba(20, 22, 28, 0.14);
     --r-s: 5px;
     --r: 8px;
     --r-l: 11px;
@@ -732,8 +737,6 @@
   --code-bg: #0f0e1c;
   --focus-ring: 0 0 0 3px rgba(139, 124, 255, 0.2);
   --grad: linear-gradient(120deg, #8b7cff, #b07cff 42%, #38d6e6);
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 34px rgba(0, 0, 0, 0.46);
-  --shadow-2: 0 24px 70px rgba(0, 0, 0, 0.62);
   --r-s: 10px;
   --r: 15px;
   --r-l: 22px;
@@ -801,8 +804,6 @@
   --code-bg: #f3effb;
   --focus-ring: 0 0 0 3px rgba(109, 94, 252, 0.18);
   --grad: linear-gradient(120deg, #6d5efc, #9b5cf6 42%, #21c8d8);
-  --shadow-1: 0 1px 2px rgba(26, 16, 60, 0.06), 0 10px 30px rgba(26, 16, 60, 0.08);
-  --shadow-2: 0 20px 60px rgba(26, 16, 60, 0.18);
   --r-s: 10px;
   --r: 15px;
   --r-l: 22px;
@@ -870,8 +871,6 @@
     --code-bg: #f3effb;
     --focus-ring: 0 0 0 3px rgba(109, 94, 252, 0.18);
     --grad: linear-gradient(120deg, #6d5efc, #9b5cf6 42%, #21c8d8);
-    --shadow-1: 0 1px 2px rgba(26, 16, 60, 0.06), 0 10px 30px rgba(26, 16, 60, 0.08);
-    --shadow-2: 0 20px 60px rgba(26, 16, 60, 0.18);
     --r-s: 10px;
     --r: 15px;
     --r-l: 22px;
@@ -940,8 +939,6 @@
   --code-bg: #0c0e12;
   --focus-ring: 0 0 0 3px rgba(77, 141, 246, 0.2);
   --grad: linear-gradient(120deg, #4d8df6, #3b82f6);
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 28px rgba(0, 0, 0, 0.4);
-  --shadow-2: 0 20px 60px rgba(0, 0, 0, 0.55);
   --r-s: 8px;
   --r: 12px;
   --r-l: 16px;
@@ -1008,8 +1005,6 @@
   --code-bg: #f1f3f7;
   --focus-ring: 0 0 0 3px rgba(47, 111, 224, 0.18);
   --grad: linear-gradient(120deg, #2f6fe0, #3b82f6);
-  --shadow-1: 0 1px 2px rgba(20, 28, 46, 0.06), 0 8px 22px rgba(20, 28, 46, 0.07);
-  --shadow-2: 0 16px 44px rgba(20, 28, 46, 0.14);
   --r-s: 8px;
   --r: 12px;
   --r-l: 16px;
@@ -1077,8 +1072,6 @@
     --code-bg: #f1f3f7;
     --focus-ring: 0 0 0 3px rgba(47, 111, 224, 0.18);
     --grad: linear-gradient(120deg, #2f6fe0, #3b82f6);
-    --shadow-1: 0 1px 2px rgba(20, 28, 46, 0.06), 0 8px 22px rgba(20, 28, 46, 0.07);
-    --shadow-2: 0 16px 44px rgba(20, 28, 46, 0.14);
     --r-s: 8px;
     --r: 12px;
     --r-l: 16px;
@@ -1147,8 +1140,6 @@
   --code-bg: #0d0c0b;
   --focus-ring: 0 0 0 3px rgba(45, 212, 191, 0.18);
   --grad: linear-gradient(120deg, #2dd4bf, #22d3ee);
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5), 0 12px 30px rgba(0, 0, 0, 0.5);
-  --shadow-2: 0 22px 64px rgba(0, 0, 0, 0.62);
   --r-s: 7px;
   --r: 10px;
   --r-l: 14px;
@@ -1215,8 +1206,6 @@
   --code-bg: #f2efe9;
   --focus-ring: 0 0 0 3px rgba(13, 148, 136, 0.17);
   --grad: linear-gradient(120deg, #0d9488, #0891b2);
-  --shadow-1: 0 1px 2px rgba(30, 26, 20, 0.06);
-  --shadow-2: 0 16px 44px rgba(30, 26, 20, 0.14);
   --r-s: 7px;
   --r: 10px;
   --r-l: 14px;
@@ -1284,8 +1273,6 @@
     --code-bg: #f2efe9;
     --focus-ring: 0 0 0 3px rgba(13, 148, 136, 0.17);
     --grad: linear-gradient(120deg, #0d9488, #0891b2);
-    --shadow-1: 0 1px 2px rgba(30, 26, 20, 0.06);
-    --shadow-2: 0 16px 44px rgba(30, 26, 20, 0.14);
     --r-s: 7px;
     --r: 10px;
     --r-l: 14px;
@@ -1354,8 +1341,6 @@
   --code-bg: #0e0e18;
   --focus-ring: 0 0 0 3px rgba(129, 140, 248, 0.2);
   --grad: linear-gradient(120deg, #818cf8, #a78bfa);
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 34px rgba(0, 0, 0, 0.46);
-  --shadow-2: 0 24px 70px rgba(0, 0, 0, 0.6);
   --r-s: 11px;
   --r: 16px;
   --r-l: 22px;
@@ -1422,8 +1407,6 @@
   --code-bg: #f2f0fb;
   --focus-ring: 0 0 0 3px rgba(99, 102, 241, 0.18);
   --grad: linear-gradient(120deg, #6366f1, #8b5cf6);
-  --shadow-1: 0 1px 2px rgba(26, 16, 60, 0.06), 0 10px 30px rgba(26, 16, 60, 0.08);
-  --shadow-2: 0 20px 60px rgba(26, 16, 60, 0.16);
   --r-s: 11px;
   --r: 16px;
   --r-l: 22px;
@@ -1491,8 +1474,6 @@
     --code-bg: #f2f0fb;
     --focus-ring: 0 0 0 3px rgba(99, 102, 241, 0.18);
     --grad: linear-gradient(120deg, #6366f1, #8b5cf6);
-    --shadow-1: 0 1px 2px rgba(26, 16, 60, 0.06), 0 10px 30px rgba(26, 16, 60, 0.08);
-    --shadow-2: 0 20px 60px rgba(26, 16, 60, 0.16);
     --r-s: 11px;
     --r: 16px;
     --r-l: 22px;
