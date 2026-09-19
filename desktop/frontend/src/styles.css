@@ -6240,7 +6240,7 @@ body > .mermaid-diagram--fullscreen {
   margin: 6px auto;
 }
 .process-card.phase {
-  opacity: 0.82;
+  opacity: 0.87;
 }
 .process-card.phase .process-card__head {
   min-height: 36px;
