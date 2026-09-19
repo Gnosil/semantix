@@ -24,9 +24,9 @@
 Bridge 不再直接把完整 benchmark prompt 交给 BM25，而是生成确定性的低权威 token 投影。P1.1 在 P0 模板清洗上继续提取：
 
 1. 删除 `<execution-policy ...>...</execution-policy>`；
-2. 存在 `<issue>...</issue>` 时只使用 issue 正文；
-3. 从 runner 外壳识别 repo，从 issue 标题识别 intent；
-4. 确定性提取 workspace path、代码 symbol、error code/exception、test name 和 import dependency；
+2. 存在 `<issue>...</issue>` 标签，或以独立一行 `Issue:` 开头、到下一个裸标签行（如 `Instructions:`）为止的标签段时，只使用 issue 正文；两种形式都没有时整段视为 issue；
+3. 从 runner 外壳识别 repo，从 issue 标题（issue 正文首个非空行）识别 intent——不是任务外壳的第一行；
+4. 确定性提取 workspace path、代码 symbol、error code/exception、test name 和 import dependency。exception 名大小写不敏感（`ConnectionError`），代码型标识符大小写敏感（`HTTP_404`），连字符散文词（`pre-fix`、`read-only`）不算 error code；test name 需要 `test_xxx` / `TestXxx` 形状，裸词 test/tests/testing 不算；
 5. URL 本身不参与 path/symbol 提取，避免链接路径伪装成 workspace 证据；
 6. structured 模式只把 intent 和这些高信息字段投影给 BM25，正文叙述和固定 benchmark 外壳不参与检索；
 7. 没有结构化信号时保留原 P0 清洗结果，记录 `lexical_fallback/no_structured_signals`；清洗后为空仍 fail closed。
