@@ -17,6 +17,14 @@
   font-display: block;
 }
 
+@font-face {
+  font-family: "Playfair Display";
+  src: url("./assets/fonts/playfair-display-italic-500-latin.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 500;
+  font-display: block;
+}
+
 :root {
   color-scheme: dark;
 
@@ -3769,22 +3777,31 @@ a[href] {
   height: var(--welcome-brand-height);
   object-fit: contain;
 }
+.welcome__mark {
+  display: block;
+  width: calc(116px * var(--font-scale));
+  height: calc(116px * var(--font-scale));
+  object-fit: contain;
+}
 .welcome__byline {
-  margin-top: -8px;
-  font-size: var(--text-sm);
+  font-family: "Playfair Display", Georgia, "Palatino Linotype", "Times New Roman", serif;
+  font-style: italic;
   font-weight: 500;
-  letter-spacing: 0.4px;
-  color: var(--fg-faint);
+  font-size: calc(25px * var(--font-scale));
+  letter-spacing: 0.05em;
+  color: var(--fg-dim);
 }
 
 :root[data-theme="dark"] .sidebar__brand-logo,
-:root[data-theme="dark"] .welcome__brand-logo {
+:root[data-theme="dark"] .welcome__brand-logo,
+:root[data-theme="dark"] .welcome__mark {
   opacity: 0.94;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) .sidebar__brand-logo,
-  :root:not([data-theme]) .welcome__brand-logo {
+  :root:not([data-theme]) .welcome__brand-logo,
+  :root:not([data-theme]) .welcome__mark {
     opacity: 0.94;
   }
 }
