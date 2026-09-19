@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Brain, Check, ChevronsUpDown, Search } from "lucide-react";
+import { Brain, Check, ChevronDown, Search } from "lucide-react";
 import { asArray } from "../lib/array";
 import { app } from "../lib/bridge";
 import { useT } from "../lib/i18n";
@@ -171,9 +171,8 @@ export function ModelSwitcher({
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
         >
-          <Brain size={14} className="modelsw__kind" />
           <span className="modelsw__label">{label}</span>
-          <ChevronsUpDown size={11} />
+          <ChevronDown size={12} />
         </button>
       </Tooltip>
       <AnchoredPopover
