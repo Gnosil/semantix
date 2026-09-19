@@ -3769,6 +3769,13 @@ a[href] {
   height: var(--welcome-brand-height);
   object-fit: contain;
 }
+.welcome__byline {
+  margin-top: -8px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  letter-spacing: 0.4px;
+  color: var(--fg-faint);
+}
 
 :root[data-theme="dark"] .sidebar__brand-logo,
 :root[data-theme="dark"] .welcome__brand-logo {
