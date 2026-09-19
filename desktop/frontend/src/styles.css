@@ -6689,16 +6689,6 @@ body > .mermaid-diagram--fullscreen {
   border-bottom-color: var(--shell-accent);
   box-shadow: 0 1px 0 0 var(--shell-accent);
 }
-.composer--shell .composer__caret {
-  color: var(--shell-accent);
-}
-.composer__caret {
-  color: var(--accent);
-  font-family: var(--mono);
-  font-weight: 600;
-  line-height: 1.55;
-  flex-shrink: 0;
-}
 .composer__input {
   flex: 1;
   width: 100%;
@@ -6955,14 +6945,6 @@ body > .mermaid-diagram--fullscreen {
   display: none;
 }
 
-.composer-meta__divider {
-  flex: 0 0 1px;
-  width: 1px;
-  height: 18px;
-  margin-inline: -3px;
-  background: color-mix(in srgb, var(--fg-faint) 22%, transparent);
-}
-
 .composer-meta__control--model {
   flex: 0 1 auto;
   width: fit-content;
@@ -7010,264 +6992,81 @@ body > .mermaid-diagram--fullscreen {
   gap: 6px;
 }
 
-.composer-meta__control--approval .composer-modebar--approval {
-  flex: 0 0 232px;
-  min-width: 200px;
-  max-width: 232px;
-}
-
-.composer-modebar {
-  --wails-draggable: no-drag;
-  --composer-modebar-index: 0;
-  --composer-modebar-active-bg: var(--bg-elev);
-  --composer-modebar-active-border: var(--border);
-  --composer-modebar-active-fg: var(--fg);
-  position: relative;
-  isolation: isolate;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: center;
-  width: 100%;
-  height: var(--composer-control-height);
-  padding: 2px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface-2);
-  box-shadow: var(--app-graphite-shadow);
-  overflow: hidden;
-}
-
-.composer-modebar[data-mode="auto"],
-.composer-modebar[data-mode="plan"] {
-  --composer-modebar-index: 1;
-}
-
-.composer-modebar[data-mode="yolo"],
-.composer-modebar[data-mode="goal"] {
-  --composer-modebar-index: 2;
-}
-
-.composer-modebar--approval {
-  --composer-modebar-active-bg: var(--mode-auto-bg);
-  --composer-modebar-active-border: var(--mode-auto-border);
-  --composer-modebar-active-fg: var(--mode-auto-fg);
-}
-
-.composer-modebar--approval[data-mode="auto"] {
-  --composer-modebar-active-bg: color-mix(in srgb, var(--ok) 58%, #0b3d24);
-  --composer-modebar-active-border: color-mix(in srgb, var(--ok) 76%, #0b3d24);
-  --composer-modebar-active-fg: #fff;
-}
-
-.composer-modebar--approval[data-mode="yolo"] {
-  --composer-modebar-active-bg: var(--mode-yolo-bg);
-  --composer-modebar-active-border: var(--mode-yolo-border);
-  --composer-modebar-active-fg: var(--mode-yolo-fg);
-}
-
-.composer-modebar__thumb {
-  position: absolute;
-  top: 2px;
-  bottom: 2px;
-  left: 2px;
-  width: calc((100% - 4px) / 3);
-  border: 1px solid var(--composer-modebar-active-border);
-  border-radius: 999px;
-  background: var(--composer-modebar-active-bg);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent),
-    0 1px 3px color-mix(in srgb, #000 28%, transparent);
-  transform: translateX(calc(var(--composer-modebar-index) * 100%));
-  transition: transform 0.16s var(--ease-out), border-color 0.16s, background 0.16s, box-shadow 0.16s;
-  pointer-events: none;
-}
-
-.composer-modebar__item {
-  position: relative;
-  z-index: var(--z-local-raised);
+/* ZCode-style composer bar: text trigger for the approval mode, a context
+   usage dot, and a compact send button on the right end of the single row. */
+.composer-approval-trigger {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
-  min-width: 0;
-  height: 26px;
-  padding: 0 6px;
-  border: 1px solid transparent;
-  border-radius: 999px;
+  gap: 5px;
+  height: var(--composer-control-height);
+  padding: 0 8px 0 9px;
+  border: 0;
+  border-radius: var(--composer-control-radius);
   background: transparent;
   color: var(--fg-dim);
   font: inherit;
   font-size: var(--composer-control-font-size);
   font-weight: var(--composer-control-font-weight);
-  line-height: 14px;
-  transition: color 0.12s, transform 0.12s;
+  cursor: pointer;
 }
-
-.composer-modebar__item span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: center;
-  line-height: 14px;
-}
-
-.composer-modebar__item svg {
-  flex: 0 0 auto;
-}
-
-.composer-modebar__item:hover:not(:disabled) {
+.composer-approval-trigger:hover:not(:disabled),
+.composer-approval-trigger:focus-visible {
+  background: var(--sidebar-hover);
   color: var(--fg);
-  transform: none;
-}
-
-.composer-modebar__item:focus-visible {
   outline: none;
-  box-shadow: var(--focus-ring);
 }
-
-.composer-modebar__item--active {
-  color: var(--composer-modebar-active-fg);
-}
-
-.composer-modebar__item:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-  transform: none;
-}
-
-.composer-task-mode-trigger {
-  --wails-draggable: no-drag;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  min-width: 0;
-  height: var(--composer-control-height);
-  padding: 0 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--composer-control-radius);
-  background: var(--surface-2);
-  color: var(--fg-dim);
-  box-shadow: var(--app-graphite-shadow);
-  font: inherit;
-  font-size: var(--composer-control-font-size);
-  font-weight: var(--composer-control-font-weight);
-  transition: border-color 0.14s, background 0.14s, color 0.14s, transform 0.14s var(--ease-out);
-}
-
-.composer-task-mode-trigger > svg {
-  flex: 0 0 auto;
-}
-
-.composer-task-mode-trigger__value {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.composer-task-mode-trigger__value {
+.composer-approval-trigger--open,
+.composer-approval-trigger--open:hover:not(:disabled) {
+  background: var(--sidebar-hover);
   color: var(--fg);
-  font-weight: var(--composer-control-font-weight);
 }
-
-.composer-task-mode-trigger:hover:not(:disabled),
-.composer-task-mode-trigger:focus-visible,
-.composer-task-mode-trigger--open {
-  outline: none;
-  color: var(--fg);
-  border-color: var(--border-soft);
-  background: var(--bg-soft);
-  transform: none;
-}
-
-.composer-task-mode-trigger:disabled {
-  cursor: not-allowed;
+.composer-approval-trigger:disabled {
   opacity: 0.55;
-  transform: none;
+  cursor: default;
+}
+.composer-approval-trigger[data-mode="yolo"] {
+  color: var(--warn);
+}
+.composer-approval-trigger[data-mode="yolo"]:hover:not(:disabled),
+.composer-approval-trigger[data-mode="yolo"]:focus-visible,
+.composer-approval-trigger[data-mode="yolo"].composer-approval-trigger--open {
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+}
+.composer-approval-trigger svg:first-child {
+  stroke-width: 1.9;
 }
 
-.composer-task-mode-trigger:focus-visible {
-  box-shadow: var(--focus-ring);
-  transform: none;
-}
-
-.composer-profile-trigger {
-  --wails-draggable: no-drag;
-  --composer-profile-accent: var(--fg-dim);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  min-width: 0;
-  height: var(--composer-control-height);
-  padding: 0 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--composer-control-radius);
-  background: var(--surface-2);
-  color: var(--fg-dim);
-  box-shadow: var(--app-graphite-shadow);
-  font: inherit;
-  font-size: var(--composer-control-font-size);
-  font-weight: var(--composer-control-font-weight);
-  transition: border-color 0.14s, background 0.14s, color 0.14s, transform 0.14s var(--ease-out);
-}
-
-.composer-profile-trigger[data-profile="economy"] {
-  --composer-profile-accent: #3b82f6;
-}
-
-.composer-profile-trigger[data-profile="delivery"] {
-  --composer-profile-accent: #f97316;
-}
-
-.composer-profile-trigger > svg:first-child {
+.composer-context-dot {
   flex: 0 0 auto;
-  color: var(--composer-profile-accent);
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-full);
+  background: var(--ok);
+}
+.composer-context-dot--warn {
+  background: var(--warn);
+}
+.composer-context-dot--err {
+  background: var(--err);
 }
 
-.composer-profile-trigger > svg:last-child {
-  flex: 0 0 auto;
-  color: var(--fg-faint);
+.composer-meta .composer-meta__control--model {
+  margin-left: auto;
 }
 
-.composer-profile-trigger__label {
+.composer-meta__control--submit {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.composer-profile-trigger__value {
-  color: var(--fg);
-  font-weight: var(--composer-control-font-weight);
-}
-
-.composer-profile-trigger:hover:not(:disabled),
-.composer-profile-trigger:focus-visible,
-.composer-profile-trigger--open {
-  outline: none;
-  color: var(--fg);
-  border-color: var(--border-soft);
-  background: var(--bg-soft);
-  transform: none;
-}
-
-.composer-profile-trigger:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-  transform: none;
-}
-
-.composer-profile-trigger:focus-visible {
-  box-shadow: var(--focus-ring);
-  transform: none;
+.composer-meta .composer__btn--send,
+.composer-meta .composer__btn--stop {
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  border-radius: var(--r-sm);
 }
 
 .composer-more-trigger {
@@ -7398,13 +7197,7 @@ body > .mermaid-diagram--fullscreen {
     max-width: 178px;
   }
 
-  .composer-meta__control--approval .composer-modebar--approval {
-    flex: 1 1 auto;
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-  }
-
+  
   .composer-meta__control--profile {
     max-width: 126px;
   }
@@ -7413,11 +7206,7 @@ body > .mermaid-diagram--fullscreen {
     max-width: 128px;
   }
 
-  .composer-modebar__item {
-    gap: 3px;
-    padding-inline: 3px;
-  }
-
+  
   .composer-meta__control--effort {
     display: none;
   }
@@ -7468,34 +7257,17 @@ body > .mermaid-diagram--fullscreen {
     max-width: 68px;
   }
 
-  .composer-meta__divider {
-    display: none;
-  }
-
+  
   .composer-meta__control--intent {
     flex-basis: 72px;
     width: 72px;
     max-width: 72px;
   }
 
-  .composer-task-mode-trigger {
-    gap: 4px;
-    padding-inline: 6px;
-  }
-
-  .composer-task-mode-trigger > svg:last-child {
-    display: none;
-  }
-
-  .composer-profile-trigger {
-    gap: 4px;
-    padding-inline: 6px;
-  }
-
-  .composer-profile-trigger > svg:last-child {
-    display: none;
-  }
-
+  
+  
+  
+  
   .composer-meta__control--effort {
     display: none;
   }
@@ -7518,16 +7290,8 @@ body > .mermaid-diagram--fullscreen {
     display: none;
   }
 
-  .composer-modebar__item {
-    gap: 3px;
-    padding-inline: 3px;
-    font-size: var(--text-xs);
-  }
-
-  .composer-modebar__item span {
-    display: none;
-  }
-
+  
+  
   .composer-meta .modelsw__trigger {
     gap: 6px;
     padding-inline: 6px;
@@ -25439,19 +25203,6 @@ body > .mermaid-diagram--fullscreen {
   padding: 5px 10px 10px 30px;
 }
 
-.composer-modebar {
-  border-radius: var(--r-md);
-  background: color-mix(in srgb, var(--bg-elev-2) 72%, transparent);
-}
-
-.composer-modebar__thumb {
-  border-radius: var(--r-sm);
-}
-
-.composer-modebar__item {
-  border-radius: var(--r-sm);
-}
-
 .composer-context__item,
 .meta-chip,
 .composer-meta .modelsw__trigger {
@@ -26852,10 +26603,6 @@ body > .mermaid-diagram--fullscreen {
   border-bottom-color: var(--border-soft);
 }
 
-:root[data-theme-style] .composer__caret {
-  color: var(--accent);
-}
-
 :root[data-theme-style] .composer__input {
   font-size: var(--font-content);
   line-height: 1.6;
@@ -26896,10 +26643,7 @@ body > .mermaid-diagram--fullscreen {
   color: var(--fg-dim);
 }
 
-:root[data-theme-style] .composer-modebar,
 :root[data-theme-style] .meta-chip,
-:root[data-theme-style] .composer-task-mode-trigger,
-:root[data-theme-style] .composer-profile-trigger,
 :root[data-theme-style] .composer-more-trigger,
 :root[data-theme-style] .composer-meta .modelsw__trigger,
 :root[data-theme-style] .composer-context__item {
@@ -26910,12 +26654,6 @@ body > .mermaid-diagram--fullscreen {
 }
 
 :root[data-theme-style] .meta-chip:hover,
-:root[data-theme-style] .composer-task-mode-trigger:hover:not(:disabled),
-:root[data-theme-style] .composer-task-mode-trigger:focus-visible,
-:root[data-theme-style] .composer-task-mode-trigger--open,
-:root[data-theme-style] .composer-profile-trigger:hover:not(:disabled),
-:root[data-theme-style] .composer-profile-trigger:focus-visible,
-:root[data-theme-style] .composer-profile-trigger--open,
 :root[data-theme-style] .composer-more-trigger:hover:not(:disabled),
 :root[data-theme-style] .composer-more-trigger:focus-visible,
 :root[data-theme-style] .composer-more-trigger--open,
@@ -26926,61 +26664,10 @@ body > .mermaid-diagram--fullscreen {
   transform: none;
 }
 
-:root[data-theme-style] .composer-task-mode-trigger:focus-visible,
-:root[data-theme-style] .composer-profile-trigger:focus-visible,
 :root[data-theme-style] .composer-more-trigger:focus-visible,
 :root[data-theme-style] .composer-meta .modelsw__trigger:focus-visible {
   box-shadow: var(--focus-ring);
   transform: none;
-}
-
-:root[data-theme-style] .composer-modebar__thumb,
-:root[data-theme-style] .composer-modebar__item {
-  border-radius: var(--r-sm);
-}
-
-:root[data-theme-style] .composer-modebar {
-  padding: 2px;
-  border-radius: 999px;
-  background: var(--surface-3);
-  box-shadow: none;
-}
-
-:root[data-theme-style] .composer-modebar__thumb {
-  border: 1px solid var(--composer-modebar-active-border);
-  border-radius: 999px;
-  background: var(--composer-modebar-active-bg);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent),
-    0 1px 3px color-mix(in srgb, #000 28%, transparent);
-}
-
-:root[data-theme-style] .composer-modebar__item {
-  height: 26px;
-  border-radius: 999px;
-  color: var(--text-3);
-  transition: color var(--dur-fast), background var(--dur-fast), transform var(--dur-fast) var(--ease-out);
-}
-
-:root[data-theme-style] .composer-modebar__item:hover:not(:disabled) {
-  color: var(--text-2);
-  background: transparent;
-  transform: none;
-}
-
-:root[data-theme-style] .composer-modebar__item--active,
-:root[data-theme-style] .composer-modebar__item--active:hover:not(:disabled) {
-  color: var(--composer-modebar-active-fg);
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
-}
-
-:root[data-theme-style] .composer-modebar__item--active:focus-visible {
-  color: var(--composer-modebar-active-fg);
-  background: transparent;
-  border-color: transparent;
-  box-shadow: var(--focus-ring);
 }
 
 :root[data-theme-style] .statusbar {
@@ -29816,11 +29503,6 @@ body > .mermaid-diagram--fullscreen {
   border-bottom-color: transparent;
 }
 
-.app--creation .composer__caret,
-:root[data-theme-style] .app--creation .composer__caret {
-  display: none;
-}
-
 .app--creation .composer__input,
 :root[data-theme-style] .app--creation .composer__input {
   color: var(--fg);
@@ -29975,11 +29657,6 @@ body > .mermaid-diagram--fullscreen {
   max-width: min(280px, 34vw);
 }
 
-.app--creation .composer-meta__divider,
-:root[data-theme-style] .app--creation .composer-meta__divider {
-  display: none;
-}
-
 .app--creation .composer-meta__control--effort,
 :root[data-theme-style] .app--creation .composer-meta__control--effort {
   flex: 0 0 auto;
@@ -29987,17 +29664,11 @@ body > .mermaid-diagram--fullscreen {
   max-width: none;
 }
 
-.app--creation .composer-modebar,
 .app--creation .composer-content-trigger,
-.app--creation .composer-task-mode-trigger,
-.app--creation .composer-profile-trigger,
 .app--creation .composer-more-trigger,
 .app--creation .composer-meta .modelsw__trigger,
 .app--creation .composer-context__item,
-:root[data-theme-style] .app--creation .composer-modebar,
 :root[data-theme-style] .app--creation .composer-content-trigger,
-:root[data-theme-style] .app--creation .composer-task-mode-trigger,
-:root[data-theme-style] .app--creation .composer-profile-trigger,
 :root[data-theme-style] .app--creation .composer-more-trigger,
 :root[data-theme-style] .app--creation .composer-meta .modelsw__trigger,
 :root[data-theme-style] .app--creation .composer-context__item {
@@ -30008,57 +29679,7 @@ body > .mermaid-diagram--fullscreen {
   -webkit-backdrop-filter: none;
 }
 
-.app--creation .composer-profile-trigger,
-:root[data-theme-style] .app--creation .composer-profile-trigger {
-  height: 28px;
-  gap: 0;
-  padding-inline: 9px;
-  box-shadow: none;
-  font-size: calc(11.5px * var(--font-scale));
-  font-weight: 400;
-}
-
-.app--creation .composer-task-mode-trigger,
-:root[data-theme-style] .app--creation .composer-task-mode-trigger {
-  height: 28px;
-  gap: 0;
-  padding-inline: 9px;
-  font-size: calc(11.5px * var(--font-scale));
-  font-weight: 400;
-}
-
 /* Creation: text-only pills — drop leading icons + chevrons (match modelsw) */
-.app--creation .composer-task-mode-trigger > svg,
-.app--creation .composer-profile-trigger > svg,
-:root[data-theme-style] .app--creation .composer-task-mode-trigger > svg,
-:root[data-theme-style] .app--creation .composer-profile-trigger > svg {
-  display: none;
-}
-
-.app--creation .composer-task-mode-trigger__value,
-.app--creation .composer-profile-trigger__value,
-:root[data-theme-style] .app--creation .composer-task-mode-trigger__value,
-:root[data-theme-style] .app--creation .composer-profile-trigger__value {
-  color: color-mix(in srgb, var(--fg) 88%, transparent);
-  font-weight: 400;
-}
-
-.app--creation .composer-task-mode-trigger:hover:not(:disabled),
-.app--creation .composer-task-mode-trigger:focus-visible,
-.app--creation .composer-task-mode-trigger--open,
-.app--creation .composer-profile-trigger:hover:not(:disabled),
-.app--creation .composer-profile-trigger:focus-visible,
-.app--creation .composer-profile-trigger--open,
-:root[data-theme-style] .app--creation .composer-task-mode-trigger:hover:not(:disabled),
-:root[data-theme-style] .app--creation .composer-task-mode-trigger:focus-visible,
-:root[data-theme-style] .app--creation .composer-task-mode-trigger--open,
-:root[data-theme-style] .app--creation .composer-profile-trigger:hover:not(:disabled),
-:root[data-theme-style] .app--creation .composer-profile-trigger:focus-visible,
-:root[data-theme-style] .app--creation .composer-profile-trigger--open {
-  border-color: color-mix(in srgb, var(--fg-faint) 18%, transparent);
-  background: color-mix(in srgb, var(--bg-elev) 14%, transparent);
-  color: var(--fg);
-}
 
 .app--creation .composer-meta__control--profile,
 :root[data-theme-style] .app--creation .composer-meta__control--profile {
@@ -30068,77 +29689,6 @@ body > .mermaid-diagram--fullscreen {
 .app--creation .composer-meta__control--intent,
 :root[data-theme-style] .app--creation .composer-meta__control--intent {
   max-width: 64px;
-}
-
-.app--creation .composer-modebar,
-:root[data-theme-style] .app--creation .composer-modebar {
-  --creation-mode-cell: 28px;
-  flex: 0 0 auto;
-  width: auto;
-  height: 28px;
-  grid-template-columns: repeat(3, var(--creation-mode-cell));
-  padding: 2px;
-  border-color: transparent;
-  background: transparent;
-  box-shadow: none;
-  overflow: visible;
-}
-
-.app--creation .composer-modebar__thumb,
-:root[data-theme-style] .app--creation .composer-modebar__thumb {
-  display: none;
-}
-
-.app--creation .composer-modebar__item,
-:root[data-theme-style] .app--creation .composer-modebar__item {
-  justify-self: center;
-  align-self: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  color: color-mix(in srgb, var(--fg-faint) 82%, transparent);
-}
-
-.app--creation .composer-modebar__item:hover:not(:disabled),
-.app--creation .composer-modebar__item:focus-visible,
-:root[data-theme-style] .app--creation .composer-modebar__item:hover:not(:disabled),
-:root[data-theme-style] .app--creation .composer-modebar__item:focus-visible {
-  color: color-mix(in srgb, var(--fg-muted) 86%, var(--accent));
-  transform: none;
-}
-
-.app--creation .composer-modebar__item--active,
-:root[data-theme-style] .app--creation .composer-modebar__item--active {
-  color: #3b82f6;
-  transform: scale(1.16);
-}
-
-.app--creation .composer-modebar__item--auto.composer-modebar__item--active,
-:root[data-theme-style] .app--creation .composer-modebar__item--auto.composer-modebar__item--active {
-  color: #22c55e;
-}
-
-.app--creation .composer-modebar__item--yolo.composer-modebar__item--active,
-:root[data-theme-style] .app--creation .composer-modebar__item--yolo.composer-modebar__item--active {
-  color: #f97316;
-}
-
-.app--creation .composer-modebar__item span,
-:root[data-theme-style] .app--creation .composer-modebar__item span {
-  display: none;
-}
-
-.app--creation .composer-modebar__item svg,
-:root[data-theme-style] .app--creation .composer-modebar__item svg {
-  width: 13px;
-  height: 13px;
-  transition: transform 0.16s var(--ease-out), color 0.16s var(--ease-out);
-}
-
-.app--creation .composer-modebar__item--active svg,
-:root[data-theme-style] .app--creation .composer-modebar__item--active svg {
-  transform: scale(1.08);
-  stroke-width: 2.15;
 }
 
 .app--creation .composer-meta .modelsw__trigger,
@@ -32748,8 +32298,6 @@ body > .mermaid-diagram--fullscreen {
 }
 
 /* Home: child elements — surface-2 base (composer chrome) */
-:root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="home"] .app:not(.app--creation) .composer-modebar,
-:root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="home"] .app:not(.app--creation) .composer-task-mode-trigger,
 :root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="home"] .app:not(.app--creation) .modelsw__trigger {
   background: color-mix(in srgb, var(--surface-2) var(--theme-pane-child-pct, 80%), transparent) !important;
 }
@@ -32782,7 +32330,6 @@ body > .mermaid-diagram--fullscreen {
 :root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="home"] .app:not(.app--creation) .rewind__btn:hover,
 :root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="home"] .app:not(.app--creation) .msg-meta__btn:hover:not(:disabled),
 :root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="home"] .app:not(.app--creation) .msg-meta .copybtn:hover,
-:root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="home"] .app:not(.app--creation) .composer-task-mode-trigger:hover:not(:disabled),
 :root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="home"] .app:not(.app--creation) .modelsw__trigger:hover:not(:disabled),
 :root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="home"] .app:not(.app--creation) .prompt-action:hover,
 :root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="home"] .app:not(.app--creation) .prompt-shelf__header-button:hover,
@@ -32800,9 +32347,6 @@ body > .mermaid-diagram--fullscreen {
   background: color-mix(in srgb, var(--control-primary-bg) 24%, var(--bg-elev-2)) !important;
 }
 /* Home: active modebar item hover — mirror send-btn darken pattern */
-:root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="home"] .app:not(.app--creation) .composer-modebar__item--active:hover {
-  background: color-mix(in srgb, var(--composer-modebar-active-bg) 88%, #000) !important;
-}
 
 :root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="home"] .app:not(.app--creation) .workspace-change-scope__head {
   background: color-mix(in srgb, var(--bg-soft) var(--theme-pane-shell-pct, 60%), transparent) !important;
@@ -32862,8 +32406,6 @@ body > .mermaid-diagram--fullscreen {
 }
 
 /* Task: child elements — surface-2 base (composer chrome) */
-:root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="task"] .app:not(.app--creation) .composer-modebar,
-:root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="task"] .app:not(.app--creation) .composer-task-mode-trigger,
 :root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="task"] .app:not(.app--creation) .modelsw__trigger {
   background: color-mix(in srgb, var(--surface-2) var(--theme-pane-task-child-pct, 98%), transparent) !important;
 }
@@ -32896,7 +32438,6 @@ body > .mermaid-diagram--fullscreen {
 :root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="task"] .app:not(.app--creation) .rewind__btn:hover,
 :root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="task"] .app:not(.app--creation) .msg-meta__btn:hover:not(:disabled),
 :root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="task"] .app:not(.app--creation) .msg-meta .copybtn:hover,
-:root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="task"] .app:not(.app--creation) .composer-task-mode-trigger:hover:not(:disabled),
 :root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="task"] .app:not(.app--creation) .modelsw__trigger:hover:not(:disabled),
 :root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="task"] .app:not(.app--creation) .prompt-action:hover,
 :root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="task"] .app:not(.app--creation) .prompt-shelf__header-button:hover {
@@ -32913,9 +32454,6 @@ body > .mermaid-diagram--fullscreen {
   background: color-mix(in srgb, var(--control-primary-bg) 24%, var(--bg-elev-2)) !important;
 }
 /* Task: active modebar item hover — mirror send-btn darken pattern */
-:root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="task"] .app:not(.app--creation) .composer-modebar__item--active:hover {
-  background: color-mix(in srgb, var(--composer-modebar-active-bg) 88%, #000) !important;
-}
 
 :root[data-theme-pack][data-theme-has-bg="true"][data-theme-scene="task"] .app:not(.app--creation) .workspace-change-scope__head {
   background: color-mix(in srgb, var(--bg-soft) var(--theme-pane-task-shell-pct, 78%), transparent) !important;
@@ -32975,8 +32513,6 @@ body > .mermaid-diagram--fullscreen {
 }
 
 /* Fallback: child elements — surface-2 base (composer chrome) */
-:root[data-theme-pack][data-theme-has-bg="true"] .app:not(.app--creation) .composer-modebar,
-:root[data-theme-pack][data-theme-has-bg="true"] .app:not(.app--creation) .composer-task-mode-trigger,
 :root[data-theme-pack][data-theme-has-bg="true"] .app:not(.app--creation) .modelsw__trigger {
   background: color-mix(in srgb, var(--surface-2) 80%, transparent) !important;
 }
@@ -33009,7 +32545,6 @@ body > .mermaid-diagram--fullscreen {
 :root[data-theme-pack][data-theme-has-bg="true"] .app:not(.app--creation) .rewind__btn:hover,
 :root[data-theme-pack][data-theme-has-bg="true"] .app:not(.app--creation) .msg-meta__btn:hover:not(:disabled),
 :root[data-theme-pack][data-theme-has-bg="true"] .app:not(.app--creation) .msg-meta .copybtn:hover,
-:root[data-theme-pack][data-theme-has-bg="true"] .app:not(.app--creation) .composer-task-mode-trigger:hover:not(:disabled),
 :root[data-theme-pack][data-theme-has-bg="true"] .app:not(.app--creation) .modelsw__trigger:hover:not(:disabled),
 :root[data-theme-pack][data-theme-has-bg="true"] .app:not(.app--creation) .prompt-action:hover,
 :root[data-theme-pack][data-theme-has-bg="true"] .app:not(.app--creation) .prompt-shelf__header-button:hover,
@@ -33027,9 +32562,6 @@ body > .mermaid-diagram--fullscreen {
   background: color-mix(in srgb, var(--control-primary-bg) 24%, var(--bg-elev-2)) !important;
 }
 /* Fallback: active modebar item hover — mirror send-btn darken pattern */
-:root[data-theme-pack][data-theme-has-bg="true"] .app:not(.app--creation) .composer-modebar__item--active:hover {
-  background: color-mix(in srgb, var(--composer-modebar-active-bg) 88%, #000) !important;
-}
 :root[data-theme-pack][data-theme-has-bg="true"] .app:not(.app--creation) .workspace-change-scope__head {
   background: color-mix(in srgb, var(--bg-soft) 80%, transparent) !important;
 }

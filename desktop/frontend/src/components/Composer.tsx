@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { CSSProperties, ClipboardEvent, DragEvent, KeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
-import { ArrowRight, ArrowUp, AtSign, Check, ChevronsUpDown, CornerDownRight, Equal, Eye, FilePlus2, FileText, Flag, Folder, Gauge, Hash, List, MessageSquare, Plus, Search, Shield, ShieldAlert, ShieldCheck, Square, Target, Trash2, X } from "lucide-react";
+import { ArrowRight, ArrowUp, AtSign, Brain, Check, ChevronsUpDown, CornerDownRight, Equal, Eye, FilePlus2, FileText, Flag, Folder, Gauge, Hash, List, MessageSquare, Plus, Search, Shield, ShieldAlert, ShieldCheck, Square, Target, Trash2, X } from "lucide-react";
 import { asArray } from "../lib/array";
 import { filterAtMatches } from "../lib/atMatches";
 import { DedupIndex, sha256 } from "../lib/attachDedup";
@@ -41,7 +41,6 @@ import {
 import { SlashMenu, sortSlashCommandsForMenu } from "./SlashMenu";
 import { ArgMenu } from "./ArgMenu";
 import { ANCHORED_POPOVER_CLOSE_MS, AnchoredPopover } from "./AnchoredPopover";
-import { EffortSwitcher } from "./EffortSwitcher";
 import { ModelSwitcher } from "./ModelSwitcher";
 import { Tooltip } from "./Tooltip";
 import { ComposerContextCard } from "./ComposerContextCard";
@@ -734,8 +733,6 @@ export function Composer({
   const composerCardRef = useRef<HTMLDivElement>(null);
   const composerWrapRef = useRef<HTMLDivElement>(null);
   const contentMenuAnchorRef = useRef<HTMLButtonElement>(null);
-  const intentMenuAnchorRef = useRef<HTMLButtonElement>(null);
-  const profileMenuAnchorRef = useRef<HTMLButtonElement>(null);
   const moreMenuAnchorRef = useRef<HTMLButtonElement>(null);
   const intentCloseTimerRef = useRef<number | null>(null);
   const profileCloseTimerRef = useRef<number | null>(null);
@@ -743,7 +740,6 @@ export function Composer({
   // Creation chrome: hover-open task/profile menus (same pattern as ContextWindowRing).
   const intentHoverTimerRef = useRef<number | null>(null);
   const profileHoverTimerRef = useRef<number | null>(null);
-  const creationChrome = showContextWindowRing;
   const wasRunningByDraftRef = useRef<Record<string, boolean>>({ [draftKey]: running });
   const composingRef = useRef(false);
   const lastCompositionEndAt = useRef(0);
@@ -1897,23 +1893,6 @@ export function Composer({
     timerRef.current = null;
   };
 
-  const openIntentMenu = useCallback(() => {
-    clearIntentCloseTimer();
-    clearHoverTimer(intentHoverTimerRef);
-    clearHoverTimer(profileHoverTimerRef);
-    if (profileCloseTimerRef.current != null) {
-      window.clearTimeout(profileCloseTimerRef.current);
-      profileCloseTimerRef.current = null;
-    }
-    setProfileMenuOpen(false);
-    setProfileMenuClosing(false);
-    setContentMenuOpen(false);
-    setDirectPastChats(false);
-    setDismissed(true);
-    setIntentMenuClosing(false);
-    setIntentMenuOpen(true);
-  }, [clearIntentCloseTimer]);
-
   const closeIntentMenu = useCallback((afterClose?: () => void) => {
     clearIntentCloseTimer();
     clearHoverTimer(intentHoverTimerRef);
@@ -1926,23 +1905,6 @@ export function Composer({
       afterClose?.();
     }, reduceMotion ? 0 : ANCHORED_POPOVER_CLOSE_MS);
   }, [clearIntentCloseTimer]);
-
-  const openProfileMenu = useCallback(() => {
-    clearProfileCloseTimer();
-    clearHoverTimer(profileHoverTimerRef);
-    clearHoverTimer(intentHoverTimerRef);
-    if (intentCloseTimerRef.current != null) {
-      window.clearTimeout(intentCloseTimerRef.current);
-      intentCloseTimerRef.current = null;
-    }
-    setIntentMenuOpen(false);
-    setIntentMenuClosing(false);
-    setContentMenuOpen(false);
-    setDirectPastChats(false);
-    setDismissed(true);
-    setProfileMenuClosing(false);
-    setProfileMenuOpen(true);
-  }, [clearProfileCloseTimer]);
 
   const closeProfileMenu = useCallback((afterClose?: () => void) => {
     clearProfileCloseTimer();
@@ -1963,54 +1925,6 @@ export function Composer({
     clearProfileCloseTimer();
     clearHoverTimer(profileHoverTimerRef);
   }, [clearIntentCloseTimer, clearProfileCloseTimer]);
-
-  const onIntentHoverEnter = useCallback(() => {
-    if (!creationChrome || disabled || running) return;
-    clearHoverTimer(intentHoverTimerRef);
-    intentHoverTimerRef.current = window.setTimeout(() => {
-      intentHoverTimerRef.current = null;
-      openIntentMenu();
-    }, 120);
-  }, [creationChrome, disabled, openIntentMenu, running]);
-
-  const onIntentHoverLeave = useCallback(() => {
-    if (!creationChrome) return;
-    clearHoverTimer(intentHoverTimerRef);
-    if (!intentMenuOpen && !intentMenuClosing) return;
-    intentHoverTimerRef.current = window.setTimeout(() => {
-      intentHoverTimerRef.current = null;
-      closeIntentMenu();
-    }, 140);
-  }, [closeIntentMenu, creationChrome, intentMenuClosing, intentMenuOpen]);
-
-  const onIntentPopoverEnter = useCallback(() => {
-    if (!creationChrome) return;
-    clearHoverTimer(intentHoverTimerRef);
-  }, [creationChrome]);
-
-  const onProfileHoverEnter = useCallback(() => {
-    if (!creationChrome || disabled || running) return;
-    clearHoverTimer(profileHoverTimerRef);
-    profileHoverTimerRef.current = window.setTimeout(() => {
-      profileHoverTimerRef.current = null;
-      openProfileMenu();
-    }, 120);
-  }, [creationChrome, disabled, openProfileMenu, running]);
-
-  const onProfileHoverLeave = useCallback(() => {
-    if (!creationChrome) return;
-    clearHoverTimer(profileHoverTimerRef);
-    if (!profileMenuOpen && !profileMenuClosing) return;
-    profileHoverTimerRef.current = window.setTimeout(() => {
-      profileHoverTimerRef.current = null;
-      closeProfileMenu();
-    }, 140);
-  }, [closeProfileMenu, creationChrome, profileMenuClosing, profileMenuOpen]);
-
-  const onProfilePopoverEnter = useCallback(() => {
-    if (!creationChrome) return;
-    clearHoverTimer(profileHoverTimerRef);
-  }, [creationChrome]);
 
   const clearMoreCloseTimer = useCallback(() => {
     if (moreCloseTimerRef.current === null) return;
@@ -2040,6 +1954,35 @@ export function Composer({
   }, [clearMoreCloseTimer]);
 
   useEffect(() => () => clearMoreCloseTimer(), [clearMoreCloseTimer]);
+
+  const [approvalMenuOpen, setApprovalMenuOpen] = useState(false);
+  const [approvalMenuClosing, setApprovalMenuClosing] = useState(false);
+  const approvalMenuAnchorRef = useRef<HTMLButtonElement>(null);
+  const approvalCloseTimerRef = useRef<number | null>(null);
+  const clearApprovalCloseTimer = useCallback(() => {
+    if (approvalCloseTimerRef.current !== null) {
+      window.clearTimeout(approvalCloseTimerRef.current);
+      approvalCloseTimerRef.current = null;
+    }
+  }, []);
+  const openApprovalMenu = useCallback(() => {
+    clearApprovalCloseTimer();
+    setContentMenuOpen(false);
+    setApprovalMenuClosing(false);
+    setApprovalMenuOpen(true);
+  }, [clearApprovalCloseTimer]);
+  const closeApprovalMenu = useCallback((afterClose?: () => void) => {
+    clearApprovalCloseTimer();
+    setApprovalMenuClosing(true);
+    window.requestAnimationFrame(() => setApprovalMenuOpen(false));
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    approvalCloseTimerRef.current = window.setTimeout(() => {
+      approvalCloseTimerRef.current = null;
+      setApprovalMenuClosing(false);
+      afterClose?.();
+    }, reduceMotion ? 0 : ANCHORED_POPOVER_CLOSE_MS);
+  }, [clearApprovalCloseTimer]);
+  useEffect(() => () => clearApprovalCloseTimer(), [clearApprovalCloseTimer]);
 
   const fileDedupKey = async (file: File): Promise<AttachmentDedupKey> => ({
     hash: await sha256(file),
@@ -3638,40 +3581,6 @@ export function Composer({
       requestActiveDraftFrame(focusComposerInput);
     });
   };
-  const runtimeProfileShortKey = tokenMode === "economy"
-    ? "composer.runtimeProfileEconomyShort"
-    : tokenMode === "delivery"
-      ? "composer.runtimeProfileDeliveryShort"
-      : "composer.runtimeProfileBalancedShort";
-  const runtimeProfileTooltipSummaryKey = tokenMode === "economy"
-    ? "composer.runtimeProfileEconomyTooltipSummary"
-    : tokenMode === "delivery"
-      ? "composer.runtimeProfileDeliveryTooltipSummary"
-      : "composer.runtimeProfileBalancedTooltipSummary";
-  const RuntimeProfileIcon = tokenMode === "economy" ? Gauge : tokenMode === "delivery" ? Flag : Equal;
-  const runtimeProfileTriggerLabel = t("composer.runtimeProfileTrigger", { mode: t(runtimeProfileShortKey) });
-  const runtimeProfileTooltipLabel = t("composer.controlTooltip", {
-    category: t("composer.runtimeProfileTitle"),
-    mode: t(runtimeProfileShortKey),
-    summary: t(runtimeProfileTooltipSummaryKey),
-  });
-  const taskModeShortKey = collaborationMode === "plan"
-    ? "composer.taskModePlanShort"
-    : collaborationMode === "goal"
-      ? "composer.taskModeGoalShort"
-      : "composer.taskModeDirectShort";
-  const taskModeTooltipSummaryKey = collaborationMode === "plan"
-    ? "composer.taskModePlanTooltipSummary"
-    : collaborationMode === "goal"
-      ? "composer.taskModeGoalTooltipSummary"
-      : "composer.taskModeDirectTooltipSummary";
-  const TaskModeIcon = collaborationMode === "plan" ? List : collaborationMode === "goal" ? Target : ArrowRight;
-  const taskModeTriggerLabel = t("composer.taskModeTrigger", { mode: t(taskModeShortKey) });
-  const taskModeTooltipLabel = t("composer.controlTooltip", {
-    category: t("composer.intentMenuTitle"),
-    mode: t(taskModeShortKey),
-    summary: t(taskModeTooltipSummaryKey),
-  });
   const effortLevels = asArray(effort?.levels);
   const currentEffort = effort?.current || "auto";
   const compactEffortTitle = currentEffort === "auto"
@@ -3819,6 +3728,15 @@ export function Composer({
         : goalModeOn && !activeGoal
           ? t("composer.goalInputPlaceholder")
           : t("composer.placeholder");
+  const ApprovalModeIcon = toolApprovalMode === "yolo" ? ShieldAlert : toolApprovalMode === "auto" ? ShieldCheck : Shield;
+  const approvalModeLabelKey = toolApprovalMode === "yolo" ? "composer.modeYolo" : toolApprovalMode === "auto" ? "composer.modeNormal" : "composer.modeAsk";
+  const approvalTriggerTitle = t("composer.accessMenuTitle", { shortcut: yoloComboLabel });
+  const contextWindowTotal = context?.window || 0;
+  const contextUsedTokens = context?.used || 0;
+  const contextRatio = contextWindowTotal > 0 ? Math.min(1, contextUsedTokens / contextWindowTotal) : 0;
+  const contextDotTitle = contextWindowTotal > 0
+    ? t("composer.contextDotTitle", { used: formatTokens(contextUsedTokens), total: formatTokens(contextWindowTotal) })
+    : "";
   const composerMetaClass = [
     "composer-meta",
     hasEffort ? "composer-meta--has-effort" : "composer-meta--no-effort",
@@ -3957,29 +3875,15 @@ export function Composer({
             </span>
           </button>
         </div>
-      </AnchoredPopover>
-      {!heroMode && <AnchoredPopover
-        open={intentMenuOpen}
-        closing={intentMenuClosing}
-        anchorRef={intentMenuAnchorRef}
-        onClose={() => closeIntentMenu()}
-        className="composer-access-menu composer-intent-menu"
-        align="start"
-      >
-        <div
-          className="composer-access-menu__section"
-          role="menu"
-          aria-label={t("composer.intentMenuTitle")}
-          onMouseEnter={creationChrome ? onIntentPopoverEnter : undefined}
-          onMouseLeave={creationChrome ? onIntentHoverLeave : undefined}
-        >
+        {!heroMode && (
+        <div className="composer-access-menu__section" role="menu" aria-label={t("composer.intentMenuTitle")}>
           <div className="composer-access-menu__label">{t("composer.intentMenuTitle")}</div>
           <button
             type="button"
             role="menuitemradio"
             aria-checked={collaborationMode === "normal"}
             className={`composer-access-menu__item composer-intent-menu__item${collaborationMode === "normal" ? " composer-access-menu__item--active" : ""}`}
-            onClick={() => chooseTaskMode("normal")}
+            onClick={() => { chooseTaskMode("normal"); }}
             disabled={disabled || running}
           >
             <ArrowRight size={16} />
@@ -3994,7 +3898,7 @@ export function Composer({
             role="menuitemradio"
             aria-checked={planModeOn}
             className={`composer-access-menu__item composer-intent-menu__item${planModeOn ? " composer-access-menu__item--active" : ""}`}
-            onClick={() => chooseTaskMode("plan")}
+            onClick={() => { chooseTaskMode("plan"); }}
             disabled={disabled || running}
           >
             <List size={16} />
@@ -4009,7 +3913,7 @@ export function Composer({
             role="menuitemradio"
             aria-checked={goalModeOn}
             className={`composer-access-menu__item composer-intent-menu__item${goalModeOn ? " composer-access-menu__item--active" : ""}`}
-            onClick={() => chooseTaskMode("goal")}
+            onClick={() => { chooseTaskMode("goal"); }}
             disabled={disabled || running}
             title={activeGoal || undefined}
           >
@@ -4020,7 +3924,7 @@ export function Composer({
             </span>
             {goalModeOn && <Check className="composer-intent-menu__check" size={16} aria-hidden="true" />}
           </button>
-            {goalModeOn && activeGoal && (
+          {goalModeOn && activeGoal && (
             <div className="composer-intent-menu__goal-actions">
               <div className="composer-intent-menu__goal-runtime">
                 {goalRuntime && (
@@ -4075,22 +3979,9 @@ export function Composer({
             </div>
           )}
         </div>
-      </AnchoredPopover>}
-      {!heroMode && <AnchoredPopover
-        open={profileMenuOpen}
-        closing={profileMenuClosing}
-        anchorRef={profileMenuAnchorRef}
-        onClose={() => closeProfileMenu()}
-        className="composer-access-menu composer-profile-menu"
-        align="start"
-      >
-        <div
-          className="composer-access-menu__section"
-          role="menu"
-          aria-label={t("composer.runtimeProfileTitle")}
-          onMouseEnter={creationChrome ? onProfilePopoverEnter : undefined}
-          onMouseLeave={creationChrome ? onProfileHoverLeave : undefined}
-        >
+        )}
+        {!heroMode && (
+        <div className="composer-access-menu__section" role="menu" aria-label={t("composer.runtimeProfileTitle")}>
           <div className="composer-access-menu__label">{t("composer.runtimeProfileTitle")}</div>
           {([
             ["economy", Gauge, "composer.runtimeProfileEconomy", "composer.runtimeProfileEconomyDesc"], // light wire dual-write
@@ -4102,7 +3993,7 @@ export function Composer({
               type="button"
               role="menuitemradio"
               className={`composer-access-menu__item composer-profile-menu__item${tokenMode === profile ? " composer-access-menu__item--active" : ""}`}
-              onClick={() => chooseTokenMode(profile)}
+              onClick={() => { chooseTokenMode(profile); }}
               disabled={disabled || running}
               title={t(descKey)}
               aria-checked={tokenMode === profile}
@@ -4116,7 +4007,8 @@ export function Composer({
             </button>
           ))}
         </div>
-      </AnchoredPopover>}
+        )}
+      </AnchoredPopover>
       <AnchoredPopover
         open={moreMenuOpen && !disabled && !running}
         closing={moreMenuClosing}
@@ -4498,7 +4390,6 @@ export function Composer({
           onDragLeave={onDragLeave}
         >
           <div className="composer__input-row">
-            <span className="composer__caret">{shellModeActive ? "$" : "›"}</span>
             <div className="composer__content" onMouseDown={focusComposerFromContentBlank}>
               {invocations.length > 0 ? (
                 <RichComposerInput
@@ -4612,28 +4503,6 @@ export function Composer({
                 {composerPrompt}
               </span>
             )}
-            {running && (
-              <Tooltip label={t("composer.stop")}>
-                <button
-                  className="composer__btn composer__btn--stop"
-                  type="button"
-                  onClick={handleCancel}
-                  aria-label={t("composer.stop")}
-                >
-                  <Square size={12} fill="currentColor" />
-                </button>
-              </Tooltip>
-            )}
-            <Tooltip label={submitTooltip}>
-              <button
-                className={`composer__btn composer__btn--send${running ? " composer__btn--steer" : ""}`}
-                onClick={submit}
-                disabled={submitBlocked}
-                aria-label={submitTooltip}
-              >
-                {running ? <CornerDownRight size={16} /> : <ArrowUp size={16} />}
-              </button>
-            </Tooltip>
           </div>
         </div>
         <ContextMenu
@@ -4666,103 +4535,88 @@ export function Composer({
               </div>
             )}
             {!heroMode && (
-              <div className="composer-meta__control composer-meta__control--intent">
-                <Tooltip label={taskModeTooltipLabel} disabled={intentMenuOpen || intentMenuClosing || creationChrome}>
-                  <button
-                    ref={intentMenuAnchorRef}
-                    type="button"
-                    className={`composer-task-mode-trigger${intentMenuOpen || intentMenuClosing ? " composer-task-mode-trigger--open" : ""}`}
-                    onClick={() => (intentMenuOpen || intentMenuClosing ? closeIntentMenu() : openIntentMenu())}
-                    onMouseEnter={creationChrome ? onIntentHoverEnter : undefined}
-                    onMouseLeave={creationChrome ? onIntentHoverLeave : undefined}
-                    disabled={disabled || running}
-                    aria-haspopup="menu"
-                    aria-expanded={intentMenuOpen && !intentMenuClosing}
-                    aria-label={taskModeTriggerLabel}
-                    title={intentMenuOpen || intentMenuClosing || creationChrome ? undefined : taskModeTriggerLabel}
-                  >
-                    <TaskModeIcon size={14} aria-hidden="true" />
-                    <span className="composer-task-mode-trigger__value">{t(taskModeShortKey)}</span>
-                    <ChevronsUpDown size={11} aria-hidden="true" />
-                  </button>
-                </Tooltip>
-              </div>
-            )}
-            {!heroMode && (
-              <div className="composer-meta__control composer-meta__control--profile">
-                <Tooltip label={runtimeProfileTooltipLabel} disabled={profileMenuOpen || profileMenuClosing || creationChrome}>
-                  <button
-                    ref={profileMenuAnchorRef}
-                    type="button"
-                    data-profile={tokenMode}
-                    className={`composer-profile-trigger${profileMenuOpen || profileMenuClosing ? " composer-profile-trigger--open" : ""}`}
-                    onClick={() => (profileMenuOpen || profileMenuClosing ? closeProfileMenu() : openProfileMenu())}
-                    onMouseEnter={creationChrome ? onProfileHoverEnter : undefined}
-                    onMouseLeave={creationChrome ? onProfileHoverLeave : undefined}
-                    disabled={disabled || running}
-                    aria-haspopup="menu"
-                    aria-expanded={profileMenuOpen && !profileMenuClosing}
-                    aria-label={runtimeProfileTriggerLabel}
-                    title={profileMenuOpen || profileMenuClosing || creationChrome ? undefined : runtimeProfileTriggerLabel}
-                  >
-                    <RuntimeProfileIcon size={14} strokeWidth={1.75} aria-hidden="true" />
-                    <span className="composer-profile-trigger__label">
-                      <span className="composer-profile-trigger__value">{t(runtimeProfileShortKey)}</span>
-                    </span>
-                    <ChevronsUpDown size={11} aria-hidden="true" />
-                  </button>
-                </Tooltip>
-              </div>
-            )}
-            {!heroMode && (
               <div className="composer-meta__control composer-meta__control--approval">
                 {/* A pending tool approval disables the composer, but the approval
                     bar stays usable so mode changes remain possible mid-prompt;
                     the approval card explains that the pending request still needs
                     an explicit decision. */}
-                <div
-                  className="composer-modebar composer-modebar--approval"
-                  data-mode={toolApprovalMode}
-                  title={t("composer.accessMenuTitle", { shortcut: yoloComboLabel })}
+                <Tooltip label={approvalTriggerTitle} disabled={approvalMenuOpen || approvalMenuClosing}>
+                  <button
+                    ref={approvalMenuAnchorRef}
+                    type="button"
+                    className={`composer-approval-trigger${approvalMenuOpen || approvalMenuClosing ? " composer-approval-trigger--open" : ""}`}
+                    data-mode={toolApprovalMode}
+                    onClick={() => (approvalMenuOpen || approvalMenuClosing ? closeApprovalMenu() : openApprovalMenu())}
+                    disabled={approvalBarDisabled}
+                    aria-haspopup="menu"
+                    aria-expanded={approvalMenuOpen && !approvalMenuClosing}
+                    aria-label={approvalTriggerTitle}
+                    title={approvalMenuOpen || approvalMenuClosing ? undefined : approvalTriggerTitle}
+                  >
+                    <ApprovalModeIcon size={14} />
+                    <span>{t(approvalModeLabelKey)}</span>
+                    <ChevronsUpDown size={11} aria-hidden="true" />
+                  </button>
+                </Tooltip>
+                <AnchoredPopover
+                  open={approvalMenuOpen}
+                  closing={approvalMenuClosing}
+                  anchorRef={approvalMenuAnchorRef}
+                  onClose={() => closeApprovalMenu()}
+                  className="composer-access-menu composer-approval-menu"
+                  align="start"
                 >
-                  <span className="composer-modebar__thumb" aria-hidden="true" />
-                  <button
-                    type="button"
-                    className={`composer-modebar__item composer-modebar__item--ask${toolApprovalMode === "ask" ? " composer-modebar__item--active" : ""}`}
-                    onClick={() => chooseApprovalMode("ask")}
-                    disabled={approvalBarDisabled}
-                    aria-pressed={toolApprovalMode === "ask"}
-                    title={t("composer.accessAskTitle")}
-                  >
-                    <Shield size={14} />
-                    <span>{t("composer.modeAsk")}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`composer-modebar__item composer-modebar__item--auto${toolApprovalMode === "auto" ? " composer-modebar__item--active" : ""}`}
-                    onClick={() => chooseApprovalMode("auto")}
-                    disabled={approvalBarDisabled}
-                    aria-pressed={toolApprovalMode === "auto"}
-                    title={t("composer.accessAutoTitle")}
-                  >
-                    <ShieldCheck size={14} />
-                    <span>{t("composer.modeNormal")}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`composer-modebar__item composer-modebar__item--yolo${toolApprovalMode === "yolo" ? " composer-modebar__item--active" : ""}`}
-                    onClick={() => chooseApprovalMode("yolo")}
-                    disabled={approvalBarDisabled}
-                    aria-pressed={toolApprovalMode === "yolo"}
-                    title={t("composer.accessYoloTitle", { shortcut: yoloComboLabel })}
-                  >
-                    <ShieldAlert size={14} />
-                    <span>{t("composer.modeYolo")}</span>
-                  </button>
-                </div>
+                  <div className="composer-access-menu__section" role="menu" aria-label={approvalTriggerTitle}>
+                    <div className="composer-access-menu__label">{approvalTriggerTitle}</div>
+                    <button
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={toolApprovalMode === "ask"}
+                      className={`composer-access-menu__item composer-intent-menu__item${toolApprovalMode === "ask" ? " composer-access-menu__item--active" : ""}`}
+                      onClick={() => chooseApprovalMode("ask")}
+                      disabled={approvalBarDisabled}
+                    >
+                      <Shield size={16} />
+                      <span className="composer-access-menu__copy">
+                        <span className="composer-access-menu__title">{t("composer.modeAsk")}</span>
+                        <span className="composer-access-menu__desc">{t("composer.accessAskTitle")}</span>
+                      </span>
+                      {toolApprovalMode === "ask" && <Check className="composer-intent-menu__check" size={16} aria-hidden="true" />}
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={toolApprovalMode === "auto"}
+                      className={`composer-access-menu__item composer-intent-menu__item${toolApprovalMode === "auto" ? " composer-access-menu__item--active" : ""}`}
+                      onClick={() => chooseApprovalMode("auto")}
+                      disabled={approvalBarDisabled}
+                    >
+                      <ShieldCheck size={16} />
+                      <span className="composer-access-menu__copy">
+                        <span className="composer-access-menu__title">{t("composer.modeNormal")}</span>
+                        <span className="composer-access-menu__desc">{t("composer.accessAutoTitle")}</span>
+                      </span>
+                      {toolApprovalMode === "auto" && <Check className="composer-intent-menu__check" size={16} aria-hidden="true" />}
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={toolApprovalMode === "yolo"}
+                      className={`composer-access-menu__item composer-intent-menu__item${toolApprovalMode === "yolo" ? " composer-access-menu__item--active" : ""}`}
+                      onClick={() => chooseApprovalMode("yolo")}
+                      disabled={approvalBarDisabled}
+                    >
+                      <ShieldAlert size={16} />
+                      <span className="composer-access-menu__copy">
+                        <span className="composer-access-menu__title">{t("composer.modeYolo")}</span>
+                        <span className="composer-access-menu__desc">{t("composer.accessYoloTitle", { shortcut: yoloComboLabel })}</span>
+                      </span>
+                      {toolApprovalMode === "yolo" && <Check className="composer-intent-menu__check" size={16} aria-hidden="true" />}
+                    </button>
+                  </div>
+                </AnchoredPopover>
               </div>
             )}
-            {!heroMode && <span className="composer-meta__divider" aria-hidden="true" />}
             <div className="composer-meta__control composer-meta__control--model">
               {/*
                 Creation-only: showContextWindowRing is wired to sidebarCreation
@@ -4784,13 +4638,14 @@ export function Composer({
                   balance={balance}
                 />
               )}
+              {!heroMode && (
+                <span
+                  className={`composer-context-dot${contextRatio > 0.9 ? " composer-context-dot--err" : contextRatio > 0.7 ? " composer-context-dot--warn" : ""}`}
+                  title={contextDotTitle}
+                />
+              )}
               <ModelSwitcher label={modelLabel} tabId={tabId} onPick={onSwitchModel} />
             </div>
-            {!heroMode && hasEffort && (
-              <div className="composer-meta__control composer-meta__control--effort">
-                <EffortSwitcher effort={effort} disabled={running} onPick={onSetEffort} />
-              </div>
-            )}
             {!heroMode && hasEffort && (
               <div className="composer-meta__control composer-meta__control--more">
                 <Tooltip label={compactEffortTitle} disabled={moreMenuOpen || moreMenuClosing}>
@@ -4805,13 +4660,37 @@ export function Composer({
                     aria-label={compactEffortTitle}
                     title={moreMenuOpen || moreMenuClosing ? undefined : compactEffortTitle}
                   >
-                    <Gauge size={14} />
+                    <Brain size={14} />
                     <span>{currentEffort}</span>
                     <ChevronsUpDown size={11} />
                   </button>
                 </Tooltip>
               </div>
             )}
+            <div className="composer-meta__control composer-meta__control--submit">
+              {running && (
+                <Tooltip label={t("composer.stop")}>
+                  <button
+                    className="composer__btn composer__btn--stop"
+                    type="button"
+                    onClick={handleCancel}
+                    aria-label={t("composer.stop")}
+                  >
+                    <Square size={12} fill="currentColor" />
+                  </button>
+                </Tooltip>
+              )}
+              <Tooltip label={submitTooltip}>
+                <button
+                  className={`composer__btn composer__btn--send${running ? " composer__btn--steer" : ""}`}
+                  onClick={submit}
+                  disabled={submitBlocked}
+                  aria-label={submitTooltip}
+                >
+                  {running ? <CornerDownRight size={15} /> : <ArrowUp size={15} />}
+                </button>
+              </Tooltip>
+            </div>
           </div>
         </div>
       </div>
