@@ -22,6 +22,7 @@ func runExtract(args []string, stdout, stderr io.Writer, deps dependencies) erro
 	projectDB := flags.String("project-db", cfgString(deps.resolved, "store.db", defaultProjectDB()), "project/session database path")
 	userDB := flags.String("user-db", defaultUserDB(), "user database path")
 	session := flags.String("session", "", "source session identifier")
+	originValue := flags.String("origin", string(slice.OriginUserCurated), "extraction source: user-curated (manual) or session-auto (automated runner)")
 	project := flags.String("project", "", "project slug")
 	taskType := flags.String("task-type", "", "task type metadata")
 	language := flags.String("language", "", "language metadata")
@@ -40,6 +41,11 @@ func runExtract(args []string, stdout, stderr io.Writer, deps dependencies) erro
 	}
 	if flags.NArg() != 0 {
 		return usagef("unexpected arguments: %v", flags.Args())
+	}
+
+	origin := slice.Origin(*originValue)
+	if origin != slice.OriginUserCurated && origin != slice.OriginSessionAuto {
+		return usagef("--origin must be user-curated or session-auto")
 	}
 
 	scope, err := parseScope(*scopeValue)
@@ -64,7 +70,7 @@ func runExtract(args []string, stdout, stderr io.Writer, deps dependencies) erro
 		Language:      *language,
 		ProjectSlug:   *project,
 		BaseCommit:    strings.TrimSpace(*baseCommit),
-		Origin:        slice.OriginUserCurated, // Issue #279: explicit user action
+		Origin:        origin, // Default remains explicit manual extraction; runners select session-auto.
 	}
 	if *fingerprintPaths != "" {
 		var paths []string
@@ -143,6 +149,11 @@ func runExtract(args []string, stdout, stderr io.Writer, deps dependencies) erro
 			continue
 		}
 		item.Scope = scope
+		existing, err := store.Get(item.ID)
+		if err != nil {
+			return fmt.Errorf("read existing slice %q: %w", item.ID, err)
+		}
+		slice.RetainExtractionHistory(item, existing)
 		if err := store.Put(item); err != nil {
 			return fmt.Errorf("store slice %q: %w", item.ID, err)
 		}

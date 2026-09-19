@@ -122,3 +122,41 @@ func TestCleanRetrievalQueryFailsClosedWhenOnlyFramingRemains(t *testing.T) {
 		t.Fatalf("cleaned query = %q, want empty", got)
 	}
 }
+
+func TestBuildRetrievalQueryKeepsPlainMultilineTask(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		raw  string
+		want []string
+	}{
+		{
+			name: "environment_before_task",
+			raw:  "Workspace contains src/cache/store.go.\nRefresh cached permissions when membership changes.\nKeep revoked access unavailable.",
+			want: []string{"refresh", "permissions", "membership", "revoked", "unavailable"},
+		},
+		{
+			name: "task_continues_after_first_line",
+			raw:  "Review the parser.\nPreserve quoted separators in src/parse/input.go.\nReturn empty values unchanged.",
+			want: []string{"preserve", "quoted", "separators", "empty", "unchanged"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			raw := tc.raw + "\nhttps://example.com/irrelevant/review.py\n<execution-policy>routing-only policy-marker</execution-policy>"
+			got := buildRetrievalQuery(raw)
+			if got.Strategy != "structured" {
+				t.Fatalf("strategy = %q, want structured", got.Strategy)
+			}
+			tokens := bm25.Tokenize(got.Text)
+			for _, want := range tc.want {
+				if !containsString(tokens, want) {
+					t.Errorf("query lost task term %q: %q", want, got.Text)
+				}
+			}
+			for _, noise := range []string{"routing", "policy", "marker", "example", "irrelevant"} {
+				if containsString(tokens, noise) {
+					t.Errorf("query leaked framing term %q: %q", noise, got.Text)
+				}
+			}
+		})
+	}
+}

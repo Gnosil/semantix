@@ -125,6 +125,11 @@ func writeKernelDir(t *testing.T, slicesIn []*slice.Slice, usageLines []string) 
 		t.Fatal(err)
 	}
 	for _, s := range slicesIn {
+		// These hand-authored admission fixtures represent trusted curated
+		// records. Origin-negative tests explicitly persist their origin later.
+		if s.Meta.Origin == "" {
+			s.Meta.Origin = slice.OriginUserCurated
+		}
 		if s.Meta.BaseCommit == "" {
 			s.Meta.BaseCommit = fixtureCommit
 		}

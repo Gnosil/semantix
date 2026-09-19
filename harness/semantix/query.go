@@ -95,6 +95,10 @@ func buildRetrievalQuery(raw string) RetrievalQuery {
 	}
 
 	values := []string{q.Intent}
+	if !hasIssue {
+		// Plain tasks have no issue-title boundary; later prose is task evidence too.
+		values[0] = signalBody
+	}
 	values = append(values, q.Paths...)
 	values = append(values, q.Symbols...)
 	values = append(values, q.ErrorCodes...)

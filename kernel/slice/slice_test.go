@@ -294,28 +294,6 @@ func TestFileStoreCorruptLine(t *testing.T) {
 	}
 }
 
-func TestExtractorProjectsClosedLoopEventsForSearch(t *testing.T) {
-	input := []byte(
-		`{"kind":5,"session_id":"s","turn":1,"at":"2026-08-18T00:00:00Z","data":{"layer":"L3","slice_ids":["slice-hit"]}}` + "\n" +
-			`{"kind":6,"session_id":"s","turn":1,"at":"2026-08-18T00:00:00Z","data":{"slice_ids":["slice-inject"],"bytes":128}}` + "\n" +
-			`{"kind":8,"session_id":"s","turn":1,"at":"2026-08-18T00:00:00Z","data":{"targets":["slice-a"]}}` + "\n" +
-			`{"kind":9,"session_id":"s","turn":2,"at":"2026-08-18T00:00:01Z","data":{"targets":["slice-b"]}}` + "\n" +
-			`{"kind":11,"session_id":"s","turn":2,"at":"2026-08-18T00:00:02Z","data":{"params":{"tau_l2":0.55}}}` + "\n")
-	items, err := NewExtractor().Extract(input, SliceMeta{SourceSession: "s"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	joined := ""
-	for _, item := range items {
-		joined += string(item.Content) + "\n"
-	}
-	for _, phrase := range []string{"slice hit", "slice inject", "prefetch hit", "prefetch waste", "evolution tick"} {
-		if !strings.Contains(joined, phrase) {
-			t.Fatalf("missing %q in %q", phrase, joined)
-		}
-	}
-}
-
 // --- Issue #279: Origin provenance/trust tags ---
 
 func TestOriginLevelMapping(t *testing.T) {

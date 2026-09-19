@@ -275,9 +275,9 @@ func (a *Agent) beginRunTurn(ctx context.Context, input string) (rawInput string
 		// get some reuse context. Any other action keeps the full injection.
 		var result semantix.InjectResult
 		if a.budgetCtrl != nil && a.budgetCtrl.Action() == sched.BudgetActionDegradeInject {
-			result = a.semantix.InjectDegradedDetailed(ctx, input)
+			result = a.semantix.InjectDegradedDetailed(ctx, a.turn.turnInput)
 		} else {
-			result = a.semantix.InjectDetailed(ctx, input)
+			result = a.semantix.InjectDetailed(ctx, a.turn.turnInput)
 		}
 		state.injectBlock = result.Text
 		state.injectTargets = append([]string(nil), result.Targets...)
@@ -285,7 +285,7 @@ func (a *Agent) beginRunTurn(ctx context.Context, input string) (rawInput string
 		// (hit slices + incremental cost savings + top source sessions)
 		// alongside the injection block. Same soft-degrade contract: a zero
 		// summary hides the panel, never blocks the turn.
-		state.reuse = a.semantix.Reuse(ctx, input)
+		state.reuse = a.semantix.Reuse(ctx, a.turn.turnInput)
 		if blk := state.injectBlock; blk != "" {
 			detail, _ := json.Marshal(map[string]int{"bytes": len(blk)})
 			a.svc.sink.Emit(event.Event{
@@ -589,6 +589,31 @@ func (a *Agent) handleFinalResponse(ctx context.Context, state *turnRuntime, tex
 		// immediately open another Run and silently bypass the chosen limit.
 		a.contextManager().ObserveUsage(usage)
 		return false, a.gracePause(state)
+	}
+	if !state.graceRound && usage != nil && usage.FinishReason == "length" {
+		// Truncation is not a final-answer decision. Continue within the same
+		// turn budget, sharing the empty-final cap until a tool round resets it.
+		a.contextManager().ObserveUsage(usage)
+		if err := ctx.Err(); err != nil {
+			return false, err
+		}
+		if a.budgetCtrl != nil && a.budgetCtrl.Action() == sched.BudgetActionHardStop {
+			return false, a.budgetHardStopError()
+		}
+		if axis, detail := a.task.budget.exceeded(a.taskBudgetLimit(ctx)); axis != "" {
+			return false, &taskBudgetPause{axis: axis, detail: detail}
+		}
+		if state.runMaxSteps > 0 && state.budget.rounds >= state.runMaxSteps {
+			return false, a.gracePause(state)
+		}
+		state.emptyFinalBlocks++
+		if state.emptyFinalBlocks >= maxEmptyFinalBlocks {
+			return false, fmt.Errorf("model hit the output limit %d times without tool progress", state.emptyFinalBlocks)
+		}
+		a.svc.sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelInfo, Code: "output_truncated", Text: "Response reached its output limit; continuing the task.", Detail: emptyFinalNoticeDetail(a.svc.prov.Name(), usage, len(reasoning))})
+		nudge := "The previous response hit the output limit; it did not complete the task. Continue the current task with the smallest concrete next step, using a tool when needed. Keep the continuation concise; do not repeat prior analysis or claim unfinished work is done."
+		a.sess.conversation.Add(provider.Message{Role: provider.RoleUser, Content: a.withTurnPreferences(nudge)})
+		return true, nil
 	}
 	if readiness.reason != "" {
 		// Delivery no longer retries readiness with hidden model messages: the

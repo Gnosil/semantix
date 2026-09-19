@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	fileencoding "semantix/harness/fileutil/encoding"
 )
@@ -69,6 +70,16 @@ func TestLoadIncludesStableGlobalPreferencesAndFeedback(t *testing.T) {
 	}
 	legacyFeedback := "---\nname: zeta-feedback\ndescription: legacy global feedback\nmetadata:\n  type: feedback\n---\n\nGLOBAL FEEDBACK BODY\n"
 	mustWrite(t, filepath.Join(store.GlobalDir, "zeta-feedback.md"), legacyFeedback)
+	// Legacy records use filesystem mtime; make it explicitly newer than the
+	// saved record's timestamp instead of depending on filesystem clock precision.
+	alpha, ok := loadMemory(filepath.Join(store.GlobalDir, "alpha-user.md"))
+	if !ok {
+		t.Fatal("missing saved user memory")
+	}
+	updated := alpha.UpdatedAt.Add(time.Second)
+	if err := os.Chtimes(filepath.Join(store.GlobalDir, "zeta-feedback.md"), updated, updated); err != nil {
+		t.Fatal(err)
+	}
 	if err := reindexIn(store.GlobalDir, "zeta-feedback", Memory{Name: "zeta-feedback", Description: "legacy global feedback", Type: TypeFeedback, Scope: FactScopeGlobal}); err != nil {
 		t.Fatal(err)
 	}

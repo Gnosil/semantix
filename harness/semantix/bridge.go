@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"semantix/harness/event"
+	"semantix/harness/gitcmd"
 	"semantix/kernel/bm25"
 	kernelevent "semantix/kernel/event"
 	"semantix/kernel/evolve"
@@ -270,11 +271,13 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 		b.emitKernelCacheDetailed("miss", "L2", nil, 0, diagnostics.DecisionReason, diagnostics)
 		return InjectResult{Diagnostics: diagnostics}
 	}
-	hits, err := idx.Search(cleanedQuery, 5, slice.Project)
+	hits, err := idx.Search(cleanedQuery, len(projectSlices), slice.Project)
 	if err != nil {
 		b.emitKernelCache("miss", "L2", nil, 0, err.Error())
 		return InjectResult{}
 	}
+	// Keep full-corpus BM25 scores. BuildHits applies the candidate cap only
+	// after its shared type, task and freshness eligibility checks.
 	z := zone.Default()
 	// This is a pure-BM25 path (kernelIndex), and the absolute floors are
 	// by design cosine-scale guards ("only bind on the bounded cosine
@@ -297,6 +300,7 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 		K:                    5,
 		Budget:               budget,
 		AllowedTypes:         strictAllowedTypes,
+		MinOrigin:            slice.OriginSessionAuto,
 		RootDir:              workspaceDir,
 		CurrentCommit:        readGitHead(workspaceDir),
 		LibrarySize:          len(projectSlices),
@@ -378,13 +382,20 @@ func (b *Bridge) retrievalDiagnostics(query string, retrievalQuery RetrievalQuer
 		return d
 	}
 	d.TopMargin = inj.TopMargin
-	for i, decision := range inj.Decisions {
+	byID := make(map[string]*slice.Slice, len(hits))
+	for _, hit := range hits {
+		if hit.Slice != nil {
+			byID[hit.Slice.ID] = hit.Slice
+		}
+	}
+	for _, decision := range inj.Decisions {
 		candidate := event.RetrievalCandidate{
 			ID: decision.ID, Score: decision.Score, Coverage: decision.Coverage,
 			Zone: decision.Zone, Admitted: decision.Admitted, Reason: decision.Reason, Verified: "unknown",
 		}
-		if i < len(hits) && hits[i].Slice != nil {
-			sl := hits[i].Slice
+		// BuildHits can skip ineligible ranks while filling its window.
+		// Slice IDs, not offsets in the original search, join provenance.
+		if sl := byID[decision.ID]; sl != nil {
 			candidate.Type = sl.Type.String()
 			candidate.SourceSession = sl.Meta.SourceSession
 			candidate.Project = sl.Meta.ProjectSlug
@@ -407,13 +418,17 @@ func (b *Bridge) retrievalDiagnostics(query string, retrievalQuery RetrievalQuer
 func sourceSessionCounts(library []*slice.Slice) map[slice.SliceType]int {
 	sets := make(map[slice.SliceType]map[string]struct{})
 	for _, sl := range library {
-		if sl == nil || sl.Meta.SourceSession == "" {
+		if sl == nil {
 			continue
 		}
 		if sets[sl.Type] == nil {
 			sets[sl.Type] = make(map[string]struct{})
 		}
-		sets[sl.Type][sl.Meta.SourceSession] = struct{}{}
+		for _, source := range append([]string{sl.Meta.SourceSession}, sl.Meta.SourceSessions...) {
+			if source != "" {
+				sets[sl.Type][source] = struct{}{}
+			}
+		}
 	}
 	counts := make(map[slice.SliceType]int, len(sets))
 	for typ, sessions := range sets {
@@ -440,7 +455,7 @@ func readGitHead(root string) string {
 	}
 	head, err := os.ReadFile(filepath.Join(gitDir, "HEAD"))
 	if err != nil {
-		return ""
+		return resolveGitHead(root)
 	}
 	value := strings.TrimSpace(string(head))
 	if !strings.HasPrefix(value, "ref:") {
@@ -452,7 +467,19 @@ func readGitHead(root string) string {
 			return strings.TrimSpace(string(raw))
 		}
 	}
-	return ""
+	return resolveGitHead(root)
+}
+
+// resolveGitHead covers packed refs, common-dir worktrees and nested paths.
+// Failure stays unknown; it never substitutes the memory's recorded revision.
+func resolveGitHead(root string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	out, err := gitcmd.Command(ctx, root, "rev-parse", "--verify", "HEAD").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 // emitKernelCache forwards an observed kernel cache operation to the live
