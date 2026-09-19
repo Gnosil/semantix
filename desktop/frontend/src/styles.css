@@ -3782,6 +3782,7 @@ a[href] {
   width: calc(116px * var(--font-scale));
   height: calc(116px * var(--font-scale));
   object-fit: contain;
+  opacity: 0.62;
 }
 .welcome__byline {
   font-family: "Playfair Display", Georgia, "Palatino Linotype", "Times New Roman", serif;
@@ -3793,15 +3794,13 @@ a[href] {
 }
 
 :root[data-theme="dark"] .sidebar__brand-logo,
-:root[data-theme="dark"] .welcome__brand-logo,
-:root[data-theme="dark"] .welcome__mark {
+:root[data-theme="dark"] .welcome__brand-logo {
   opacity: 0.94;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) .sidebar__brand-logo,
-  :root:not([data-theme]) .welcome__brand-logo,
-  :root:not([data-theme]) .welcome__mark {
+  :root:not([data-theme]) .welcome__brand-logo {
     opacity: 0.94;
   }
 }
