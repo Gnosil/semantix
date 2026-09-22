@@ -121,6 +121,7 @@ Prefer to build from source (Go 1.26+)? `go build -o semantix ./cmd/semantix && 
 | LangChain apps | Middleware with two hooks (message rewrite + session extraction) | ✅ documented ([report](./docs/reports/langchain-middleware.md)) |
 | Custom / self-hosted | Session bypass: export / event bypass / direct call | ✅ documented (`agent-skill/hooks/session-bypass.md`) |
 | Any OpenAI-compatible client | `semantix-gateway` in front, custom base URL | ✅ shipped |
+| Milvus (vector DB) | Optional compose profile + MCP server; orchestrator does RAG, Semantix caches LLM calls ([guide](./docs/integrations/milvus.md)) | ✅ shipped |
 
 Cursor, Windsurf, Codex CLI, Gemini CLI, Copilot agent mode and Cline / Continue / Aider all reach the kernel through one of the paths above; none requires kernel changes. Priorities follow observed usage — concrete integration requests are tracked as [issues](https://github.com/Gnosil/semantix/issues) (template: `.github/ISSUE_TEMPLATE/integration_request.yml`).
 
