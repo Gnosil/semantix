@@ -1,0 +1,12 @@
+# Milvus 增量配置覆盖（挂载到 /milvus/configs/user.yaml）。
+#
+# Milvus 读取 milvus.yaml 后再读 user.yaml 做覆盖，因此这里只写需要改的键，
+# 其余默认值仍然生效 —— 不要把它写成一份完整的 milvus.yaml。
+#
+# 用途：打开本地认证，满足 docs/Security-安全设计.md:221 /:228
+# 「本地服务（Ollama/Milvus）启用本地认证」。
+common:
+  security:
+    # 关闭时任何能访问 19530 的进程都可读写全部 collection。回环绑定挡不住
+    # 本机上的其他进程，所以这一项必须开。
+    authorizationEnabled: true
