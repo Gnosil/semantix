@@ -5,6 +5,12 @@
 > 无 Go 代码改动，无新的 semantix 配置键，`[retrieval] retriever` 的取值域
 > 未变）。
 >
+> 按 `CONTRIBUTING.md` 的「Spec 先行」条款,spec 的强制对象是**跨包行为变更**
+> (kernel↔harness 契约、事件、配置面),「纯 bug 修复与文档可省略」。本 PR 属
+> 可省略之列,**本文是自愿补充**:三服务的编排里有两处反直觉的决定(§2.2 的
+> 回环发布、§2.3 的 etcd healthcheck),以及一串未实跑的残余(§5.1),写下来
+> 比在 PR 讨论里解释便宜。
+>
 > **Spec-Required 的那两半不在本文范围内**：把 Milvus 接成 `slice.Index` 的
 > 第四个检索后端（新包结构 + 新配置键 + 影响排序契约），以及把 semantix 暴露
 > 为 MCP server（新对外契约 + 安全边界）。两者都另设门槛与独立 spec，见 §3。
@@ -186,8 +192,17 @@ PR-2 内部不再细拆:三服务、鉴权配置、使用者文档三者互为�
 - **A6** §2.6 的插件片段以**去注释后的原样**喂给 `config.PluginEntry` 真实
   解析器,得到 `type=stdio` / `command=uvx` / `args=[mcp-server-milvus]` /
   `env` 两键,且无 undecoded key。**已通过。**
-- **A7** `go build ./...`、`go vet ./...`、`git diff --check` 干净;`go.mod`
-  无变化。**已通过。**
+- **A7** `go build ./...`、`go vet ./...`、`git diff --check` 干净;`go.mod` /
+  `go.sum` 无变化;`git diff main --name-only` 不含任何 `.go` 文件。
+  **已通过。**
+- **A8** `go test ./... -race` 全量:除
+  `harness/remote` 的 `TestClientPromptsPerEncryptedIdentity` 外全绿。该失败
+  为**负载敏感的既有 flake,与本改动无因果关系**,三步对照:
+  (i) 基线 `00b6bd4` 隔离跑该测试通过;
+  (ii) 本分支单独跑 `./harness/remote/` 整包通过(17.0s,而失败时的 deadline
+  是 18.98s——该测例本就贴着超时边缘);
+  (iii) 本分支相对 main 的 diff 零 `.go` 文件(见 A7),不存在影响该测试的
+  途径。**已通过(含如实标注)。**
 
 ### B 组 — 需 docker 实跑,**尚未执行**
 
