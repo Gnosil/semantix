@@ -216,9 +216,12 @@ stalled_warning_seconds = 900   # warn once per background job after this many q
 # # Enabled MCP servers connect automatically in the background after session
 # # start. Use /mcp or the desktop MCP panel to refresh, reconnect, or disable.
 
-# Milvus vector database over MCP (zilliztech/mcp-server-milvus): gives the
-# agent vector search and collection management tools. Requires `uvx` (uv) and
-# a reachable Milvus — `deploy/docker-compose.yml --profile milvus` starts one.
+# Milvus vector database over MCP: gives the agent vector search and collection
+# management tools. Requires `uvx` (uv) and a reachable Milvus — the `milvus`
+# profile in deploy/docker-compose.yml starts one.
+# Supply-chain note: the `mcp-server-milvus` package on PyPI is a community fork.
+# Zilliz's own server has no PyPI package and is run from a clone instead. Review
+# the package before enabling this, or use the upstream `uv run` form.
 # Note this cannot be installed from the public MCP registry: entries needing
 # environment variables are marked not-installable, so write it out here.
 # Full walkthrough: docs/integrations/milvus.md
