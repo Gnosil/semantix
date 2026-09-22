@@ -1,8 +1,8 @@
 # Semantix Gateway 部署 —— New API + semantix-gateway 单机两服务（设计文档 §5）。
 #
 # 用法（三条命令）：
+#   cp deploy/.env.example deploy/.env   # 填 SEMANTIX_GATEWAY_KEY / DEEPSEEK_API_KEY
 #   cp deploy/semantix-gateway.toml.example deploy/semantix-gateway.toml
-#   编辑 deploy/semantix-gateway.toml 并按需在 .env 设置 SEMANTIX_GATEWAY_KEY / DEEPSEEK_API_KEY
 #   docker compose -f deploy/docker-compose.yml up -d --build
 #
 # 网络：semantix-gateway:8080 仅暴露给 New API（compose 内部网络），不发布到宿主机。
