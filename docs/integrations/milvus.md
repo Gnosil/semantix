@@ -65,6 +65,12 @@ docker compose -f deploy/docker-compose.yml exec milvus \
 
 前置：`uv`（提供 `uvx`）、上一节的 Milvus 已 healthy。
 
+> **先读这条供应链提示**：PyPI 上的 `mcp-server-milvus` 是**社区 fork**,不是
+> Zilliz 官方发布。Zilliz 自己的 MCP server 没有 PyPI 包,官方用法是 clone 后
+> `uv run src/mcp_server_milvus/server.py`。下面的 `uvx` 形态胜在零安装,代价
+> 是你在信任一个第三方维护者。**启用前请自行审阅该包**,或改用官方形态。
+> 这一点本仓库无法代你判断,所以如实写在这里而不是默默给一条命令。
+
 编辑 `~/.semantix/semantix-agent.toml`（样板见 `semantix-agent.example.toml`）：
 
 ```toml
