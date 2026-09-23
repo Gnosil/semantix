@@ -15,6 +15,11 @@ const legalLinks = [
   { label: "Contact", href: "/contact" },
 ] as const;
 
+const labelClass =
+  "font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70";
+const navLinkClass =
+  "text-base font-medium leading-7 transition-opacity hover:opacity-70 md:text-lg";
+
 export default function FinaleInfo() {
   return (
     <footer
@@ -22,65 +27,75 @@ export default function FinaleInfo() {
       aria-label="项目信息"
       className="bg-[#168b6d] text-[#f8f8f4]"
     >
-      <div className="mx-auto max-w-[1600px] px-5 pb-8 pt-20 md:px-10 md:pb-10 md:pt-24 lg:px-12">
-        <div className="grid gap-x-14 gap-y-14 border-t border-white/35 pt-8 sm:grid-cols-2 lg:grid-cols-[1.2fr_1.4fr_0.8fr_0.8fr] lg:gap-x-12">
-          <div>
-            <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-white/70">
+      <div className="mx-auto max-w-[1600px] px-5 pb-10 pt-20 md:px-10 md:pb-12 md:pt-24 lg:px-12">
+        <div className="grid gap-14 border-t border-white/35 pt-9 lg:grid-cols-2 lg:gap-20">
+          <section aria-labelledby="license-heading">
+            <h2 id="license-heading" className={labelClass}>
               License / 开源许可
             </h2>
             <a
-              href={`${siteIdentity.repositoryUrl}/blob/main/LICENSE`}
+              href={siteIdentity.repositoryUrl + "/blob/main/LICENSE"}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-5 inline-block text-2xl font-semibold tracking-tight underline decoration-white/45 underline-offset-8 transition-colors hover:decoration-white"
+              className="font-brand-serif mt-6 inline-block text-[clamp(3rem,5vw,5.75rem)] leading-[0.95] tracking-[-0.055em] underline decoration-white/40 decoration-1 underline-offset-[0.16em] transition-colors hover:decoration-white"
             >
-              MIT License ↗
+              MIT License <span className="inline-block align-top font-sans text-[0.45em]">↗</span>
             </a>
-            <p className="mt-3 text-sm leading-6 text-white/75">
-              Copyright © 2026 Gnosil. 完整条款见仓库 LICENSE 文件。
+            <p className="mt-7 text-sm leading-6 text-white/75">
+              © 2026 Gnosil · 完整许可条款见仓库 LICENSE 文件
             </p>
-          </div>
-          <div>
-            <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-white/70">
+          </section>
+
+          <section aria-labelledby="operator-heading">
+            <h2 id="operator-heading" className={labelClass}>
               Operator / 运营主体
             </h2>
-            <p className="mt-5 text-xl font-semibold leading-snug tracking-tight">
+            <p className="font-feature-serif mt-6 text-[clamp(1.75rem,2.1vw,2.5rem)] leading-[1.35] tracking-[-0.035em]">
               {siteIdentity.operator.legalName}
             </p>
             <Link
               href="/about"
-              className="mt-3 inline-block text-sm font-semibold underline decoration-white/45 underline-offset-4 transition-colors hover:decoration-white"
+              className="mt-6 inline-block text-sm font-medium underline decoration-white/45 underline-offset-4 transition-colors hover:decoration-white"
             >
               了解项目与运营主体 ↗
             </Link>
-          </div>
-          <nav aria-label="项目链接">
-            <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-white/70">
+          </section>
+        </div>
+
+        <div className="mt-20 grid gap-12 border-t border-white/35 pt-8 lg:grid-cols-2 lg:gap-20">
+          <nav aria-label="项目链接" className="flex flex-col gap-6 sm:flex-row sm:gap-10">
+            <h2 className={labelClass + " shrink-0 sm:w-40"}>
               Explore / 项目
             </h2>
-            <ul className="mt-5 space-y-3">
+            <ul className="flex flex-wrap gap-x-7 gap-y-2">
               {projectLinks.map((link) => (
                 <li key={link.href}>
-                  <Link href={link.href} className="text-base font-medium transition-opacity hover:opacity-70">
+                  <Link href={link.href} className={navLinkClass}>
                     {link.label}
                   </Link>
                 </li>
               ))}
               <li>
-                <a href={siteIdentity.repositoryUrl} target="_blank" rel="noopener noreferrer" className="text-base font-medium transition-opacity hover:opacity-70">
+                <a
+                  href={siteIdentity.repositoryUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={navLinkClass}
+                >
                   GitHub ↗
                 </a>
               </li>
             </ul>
           </nav>
-          <nav aria-label="网站与法律信息">
-            <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-white/70">
+
+          <nav aria-label="网站与法律信息" className="flex flex-col gap-6 sm:flex-row sm:gap-10">
+            <h2 className={labelClass + " shrink-0 sm:w-40"}>
               Information / 信息
             </h2>
-            <ul className="mt-5 space-y-3">
+            <ul className="flex flex-wrap gap-x-7 gap-y-2">
               {legalLinks.map((link) => (
                 <li key={link.href}>
-                  <Link href={link.href} className="text-base font-medium transition-opacity hover:opacity-70">
+                  <Link href={link.href} className={navLinkClass}>
                     {link.label}
                   </Link>
                 </li>
@@ -89,15 +104,22 @@ export default function FinaleInfo() {
           </nav>
         </div>
 
-        <div className="mt-20 flex flex-col gap-4 border-t border-white/35 pt-5 text-xs leading-6 text-white/75 lg:flex-row lg:items-center lg:justify-between">
-          <p className="font-mono uppercase tracking-[0.12em]">Semantix © 2026 · MIT License</p>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span>维护者</span>
+        <div className="mt-20 flex flex-col gap-6 border-t border-white/35 pt-6 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="font-brand-serif text-3xl leading-none tracking-[-0.05em]">
+              Semantix
+            </p>
+            <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.15em] text-white/65">
+              Open source / MIT License / 2026
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+            <span className="text-white/65">维护者</span>
             {contentAuthors.map((author) => (
               <Link
                 key={author.name}
                 href={author.profileUrl}
-                className="font-medium text-white underline decoration-transparent underline-offset-4 transition-colors hover:decoration-white"
+                className="font-medium underline decoration-transparent underline-offset-4 transition-colors hover:decoration-white"
               >
                 {author.name}
               </Link>
