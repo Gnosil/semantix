@@ -274,6 +274,8 @@ export default function BloomCurtain() {
           >
             <FinaleCopy inverse decorative />
           </div>
+          <div className="absolute inset-y-0 left-0 z-10 w-[10px] bg-[#168b6d] md:w-[18px]" />
+          <div className="absolute inset-y-0 right-0 z-10 w-[10px] bg-[#168b6d] md:w-[18px]" />
         </div>
       </div>
     </section>
