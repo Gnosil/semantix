@@ -39,7 +39,7 @@ export default function Install() {
   return (
     <section
       id="start"
-      className="install-scroll-handoff border-x-[10px] border-t-[10px] border-[#168b6d] bg-[#f8f8f4] md:border-x-[18px] md:border-t-[18px]"
+      className="install-scroll-handoff border-x-[10px] border-t-[10px] border-[#168b6d] bg-[var(--finale-paper)] md:border-x-[18px] md:border-t-[18px]"
     >
       <div className="install-scroll-content mx-auto max-w-[1600px] px-5 py-16 md:px-10 md:py-20 lg:px-12 lg:py-24">
         <Reveal>

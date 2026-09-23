@@ -14,7 +14,7 @@ function FinaleCopy({
   const foreground = inverse ? "text-[#168b6d]" : "text-[#f8f8f4]";
   const button = inverse
     ? "bg-[#168b6d] text-white"
-    : "bg-[#f8f8f4] text-[#0b654f]";
+    : "bg-[var(--finale-paper)] text-[#0b654f]";
   return (
     <div
       aria-hidden={decorative || undefined}
@@ -266,7 +266,7 @@ export default function BloomCurtain() {
         <div
           ref={curtainRef}
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-30 overflow-hidden bg-[#f8f8f4] will-change-transform"
+          className="pointer-events-none absolute inset-0 z-30 overflow-hidden bg-[var(--finale-paper)] will-change-transform"
         >
           <div
             ref={curtainContentRef}

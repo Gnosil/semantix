@@ -77,7 +77,7 @@ export default function Nav() {
   return (
     <header
       className={cn(
-        "fixed top-0 z-50 w-full border-b border-border bg-[#f8f8f4] transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
+        "fixed top-0 z-50 w-full border-b border-border bg-white/90 backdrop-blur transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
         visible && !bloomActive
           ? "translate-y-0 opacity-100 delay-100"
           : "pointer-events-none -translate-y-full opacity-0 delay-0",
@@ -179,7 +179,7 @@ export default function Nav() {
       {/* 移动端全屏菜单面板 */}
       <div
         className={cn(
-          "absolute inset-x-0 top-16 z-40 h-[calc(100vh-4rem)] overflow-y-auto bg-[#f8f8f4] transition-opacity duration-200 xl:hidden",
+          "absolute inset-x-0 top-16 z-40 h-[calc(100vh-4rem)] overflow-y-auto bg-white/95 backdrop-blur transition-opacity duration-200 xl:hidden",
           open ? "opacity-100" : "pointer-events-none opacity-0",
         )}
       >
