@@ -256,6 +256,8 @@ export default function BloomCurtain() {
           style={{
             filter:
               "grayscale(1) brightness(0.67) contrast(4.4) brightness(1.5)",
+            maskImage: "linear-gradient(to bottom, #000 0%, #000 88%, transparent 100%)",
+            WebkitMaskImage: "linear-gradient(to bottom, #000 0%, #000 88%, transparent 100%)",
           }}
         >
           <source src="/media/semantix-bloom-4k.mp4" type="video/mp4" />
