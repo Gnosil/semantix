@@ -249,7 +249,7 @@ export default function BloomCurtain() {
         <video
           ref={videoRef}
           aria-hidden="true"
-          className="absolute inset-0 z-10 h-full w-full translate-y-[6svh] scale-[1.04] object-contain object-bottom mix-blend-screen will-change-transform"
+          className="absolute inset-0 z-10 h-full w-full translate-y-[7.5svh] scale-[1.01] object-contain object-bottom mix-blend-screen will-change-transform"
           muted
           playsInline
           preload="auto"
