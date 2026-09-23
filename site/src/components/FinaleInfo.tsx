@@ -16,9 +16,9 @@ const legalLinks = [
 ] as const;
 
 const labelClass =
-  "font-mono text-xs font-semibold uppercase tracking-[0.16em] text-white";
+  "font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-white";
 const navLinkClass =
-  "text-base font-medium leading-7 transition-opacity hover:opacity-70 md:text-lg";
+  "font-mono text-sm font-semibold uppercase leading-7 tracking-[0.12em] transition-opacity hover:opacity-70 md:text-[15px]";
 
 export default function FinaleInfo() {
   return (
@@ -37,11 +37,11 @@ export default function FinaleInfo() {
               href={siteIdentity.repositoryUrl + "/blob/main/LICENSE"}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-6 inline-flex items-baseline gap-2 text-3xl font-semibold leading-tight tracking-[-0.035em] underline decoration-white/40 underline-offset-8 transition-colors hover:decoration-white md:text-4xl"
+              className="mt-6 inline-flex items-baseline gap-2 font-mono text-xl font-semibold uppercase leading-tight tracking-[0.08em] underline decoration-white/40 underline-offset-8 transition-colors hover:decoration-white md:text-2xl"
             >
-              MIT License <span className="text-[0.55em]">↗</span>
+              MIT License <span className="text-[0.75em]">↗</span>
             </a>
-            <p className="mt-4 text-sm leading-6 text-white/85">
+            <p className="mt-4 font-mono text-xs leading-6 text-white/85">
               © 2026 Gnosil · 完整许可条款见仓库 LICENSE 文件
             </p>
           </section>
@@ -50,12 +50,12 @@ export default function FinaleInfo() {
             <h2 id="operator-heading" className={labelClass}>
               Operator / 运营主体
             </h2>
-            <p className="mt-6 text-2xl font-semibold leading-[1.35] tracking-tight md:text-3xl">
+            <p className="mt-6 font-mono text-xl font-semibold leading-[1.45] tracking-[0.04em] md:text-2xl">
               {siteIdentity.operator.legalName}
             </p>
             <Link
               href="/about"
-              className="mt-4 inline-block text-sm font-medium underline decoration-white/45 underline-offset-4 transition-colors hover:decoration-white"
+              className="mt-4 inline-block font-mono text-xs font-semibold tracking-[0.08em] underline decoration-white/45 underline-offset-4 transition-colors hover:decoration-white"
             >
               了解项目与运营主体 ↗
             </Link>
@@ -113,7 +113,7 @@ export default function FinaleInfo() {
               Open source / MIT License / 2026
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-xs">
             <span className="text-white/85">维护者</span>
             {contentAuthors.map((author) => (
               <Link
