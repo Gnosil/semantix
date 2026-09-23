@@ -67,7 +67,7 @@ export default function FinaleInfo() {
             <h2 className={labelClass}>
               Explore / 项目
             </h2>
-            <ul className="mt-6 grid grid-cols-2 gap-x-10 gap-y-3">
+            <ul className="mt-6 space-y-3">
               {projectLinks.map((link) => (
                 <li key={link.href}>
                   <Link href={link.href} className={navLinkClass}>
@@ -92,7 +92,7 @@ export default function FinaleInfo() {
             <h2 className={labelClass}>
               Information / 信息
             </h2>
-            <ul className="mt-6 grid grid-cols-2 gap-x-10 gap-y-3">
+            <ul className="mt-6 space-y-3">
               {legalLinks.map((link) => (
                 <li key={link.href}>
                   <Link href={link.href} className={navLinkClass}>
