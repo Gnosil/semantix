@@ -61,10 +61,10 @@ jobs:
       - name: Check out the source to build
         uses: actions/checkout@v4
         with:
-          # push(tag) → the tag's commit. workflow_dispatch → main's HEAD (the
-          # publish step creates the tag at main), so a manual run always builds
-          # current main, regardless of which branch's workflow file triggered it.
-          ref: ${{ github.event_name == 'push' && github.ref || 'main' }}
+          # Build the ref that triggered us: a pushed desktop-v* tag's commit, or
+          # the branch a workflow_dispatch ran on. The publish step then creates
+          # the tag (if absent) at exactly that built commit.
+          ref: ${{ github.ref }}
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -219,7 +219,7 @@ jobs:
             --repo "${{ github.repository }}" \
             --title "Semantix Desktop $TAG" \
             --latest=false \
-            --target main \
+            --target "$GITHUB_SHA" \
             --notes "$NOTES" \
             dist/*
 
@@ -240,6 +240,6 @@ jobs:
             --repo "${{ github.repository }}" \
             --title "Semantix Desktop (latest)" \
             --latest=false \
-            --target main \
+            --target "$GITHUB_SHA" \
             --notes "指向最新桌面构建（$TAG）的滚动发布，供官网下载按钮使用稳定链接。历史版本见带 desktop-v 号的发布。" \
             dist/*
