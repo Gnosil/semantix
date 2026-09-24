@@ -12,8 +12,8 @@ var (
 	repoPattern   = regexp.MustCompile(`(?i)checkout\s+of\s+the\s+([a-z0-9_.-]+/[a-z0-9_.-]+)\s+repository`)
 	pathPattern   = regexp.MustCompile(`(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]+`)
 	symbolPattern = regexp.MustCompile(`\b[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+\b|\b_+[A-Za-z0-9_]+_+\b|\b[A-Za-z][A-Za-z0-9]*_[A-Za-z0-9_]+\b`)
-	errorPattern  = regexp.MustCompile(`(?i)\b[a-z][a-z0-9]*error\b|\b[A-Z]{2,}(?:[_-][A-Z0-9]+)+\b`)
-	testPattern   = regexp.MustCompile(`(?i)\btest[A-Za-z0-9_]*\b`)
+	errorPattern  = regexp.MustCompile(`\b(?i:[a-z][a-z0-9]*error)\b|\b[A-Z]{2,}(?:[_-][A-Z0-9]+)+\b`)
+	testPattern   = regexp.MustCompile(`\b(?:test_[A-Za-z0-9_]+|Test[A-Z][A-Za-z0-9_]*)\b`)
 	importPattern = regexp.MustCompile(`(?i)\bimports?\s+([a-z_][a-z0-9_.]*)|\bfrom\s+([a-z_][a-z0-9_.]*)\s+import\b`)
 	urlPattern    = regexp.MustCompile(`(?i)https?://\S+`)
 )
@@ -46,10 +46,7 @@ var retrievalStopwords = map[string]struct{}{
 // and QueryCoverage consume the same tokenizer, so punctuation loss cannot
 // change the lexical evidence while boilerplate cannot dominate it.
 func cleanRetrievalQuery(raw string) string {
-	query := stripTaggedBlock(raw, "execution-policy")
-	if issue, ok := taggedBody(query, "issue"); ok {
-		query = issue
-	}
+	query := urlPattern.ReplaceAllString(retrievalTaskBody(raw), " ")
 	tokens := bm25.Tokenize(query)
 	kept := tokens[:0]
 	for _, token := range tokens {
@@ -64,11 +61,7 @@ func cleanRetrievalQuery(raw string) string {
 // no such field exists it preserves the P0 lexical cleaning behavior rather
 // than pretending a generic sentence is structured evidence.
 func buildRetrievalQuery(raw string) RetrievalQuery {
-	body := stripTaggedBlock(raw, "execution-policy")
-	issue, hasIssue := taggedBody(body, "issue")
-	if hasIssue {
-		body = issue
-	}
+	body := retrievalTaskBody(raw)
 	signalBody := urlPattern.ReplaceAllString(body, " ")
 	q := RetrievalQuery{Intent: firstNonEmptyLine(body), Repo: firstCapture(repoPattern, raw)}
 	q.Paths = collectPaths(signalBody, q.Repo)
@@ -94,11 +87,9 @@ func buildRetrievalQuery(raw string) RetrievalQuery {
 		return q
 	}
 
-	values := []string{q.Intent}
-	if !hasIssue {
-		// Plain tasks have no issue-title boundary; later prose is task evidence too.
-		values[0] = signalBody
-	}
+	// A title plus symbols loses requirements expressed only in later prose.
+	// Preserve the task body in every supported representation, not the wrapper.
+	values := []string{signalBody}
 	values = append(values, q.Paths...)
 	values = append(values, q.Symbols...)
 	values = append(values, q.ErrorCodes...)
@@ -107,6 +98,32 @@ func buildRetrievalQuery(raw string) RetrievalQuery {
 	q.Text = joinRetrievalTokens(values...)
 	q.Strategy = "structured"
 	return q
+}
+
+// retrievalTaskBody recognizes only explicit task boundaries and known runner
+// framing. Ordinary headings inside a task (Expected, Actual, Requirements)
+// are task evidence, not generic delimiters.
+func retrievalTaskBody(raw string) string {
+	body := strings.TrimSpace(stripTaggedBlock(strings.ReplaceAll(raw, "\r\n", "\n"), "execution-policy"))
+	if issue, ok := taggedBody(body, "issue"); ok {
+		return strings.TrimSpace(issue)
+	}
+	const testbedPrefix = "Fix the following issue in /testbed. The matching Python environment and dependencies are preinstalled at /opt/miniconda3/envs/testbed; use that Python and the existing tests.\n\n"
+	if task, ok := strings.CutPrefix(body, testbedPrefix); ok {
+		return strings.TrimSpace(task)
+	}
+	if strings.HasPrefix(body, "You are working in a git checkout of the ") {
+		if _, task, ok := strings.Cut(body, "\n\nIssue:\n"); ok {
+			// This exact suffix is the runner's instruction, not an arbitrary
+			// Requirements heading that may belong to the issue itself.
+			task, _, _ = strings.Cut(task, "\n\nRequirements:\n- Find the root cause and implement a complete fix")
+			return strings.TrimSpace(task)
+		}
+	}
+	if task, ok := strings.CutPrefix(body, "Issue:\n"); ok {
+		return strings.TrimSpace(task)
+	}
+	return body
 }
 
 func firstNonEmptyLine(text string) string {
