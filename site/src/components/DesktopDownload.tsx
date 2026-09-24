@@ -19,7 +19,6 @@ const REPO = "https://github.com/Gnosil/semantix";
 const LATEST = `${REPO}/releases/download/desktop-latest`;
 
 const MAC_DMG = `${LATEST}/Semantix-darwin-universal.dmg`;
-const WIN_EXE = `${LATEST}/Semantix-windows-amd64-installer.exe`;
 const WIN_ZIP = `${LATEST}/Semantix-windows-amd64.zip`;
 const SOURCE = `${REPO}/blob/main/desktop/README.md`;
 const ALL_RELEASES = `${REPO}/releases`;
@@ -79,10 +78,8 @@ export default function DesktopDownload() {
             <DownloadCard
               primary={os === "win"}
               platform="Windows"
-              note="Windows 10/11 · 安装器 .exe"
-              href={WIN_EXE}
-              secondaryHref={WIN_ZIP}
-              secondaryLabel="或下载免安装 .zip"
+              note="Windows 10/11 · 免安装 .zip"
+              href={WIN_ZIP}
             />
           </div>
         </Reveal>

@@ -147,23 +147,17 @@ jobs:
           fi
           shasum -a 256 "$OUT"
 
-      - name: Install NSIS (Windows installer toolchain)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          # wails build -nsis needs makensis; it is not on the windows runner by
-          # default (it only warns "makensis not found" and skips the installer).
-          choco install nsis -y --no-progress
-          "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
-      - name: Build Windows app + NSIS installer
+      - name: Build Windows app (portable)
         if: runner.os == 'Windows'
         working-directory: desktop
         shell: bash
         run: |
           set -euo pipefail
-          command -v makensis >/dev/null || { echo "::error::makensis not on PATH"; exit 1; }
-          wails build -clean -platform windows/amd64 -nsis \
+          # Portable .exe only for this unsigned beta. The NSIS installer
+          # (project.nsi) bundles a signed layout activator (semantix-guard.exe)
+          # plus the update-helper/cli binaries — a separate signed-distribution
+          # effort — so `-nsis` is intentionally omitted here.
+          wails build -clean -platform windows/amd64 \
             -ldflags "-X main.version=${{ steps.ver.outputs.tag }} -X main.channel=stable"
           ls -R build/bin
 
@@ -173,17 +167,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # NSIS output is <outputfilename>-<arch>-installer.exe; rename to the
-          # updater's contract name. Glob so a wails naming tweak doesn't break us.
-          installer="$(ls build/bin/*installer.exe 2>/dev/null | head -1 || true)"
-          test -n "$installer" || { echo "::error::NSIS installer missing (makensis not found?)"; ls -R build/bin; exit 1; }
-          cp "$installer" "Semantix-windows-amd64-installer.exe"
           # Portable download: zip the raw app exe (the updater's downloads-group
           # Semantix-windows-amd64.zip).
-          portable="$(ls build/bin/*.exe 2>/dev/null | grep -v installer | head -1 || true)"
+          portable="$(ls build/bin/*.exe 2>/dev/null | head -1 || true)"
           test -n "$portable" || { echo "::error::app exe missing in build/bin"; ls -R build/bin; exit 1; }
           7z a "Semantix-windows-amd64.zip" "$portable"
-          certutil -hashfile "Semantix-windows-amd64-installer.exe" SHA256 || true
+          certutil -hashfile "Semantix-windows-amd64.zip" SHA256 || true
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -192,7 +181,6 @@ jobs:
           if-no-files-found: ignore
           path: |
             desktop/Semantix-darwin-universal.dmg
-            desktop/Semantix-windows-amd64-installer.exe
             desktop/Semantix-windows-amd64.zip
 
   publish:
@@ -218,11 +206,11 @@ jobs:
 
             ## 下载
             - **macOS**（Intel + Apple Silicon 通用）：`Semantix-darwin-universal.dmg`
-            - **Windows 10/11**（x64）：`Semantix-windows-amd64-installer.exe`（安装器）或 `Semantix-windows-amd64.zip`（免安装）
+            - **Windows 10/11**（x64）：`Semantix-windows-amd64.zip`（免安装，解压双击即用）
 
             ## 首次打开
             - **macOS**：未签名/未公证，首次打开被 Gatekeeper 拦时右键 App →「打开」，或终端 `xattr -cr /Applications/Semantix.app`。
-            - **Windows**：SmartScreen 提示时点「更多信息 → 仍要运行」。
+            - **Windows**：解压后双击 `semantix-desktop.exe`；SmartScreen 提示时点「更多信息 → 仍要运行」。（带安装器的版本随后补。）
 
             配置 API key：桌面端读取全局 `.env`，可用 `semantix-agent setup` 向导配置。
         run: |
