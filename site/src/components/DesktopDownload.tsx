@@ -152,7 +152,10 @@ function DownloadCard({
   return (
     <div
       className={cn(
-        "flex flex-col justify-between gap-6 border p-6 transition-colors md:p-7",
+        // No justify-between: the buttons top-align right after the equal-height
+        // title rows, so both cards' primary actions sit on one baseline; the
+        // Windows zip link extends below without pushing its button up.
+        "flex flex-col gap-6 border p-6 transition-colors md:p-7",
         primary
           ? "border-[#68d0a0] bg-[#68d0a0]/[0.08]"
           : "border-[#f8f8f4]/14 bg-[#f8f8f4]/[0.03] hover:border-[#f8f8f4]/28",
