@@ -1,0 +1,240 @@
+name: Desktop Release
+
+# Cut a desktop app release by pushing a `desktop-v*` tag (e.g. desktop-v1.0.0).
+#
+# The desktop shell is a Wails v2 app (desktop/) that must be built on each
+# target's native runner — CGO + the platform webview (WebKit on macOS, WebView2
+# on Windows) rule out cross-compiling from Linux. This workflow builds macOS
+# (universal) and Windows (amd64), packages installers, and publishes them to a
+# GitHub Release under the tag.
+#
+# Asset names follow the in-app updater's contract (desktop/updater.go
+# `requiredDesktopDownloadAssets`): the human-download group expects exactly
+# `Semantix-darwin-universal.dmg` and `Semantix-windows-amd64.zip`, and the
+# Windows installer matches the updater's `Semantix-windows-amd64-installer.exe`.
+# Keeping the names now means auto-update (latest.json) can be wired later
+# without re-cutting assets.
+#
+# NOTE — macOS builds are UNSIGNED / un-notarized (beta). First launch needs
+# right-click -> Open, or `xattr -cr /Applications/Semantix.app`. In-app
+# self-update stays disabled for unsigned macOS (see updater_mac.go); the .dmg is
+# a manual download. Add Developer ID signing + notarization later via secrets.
+#
+# Releases are published with `--latest=false` so the repository-wide "latest"
+# release stays on the CLI stream (`v*`) that the `curl | sh` installer and the
+# website's `releases/latest` link depend on. Each run also refreshes a rolling
+# `desktop-latest` release whose fixed asset URLs the (statically exported)
+# website hard-links, so download buttons stay valid without a GitHub API lookup.
+
+on:
+  push:
+    tags:
+      - 'desktop-v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing desktop tag to build and publish (e.g. desktop-v1.0.0).'
+        required: true
+
+permissions:
+  contents: write # create the release and upload assets
+
+env:
+  WAILS_VERSION: v2.13.0 # keep in sync with desktop/go.mod (github.com/wailsapp/wails/v2)
+  NODE_VERSION: '24'
+
+jobs:
+  build:
+    name: Build ${{ matrix.label }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            label: macOS (universal)
+            platform: darwin/universal
+          - os: windows-latest
+            label: Windows (amd64)
+            platform: windows/amd64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out the tagged commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: desktop/go.mod
+          cache: true
+          cache-dependency-path: desktop/go.sum
+
+      - name: Set up Node + corepack (pnpm)
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install the Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@${{ env.WAILS_VERSION }}
+
+      - name: Resolve version from tag
+        id: ver
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          case "$TAG" in
+            desktop-v*) : ;;
+            *) echo "::error::tag '$TAG' must start with desktop-v"; exit 1 ;;
+          esac
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "ver=${TAG#desktop-v}" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp product version into wails.json
+        working-directory: desktop
+        shell: bash
+        run: |
+          set -euo pipefail
+          # NSIS reads INFO_PRODUCTVERSION and macOS Info.plist its version keys
+          # from wails.json info.productVersion; ldflags stamps the runtime var.
+          node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync('wails.json','utf8'));j.info=j.info||{};j.info.productVersion='${{ steps.ver.outputs.ver }}';fs.writeFileSync('wails.json',JSON.stringify(j,null,2)+'\n')"
+          node -e "console.log('productVersion =',require('./wails.json').info.productVersion)"
+
+      - name: Build macOS app (universal, unsigned)
+        if: runner.os == 'macOS'
+        working-directory: desktop
+        run: |
+          set -euo pipefail
+          wails build -clean -platform darwin/universal \
+            -ldflags "-X main.version=${{ steps.ver.outputs.tag }} -X main.channel=stable"
+
+      - name: Package .dmg (unsigned)
+        if: runner.os == 'macOS'
+        working-directory: desktop
+        run: |
+          set -euo pipefail
+          OUT="Semantix-darwin-universal.dmg"
+          # Wails names the .app after productName or outputfilename depending on
+          # version — glob it and use its real basename rather than assuming.
+          APP="$(ls -d build/bin/*.app 2>/dev/null | head -1 || true)"
+          test -n "$APP" && test -d "$APP" || { echo "::error::no .app in build/bin"; ls -R build/bin || true; exit 1; }
+          APP_NAME="$(basename "$APP")"
+          # Stage a clean folder so the DMG shows just the app + Applications link.
+          STAGE="$(mktemp -d)"
+          cp -R "$APP" "$STAGE/"
+          # Best-effort a styled DMG; fall back to a plain compressed image so a
+          # missing create-dmg (or a headless quirk) never fails the release.
+          brew install create-dmg || true
+          if command -v create-dmg >/dev/null 2>&1; then
+            create-dmg \
+              --volname "Semantix" \
+              --window-size 540 380 \
+              --icon-size 100 \
+              --icon "$APP_NAME" 150 190 \
+              --app-drop-link 390 190 \
+              --no-internet-enable \
+              "$OUT" "$STAGE" \
+            || hdiutil create -volname "Semantix" -srcfolder "$STAGE" -ov -format UDZO "$OUT"
+          else
+            hdiutil create -volname "Semantix" -srcfolder "$STAGE" -ov -format UDZO "$OUT"
+          fi
+          shasum -a 256 "$OUT"
+
+      - name: Build Windows app + NSIS installer
+        if: runner.os == 'Windows'
+        working-directory: desktop
+        shell: bash
+        run: |
+          set -euo pipefail
+          wails build -clean -platform windows/amd64 -nsis \
+            -ldflags "-X main.version=${{ steps.ver.outputs.tag }} -X main.channel=stable"
+          ls -R build/bin
+
+      - name: Package Windows assets
+        if: runner.os == 'Windows'
+        working-directory: desktop
+        shell: bash
+        run: |
+          set -euo pipefail
+          # NSIS output is <outputfilename>-<arch>-installer.exe; rename to the
+          # updater's contract name. Glob so a wails naming tweak doesn't break us.
+          installer="$(ls build/bin/*installer.exe | head -1)"
+          cp "$installer" "Semantix-windows-amd64-installer.exe"
+          # Portable download: zip the raw app exe (the updater's downloads-group
+          # Semantix-windows-amd64.zip).
+          portable="$(ls build/bin/*.exe | grep -v installer | head -1)"
+          7z a "Semantix-windows-amd64.zip" "$portable"
+          certutil -hashfile "Semantix-windows-amd64-installer.exe" SHA256 || true
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ runner.os }}
+          if-no-files-found: ignore
+          path: |
+            desktop/Semantix-darwin-universal.dmg
+            desktop/Semantix-windows-amd64-installer.exe
+            desktop/Semantix-windows-amd64.zip
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List assets
+        run: ls -R dist
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+          NOTES: |
+            Semantix 桌面版（Wails）· 无签名 beta 构建。
+
+            ## 下载
+            - **macOS**（Intel + Apple Silicon 通用）：`Semantix-darwin-universal.dmg`
+            - **Windows 10/11**（x64）：`Semantix-windows-amd64-installer.exe`（安装器）或 `Semantix-windows-amd64.zip`（免安装）
+
+            ## 首次打开
+            - **macOS**：未签名/未公证，首次打开被 Gatekeeper 拦时右键 App →「打开」，或终端 `xattr -cr /Applications/Semantix.app`。
+            - **Windows**：SmartScreen 提示时点「更多信息 → 仍要运行」。
+
+            配置 API key：桌面端读取全局 `.env`，可用 `semantix-agent setup` 向导配置。
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" \
+            --repo "${{ github.repository }}" \
+            --title "Semantix Desktop $TAG" \
+            --latest=false \
+            --notes "$NOTES" \
+            dist/*
+
+      - name: Update the rolling desktop-latest release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          # `desktop-latest` is a fixed tag whose assets are replaced on every
+          # desktop release, so the website can hard-link stable download URLs
+          # (releases/download/desktop-latest/Semantix-*) without a GitHub API
+          # lookup — the site is a static export. It is published with
+          # --latest=false so it never steals the repo-wide "latest" badge from
+          # the CLI `v*` stream that `curl | sh` and the site's install link use.
+          gh release delete desktop-latest --repo "${{ github.repository }}" --yes --cleanup-tag || true
+          gh release create desktop-latest \
+            --repo "${{ github.repository }}" \
+            --title "Semantix Desktop (latest)" \
+            --latest=false \
+            --notes "指向最新桌面构建（$TAG）的滚动发布，供官网下载按钮使用稳定链接。历史版本见带 desktop-v 号的发布。" \
+            dist/*
