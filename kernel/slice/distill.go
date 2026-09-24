@@ -31,6 +31,7 @@ func Distill(sessionJSONL []byte, meta SliceMeta) ([]*Slice, error) {
 	if err != nil {
 		return nil, err
 	}
+	doc.userText = TaskBody(doc.userText)
 	if meta.TaskType == "" {
 		meta.TaskType = ClassifyTask(doc.userText)
 	}
@@ -411,13 +412,9 @@ func outcomeSlice(doc *distillDoc, meta SliceMeta) *Slice {
 	return observedSlice(Memory, Project, []byte(strings.TrimSpace(b.String())), meta)
 }
 
-// summarizeTask condenses the first user message to one bounded line. Task
-// templates bury the distinguishing text behind a preamble, so an "Issue:"
-// section wins over the head of the message; leading tag lines are skipped.
+// summarizeTask condenses the projected task (not host framing) to one bounded
+// line. The full task remains intact for classification and lexical retrieval.
 func summarizeTask(text string) string {
-	if i := strings.Index(text, "Issue:"); i >= 0 {
-		text = text[i+len("Issue:"):]
-	}
 	for _, line := range strings.Split(text, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "<") {

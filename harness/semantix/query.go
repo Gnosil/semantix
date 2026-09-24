@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"semantix/kernel/bm25"
+	"semantix/kernel/slice"
 )
 
 var (
@@ -46,7 +47,7 @@ var retrievalStopwords = map[string]struct{}{
 // and QueryCoverage consume the same tokenizer, so punctuation loss cannot
 // change the lexical evidence while boilerplate cannot dominate it.
 func cleanRetrievalQuery(raw string) string {
-	query := urlPattern.ReplaceAllString(retrievalTaskBody(raw), " ")
+	query := urlPattern.ReplaceAllString(slice.TaskBody(raw), " ")
 	tokens := bm25.Tokenize(query)
 	kept := tokens[:0]
 	for _, token := range tokens {
@@ -61,7 +62,7 @@ func cleanRetrievalQuery(raw string) string {
 // no such field exists it preserves the P0 lexical cleaning behavior rather
 // than pretending a generic sentence is structured evidence.
 func buildRetrievalQuery(raw string) RetrievalQuery {
-	body := retrievalTaskBody(raw)
+	body := slice.TaskBody(raw)
 	signalBody := urlPattern.ReplaceAllString(body, " ")
 	q := RetrievalQuery{Intent: firstNonEmptyLine(body), Repo: firstCapture(repoPattern, raw)}
 	q.Paths = collectPaths(signalBody, q.Repo)
@@ -98,32 +99,6 @@ func buildRetrievalQuery(raw string) RetrievalQuery {
 	q.Text = joinRetrievalTokens(values...)
 	q.Strategy = "structured"
 	return q
-}
-
-// retrievalTaskBody recognizes only explicit task boundaries and known runner
-// framing. Ordinary headings inside a task (Expected, Actual, Requirements)
-// are task evidence, not generic delimiters.
-func retrievalTaskBody(raw string) string {
-	body := strings.TrimSpace(stripTaggedBlock(strings.ReplaceAll(raw, "\r\n", "\n"), "execution-policy"))
-	if issue, ok := taggedBody(body, "issue"); ok {
-		return strings.TrimSpace(issue)
-	}
-	const testbedPrefix = "Fix the following issue in /testbed. The matching Python environment and dependencies are preinstalled at /opt/miniconda3/envs/testbed; use that Python and the existing tests.\n\n"
-	if task, ok := strings.CutPrefix(body, testbedPrefix); ok {
-		return strings.TrimSpace(task)
-	}
-	if strings.HasPrefix(body, "You are working in a git checkout of the ") {
-		if _, task, ok := strings.Cut(body, "\n\nIssue:\n"); ok {
-			// This exact suffix is the runner's instruction, not an arbitrary
-			// Requirements heading that may belong to the issue itself.
-			task, _, _ = strings.Cut(task, "\n\nRequirements:\n- Find the root cause and implement a complete fix")
-			return strings.TrimSpace(task)
-		}
-	}
-	if task, ok := strings.CutPrefix(body, "Issue:\n"); ok {
-		return strings.TrimSpace(task)
-	}
-	return body
 }
 
 func firstNonEmptyLine(text string) string {
@@ -223,40 +198,4 @@ func joinRetrievalTokens(values ...string) string {
 		}
 	}
 	return strings.Join(tokens, " ")
-}
-
-func stripTaggedBlock(text, tag string) string {
-	for {
-		lower := strings.ToLower(text)
-		start := strings.Index(lower, "<"+tag)
-		if start < 0 {
-			return text
-		}
-		openEndRel := strings.Index(lower[start:], ">")
-		if openEndRel < 0 {
-			return text[:start]
-		}
-		closeStartRel := strings.Index(lower[start+openEndRel+1:], "</"+tag+">")
-		if closeStartRel < 0 {
-			return text[:start]
-		}
-		end := start + openEndRel + 1 + closeStartRel + len(tag) + 3
-		text = text[:start] + " " + text[end:]
-	}
-}
-
-func taggedBody(text, tag string) (string, bool) {
-	lower := strings.ToLower(text)
-	open := "<" + tag + ">"
-	close := "</" + tag + ">"
-	start := strings.Index(lower, open)
-	if start < 0 {
-		return "", false
-	}
-	start += len(open)
-	endRel := strings.Index(lower[start:], close)
-	if endRel < 0 {
-		return "", false
-	}
-	return text[start : start+endRel], true
 }
