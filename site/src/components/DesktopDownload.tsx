@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Download, Info, Terminal } from "lucide-react";
 import Reveal from "@/components/Reveal";
 import { cn } from "@/lib/utils";
@@ -34,11 +34,21 @@ function detectOS(): OS {
   return "other";
 }
 
+// The visitor's OS is a read-only, client-only value (navigator is absent during
+// the static export / SSR). useSyncExternalStore reads it without a setState in
+// an effect: the server snapshot is "other" (no highlight in the baked HTML),
+// and the client snapshot is the detected OS after hydration. subscribe never
+// fires because the value cannot change within a session.
+const noopSubscribe = () => () => {};
+
+function useDetectedOS(): OS {
+  return useSyncExternalStore<OS>(noopSubscribe, detectOS, () => "other");
+}
+
 export default function DesktopDownload() {
-  // Server render (and first paint) shows every platform equally; once hydrated
+  // First paint (and the static HTML) shows every platform equally; once hydrated
   // we highlight the visitor's OS as the primary button.
-  const [os, setOs] = useState<OS>("other");
-  useEffect(() => setOs(detectOS()), []);
+  const os = useDetectedOS();
 
   return (
     <section
