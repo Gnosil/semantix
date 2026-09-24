@@ -35,8 +35,8 @@ vet / test ./...` skip this directory, while the import path stays under
 
 - Go (matches the parent module).
 - Node 24+ and **pnpm 10** (`npm install -g pnpm@10`).
-- Wails CLI matching the library: run `make wails-install` from the repository
-  root. The target reads the shared `.wails-version` pin.
+- Wails CLI matching the library (`v2.13.0`, see `desktop/go.mod`):
+  `go install github.com/wailsapp/wails/v2/cmd/wails@v2.13.0`.
 - Platform webview libs: macOS ships WebKit; Windows needs the Edge **WebView2**
   runtime; Linux needs `libgtk-3-dev` plus WebKitGTK. The default build links
   against **WebKitGTK 4.0**; distros that only ship **4.1** (Fedora 40+, Ubuntu
