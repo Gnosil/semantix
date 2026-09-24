@@ -173,7 +173,7 @@ func contextSlice(lines []transcriptLine, meta SliceMeta) *Slice {
 	writeContextSection(&b, "Frequent paths:", pathTop)
 	writeContextSection(&b, "Frequent directories:", dirTop)
 	writeContextSection(&b, "Common command heads:", commandTop)
-	return newSlice(Context, Project, []byte(strings.TrimSpace(b.String())), meta)
+	return observedSlice(Context, Project, []byte(strings.TrimSpace(b.String())), meta)
 }
 
 func decodeToolArgs(raw json.RawMessage) any {
@@ -514,7 +514,17 @@ func compressionMeta(meta SliceMeta, original string, stored []byte) SliceMeta {
 	return meta
 }
 
+// observedSlice is used only for bounded tool-observation templates. Retain
+// source revision/fingerprints; the quote does not assert current applicability.
+func observedSlice(t SliceType, sc Scope, content []byte, meta SliceMeta) *Slice {
+	s := newSlice(t, sc, content, meta)
+	s.Meta.Historical = true
+	return s
+}
+
 func newSlice(t SliceType, sc Scope, content []byte, meta SliceMeta) *Slice {
+	// Caller metadata cannot promote an arbitrary Prompt/Result into history.
+	meta.Historical = false
 	// Write-side sanitization (Issue #278, Security §3.1): every slice
 	// extracted from a session passes the deterministic pipeline — escape
 	// stripping, injection-feature removal, sensitive redaction — before

@@ -472,6 +472,9 @@ func formatSliceItem(sl *slice.Slice, score float64, content string, grey bool) 
 		"type=%s project=%q source=%q commit=%q origin=%s verified=%s score=%.4f created_at=%d\n",
 		sl.Type.String(), sl.Meta.ProjectSlug, sl.Meta.SourceSession, sl.Meta.BaseCommit, sl.Meta.Origin, verified, score, sl.CreatedAt,
 	)
+	if sl.IsHistoricalObservation() {
+		provenance += "applicability=historical_observation; revalidate_before_use\n"
+	}
 	return header + provenance + content + "\n"
 }
 
@@ -495,6 +498,17 @@ func (in *Injector) freshnessReason(sl *slice.Slice) string {
 	}
 	if sl.Meta.BaseCommit == "" {
 		return "commit_unknown"
+	}
+	// A source-revision observation is not an executable/current snapshot.
+	// Keep source Deps untouched and validate syntax, but never read paths
+	// merely to prove that a historical tool call once happened.
+	if sl.IsHistoricalObservation() {
+		for path := range sl.Meta.Deps {
+			if !filepath.IsLocal(path) {
+				return "dependency_path_invalid"
+			}
+		}
+		return ""
 	}
 	if sl.Meta.BaseCommit != in.CurrentCommit && len(sl.Meta.Deps) == 0 {
 		return "stale_commit"

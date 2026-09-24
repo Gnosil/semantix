@@ -177,8 +177,14 @@ type SliceMeta struct {
 	// without mixing non-LLM work into the model usage ledger.
 	OriginalBytes int `json:"original_bytes,omitempty"`
 	StoredBytes   int `json:"stored_bytes,omitempty"`
-	// Deps captures the dependency fingerprint at slice time (path -> sha256,
-	// Issue #8): reuse is gated on these files not having changed.
+	// Historical is set only by deterministic observation-card producers, not
+	// by arbitrary transcript summaries. L2 may quote what happened at the
+	// recorded source revision; it must not present that as a current fact.
+	// Missing/legacy values retain snapshot validity. L3 never consults it.
+	Historical bool `json:"historical,omitempty"`
+	// Deps captures source-session file fingerprints. Snapshot claims require
+	// unchanged files; historical observations retain them as source evidence,
+	// not as a claim that every source-session file is needed to read the card.
 	Deps fingerprint.Deps `json:"deps,omitempty"`
 	// Mtimes captures file modification times at slice time (path -> unix
 	// seconds, U16): cheap fast-fail check before the sha256 re-read.
@@ -211,6 +217,15 @@ type SliceMeta struct {
 	ResultStatus               ResultStatus `json:"result_status,omitempty"`
 	ResultVerifiedBy           string       `json:"result_verified_by,omitempty"`
 	ResultVerificationEvidence string       `json:"result_verification_evidence,omitempty"`
+}
+
+// IsHistoricalObservation separates producer-stamped, attributed observations
+// from arbitrary Context/Memory text and Result claims. A type name alone never
+// relaxes snapshot validity. Stored imports cannot promote their own trust.
+func (s *Slice) IsHistoricalObservation() bool {
+	return s != nil && s.Meta.Historical && (s.Type == Context || s.Type == Memory) &&
+		s.Meta.Origin.Level() >= OriginSessionAuto.Level() &&
+		s.Meta.SourceSession != "" && s.Meta.BaseCommit != ""
 }
 
 // EffectiveResultStatus fails closed for legacy, empty, and unknown values.

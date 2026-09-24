@@ -218,7 +218,7 @@ func repoOpsSlice(doc *distillDoc, meta SliceMeta) *Slice {
 			fmt.Fprintf(&b, "- %s (seen %d)\n", p, pitfalls[p])
 		}
 	}
-	return newSlice(Context, Project, []byte(strings.TrimSpace(b.String())), meta)
+	return observedSlice(Context, Project, []byte(strings.TrimSpace(b.String())), meta)
 }
 
 // normalizeCommand strips the leading repo-position noise (`cd <dir> && `)
@@ -368,7 +368,7 @@ func planSkeletonSlice(doc *distillDoc, meta SliceMeta) *Slice {
 		parts = append(parts, "…")
 	}
 	content := fmt.Sprintf("Plan skeleton (task=%s):\n%s", meta.TaskType, strings.Join(parts, " → "))
-	return newSlice(Memory, Project, []byte(content), meta)
+	return observedSlice(Memory, Project, []byte(content), meta)
 }
 
 // --- outcome card (layer D) ------------------------------------------------
@@ -408,7 +408,7 @@ func outcomeSlice(doc *distillDoc, meta SliceMeta) *Slice {
 	if doc.verifiedBy != "" {
 		fmt.Fprintf(&b, "Verified-by: %s\n", doc.verifiedBy)
 	}
-	return newSlice(Memory, Project, []byte(strings.TrimSpace(b.String())), meta)
+	return observedSlice(Memory, Project, []byte(strings.TrimSpace(b.String())), meta)
 }
 
 // summarizeTask condenses the first user message to one bounded line. Task
