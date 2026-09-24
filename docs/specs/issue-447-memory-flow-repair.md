@@ -230,3 +230,24 @@ Agent 原始任务 → Bridge query → Project BM25 → Injector 资格/准入
 本批已经完成定向 RED/GREEN、相关 Kernel/Bridge/Agent 的 Linux race、boot 生命周期及 vet，以及独立 Git 副本的修复通过→恢复原字节→观察测试重现失败。Windows 全包历史失败仍保留在本地证据中，不表述为全平台全量通过。回退脚本最初遇到 Git Bash `/tmp` 与 `/c` 的同目录别名，未写文件即退出；改用原生目录身份比对后完成回退，仍只接受指定独立副本。
 
 源码和测试仍保留修复；本地提交未自动 push、合并或发布。**这只是 S0–S5 的完成，不是第9.5节适用性/交付契约工作的完成，更不是实际模型收益证明。** `task_mismatch`、版本/依赖误拒及组装统计的语义问题继续单独处理，不用这批正例掩盖剩余断点。
+
+### 9.8 旧库、重提取与仍可能零注入的运行条件
+
+本批没有原地迁移旧库。一个只含 Prompt/ToolPattern、缺真实来源或缺版本信息的库，应用 S2 后仍可能全部被现有类型/来源/freshness 条件拒绝。将旧卡直接改成 Context、补造 session/origin 或把历史 revision 改成当前 HEAD，并不是合法的供给修复。
+
+有原始 Harness 会话镜像时，可以在**单独输出库**离线重新提取；命令中的值来自该会话的真实记录，不从当前任务猜测。下列是 `cmd/semantix/extract.go` 已有 CLI 参数的使用方式，hash embedder 不调用远端模型：
+
+```sh
+semantix extract --input "$SESSION_JSONL" \
+  --db "$REPLAY_DB" --scope project \
+  --session "$SOURCE_SESSION" --project "$SOURCE_PROJECT" \
+  --base-commit "$SOURCE_REVISION" --origin session-auto \
+  --embedder hash --distill --consolidate
+```
+
+- `REPLAY_DB` 指向新建的离线检查目录，原库不覆盖；`session-auto` 仅对应实际自动生成的 Harness 镜像，外部导入材料不靠改标签取得该身份。
+- 只有恢复了对应来源工作区、且掌握真实相关文件路径时，才从该来源工作区运行并追加 `--fingerprint "$SOURCE_RELATIVE_PATHS"`。现有 CLI 把这一组 Deps 赋给所有产物，仍不是逐卡归属。没有原始证据时保持未知。
+- 不传 `--l3-safe`；重提取不授予直接答案复用能力。先查看真实产物类型、来源、验证状态及拒因，再决定使用；四层 flags 不保证任意短会话都产生可用知识。
+- 当前 Harness 仍要求 revision 已知；无 Deps 的卡在来源 commit 不同于当前 commit 时得到 `stale_commit`。**因此下一次提交后，依赖为空的旧卡仍可能全部退出候选。** 这正是9.5待处理的适用性契约，不用一个任意“允许最近 N 次提交”的新阈值掩盖它。
+
+上述命令是离线重提取配方，不是已执行的用户真实库迁移；本批未改历史实验、用户库或原始轨迹。
