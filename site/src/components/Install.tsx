@@ -39,7 +39,7 @@ export default function Install() {
   return (
     <section
       id="start"
-      className="install-scroll-handoff border-x-[10px] border-t-[10px] border-[#168b6d] bg-[#f8f8f4] md:border-x-[18px] md:border-t-[18px]"
+      className="install-scroll-handoff border-x-[10px] border-t-[10px] border-[#168b6d] bg-[var(--finale-paper)] md:border-x-[18px] md:border-t-[18px]"
     >
       <div className="install-scroll-content mx-auto max-w-[1600px] px-5 py-16 md:px-10 md:py-20 lg:px-12 lg:py-24">
         <Reveal>
@@ -136,30 +136,6 @@ export default function Install() {
               参与贡献 <span aria-hidden="true">→</span>
             </a>
           </nav>
-        </Reveal>
-
-        <Reveal delay={300}>
-          <div className="mt-12 flex flex-col gap-4 border-t border-[#101313]/18 pt-6 text-xs text-[#596269] lg:flex-row lg:items-center lg:justify-between">
-            <p className="font-mono uppercase tracking-[0.12em]">© 2026 MIT License / Semantix</p>
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="text-[#101313]/55">维护者</span>
-              {["Gnosil", "radianceded", "Allenllii", "jh10724-dotcom"].map(
-                (name) => (
-                  <a
-                    key={name}
-                    href={`https://github.com/${name}`}
-                    target="_blank"
-                    rel="noopener"
-                    className="border-b border-transparent text-[#168b6d] transition-colors hover:border-[#168b6d]"
-                  >
-                    {name}
-                  </a>
-                ),
-              )}
-              <span className="text-[#101313]/25">/</span>
-              <span>技术作者 Gnosil</span>
-            </p>
-          </div>
         </Reveal>
       </div>
     </section>
