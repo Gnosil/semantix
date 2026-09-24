@@ -160,8 +160,8 @@ Agent 原始任务 → Bridge query → Project BM25 → Injector 资格/准入
 
 文件：`harness/semantix/bridge.go`、`harness/semantix/bridge_close_test.go`。
 
-- [ ] 先验证关闭后调用 `InjectDetailed` 的回归在原代码失败；再以同一 closing 锁登记读取，复用 `statsWG`；保持 store.Close 先于 WG.Done。
-- [ ] 检查已开始读取能够退出、关闭后不重开库；实际 Agent/provider 用例重复运行验证清理。不宣称阻断所有其它 Bridge API 或 join 整个异步任务。
+- [x] 先验证关闭后调用 `InjectDetailed` 的回归在原代码失败；再以同一 closing 锁登记读取，复用 `statsWG`；保持 store.Close 先于 WG.Done。
+- [x] 检查已开始读取能够退出、关闭后不重开库；实际 Agent/provider 用例重复运行验证清理。不宣称阻断所有其它 Bridge API 或 join 整个异步任务。
 - 关键代码顺序：`Lock → closing? return → statsWG.Add(1) → Unlock → defer statsWG.Done → kernelIndex → defer closeSliceStore`。
 - 验收：`go test ./harness/semantix -run '^TestBridgeAdmissionAfterClose$' -count=1 -v`；Linux race 与实际 Agent 用例再检验。
 - Commit：`fix(memory): join injection reads before bridge shutdown`。
@@ -170,9 +170,9 @@ Agent 原始任务 → Bridge query → Project BM25 → Injector 资格/准入
 
 文件：`harness/semantix/bridge.go`、`admission_defaults_test.go`、`candidate_starvation_test.go`、`reuse_test.go`、`revision_sources_test.go`、`harness/agent/memory_flow_e2e_test.go`。
 
-- [ ] 原实现观察单例、单来源、无 runner-up、佐证同分、低 raw score、长查询误拒；无重叠负例保持无注入。
-- [ ] 删除六项 Bridge 设置及只为来源数量门槛存在的 helper；不修改 Kernel 显式可选参数。
-- [ ] 真实 transcript → 提取/提炼 → Store → Bridge → Agent → recordingProvider；同源 Result/outcome 近分仍可交付，off/shadow 请求保持无块，user-role/来源/精确预算保持。
+- [x] 原实现观察单例、单来源、无 runner-up、佐证同分、低 raw score、长查询误拒；无重叠负例保持无注入。
+- [x] 删除六项 Bridge 设置及只为来源数量门槛存在的 helper；不修改 Kernel 显式可选参数。
+- [x] 真实 transcript → 提取/提炼 → Store → Bridge → Agent → recordingProvider；同源 Result/outcome 近分仍可交付，off/shadow 请求保持无块，user-role/来源/精确预算保持。
 - 验收：`go test ./harness/semantix ./kernel/inject -count=1`；`go test ./harness/agent -run '^TestMemoryFlow(CorroboratingResultAndOutcomeToProvider|InvoiceHistoryToProvider)$' -count=3 -v`。
 - Commit：`fix(memory): remove uncalibrated default admission vetoes`。
 
@@ -180,9 +180,9 @@ Agent 原始任务 → Bridge query → Project BM25 → Injector 资格/准入
 
 文件：`harness/semantix/query.go`、`query_test.go`。修改所有 clean/build 入口共用的任务正文提取，不让两者规则分叉。
 
-- [ ] 先以实际 testbed 前缀加正文为回归，同时覆盖 `Issue:` 与 XML；正文带路径、Expected/Actual、多行描述，三个边界内的相同正文和无外壳输入生成相同检索投影。
-- [ ] 负例：包装的 runtime 路径及操作要求不变成 intent/path/error/test；正文中非边界的 `Issue:` 字样不被截断；保留无外壳的普通多行输入。
-- [ ] 仅识别已知完整 testbed 前缀、开头的 Issue 标签或明确 git-checkout 外壳；正文内部 Expected/Actual/Requirements 不作通用截断。XML 也保留完整正文词义，不再只留标题加提取字段；因此正文里的普通叙述仍可能参与 BM25，这是避免丢需求的明确取舍。error 正则大小写只作用于异常名分支；test 识别命名格式而非裸单词。沿现有 tokenizer，不另造 query 模型。
+- [x] 先以实际 testbed 前缀加正文为回归，同时覆盖 `Issue:` 与 XML；正文带路径、Expected/Actual、多行描述，三个边界内的相同正文和无外壳输入生成相同检索投影。
+- [x] 负例：包装的 runtime 路径及操作要求不变成 intent/path/error/test；正文中非边界的 `Issue:` 字样不被截断；保留无外壳的普通多行输入。
+- [x] 仅识别已知完整 testbed 前缀、开头的 Issue 标签或明确 git-checkout 外壳；正文内部 Expected/Actual/Requirements 不作通用截断。XML 也保留完整正文词义，不再只留标题加提取字段；因此正文里的普通叙述仍可能参与 BM25，这是避免丢需求的明确取舍。error 正则大小写只作用于异常名分支；test 识别命名格式而非裸单词。沿现有 tokenizer，不另造 query 模型。
 - 验收：`go test ./harness/semantix -run 'Test(Clean|Build)RetrievalQuery' -count=1 -v`，再跑整个 Bridge 包。
 - Commit：`fix(memory): separate issue content from runner query framing`。
 
@@ -190,18 +190,18 @@ Agent 原始任务 → Bridge query → Project BM25 → Injector 资格/准入
 
 文件：`harness/agent/agent.go`、`prefetch_feedback.go`、现有 prefetch 测试文件。
 
-- [ ] 在启动处捕获 `turn := a.semantixTurn.Load()`，与 input 一同传给异步结果；结果不再在完成时取得新 turn。
-- [ ] 旧 turn 结果不得覆盖当前 turn 的有效结果；延迟结果仍按原 turn 记废弃反馈。
-- [ ] channel/既有事件同步构造 A 发起 → B 开始 → A 完成，断言 B 请求没有 A 历史、新缓存不被旧缓存替换；保留原 prefetch 命中/浪费统计语义。
+- [x] 在启动处捕获 `turn := a.semantixTurn.Load()`，与 input 一同传给异步结果；结果不再在完成时取得新 turn。
+- [x] 旧 turn 结果不得覆盖当前 turn 的有效结果；延迟结果仍按原 turn 记废弃反馈。
+- [x] channel/既有事件同步构造 A 发起 → B 开始 → A 完成，断言 B 请求没有 A 历史、新缓存不被旧缓存替换；保留原 prefetch 命中/浪费统计语义。
 - 验收：`go test -race ./harness/agent -run 'Prefetch|InjectWarm|RetrievalInput' -count=1`，再跑全 Agent 包；不通过 sleep 或删除断言掩盖竞态。
 - Commit：`fix(agent): keep speculative memory within its originating turn`。
 
 #### S5 — 合并验证与独立回退
 
-- [ ] Linux 原生工具链执行 `go test -race ./harness/semantix ./kernel/... ./harness/agent -count=1`、boot 记忆生命周期定向回归与 vet；Windows 失败如实记录，不以 Linux 通过伪装 Windows 全套通过。
-- [ ] 用 Git 原版本与独立副本验证原行为恢复；把 observation-only 新测试再放进恢复副本，必须复现目标失败；工作副本继续保留修复。
-- [ ] 生成并重开本地 `MODIFIED_FILE.tar.gz`、`DIFF_FILE.patch`、`VERIFICATION.txt`、可执行 `ROLLBACK.sh`，记录每个命令的输入、实际输出与 exit。
-- [ ] 更新本文步骤状态并提交；本地提交链可逐项 revert，不 squash 掉失败/纠正记录。
+- [x] Linux 原生工具链执行 `go test -race ./harness/semantix ./kernel/... ./harness/agent -count=1`、boot 记忆生命周期定向回归与 vet；Windows 失败如实记录，不以 Linux 通过伪装 Windows 全套通过。
+- [x] 用 Git 原版本与独立副本验证原行为恢复；把 observation-only 新测试再放进恢复副本，必须复现目标失败；工作副本继续保留修复。
+- [x] 生成并重开本地 `MODIFIED_FILE.tar.gz`、`DIFF_FILE.patch`、`VERIFICATION.txt`、可执行 `ROLLBACK.sh`，记录每个命令的输入、实际输出与 exit。
+- [x] 更新本文步骤状态并提交；本地提交链可逐项 revert，不 squash 掉失败/纠正记录。
 
 ### 9.5 已发现但本批不假装修好的两项契约工作
 
@@ -216,3 +216,17 @@ Agent 原始任务 → Bridge query → Project BM25 → Injector 资格/准入
 - 若失败代码已提交，使用 `git revert <该步commit>` 保留审计，再重新实现；不改写已发布历史。
 - 原版本原样也失败的环境问题保留双方日志，修运行环境或改用能验证同一断言的平台；不跳过断言、不改通过判定。
 - Git 提交与普通测试足够记录版本和回退，不增加哈希门禁、冻结合约、付费试跑或新的批次准入层。
+
+### 9.7 本批交付检查点
+
+| 独立步骤 | 本地提交 | 已验收范围 |
+|---|---|---|
+| 设计先行及实际 runner 输入修正 | `408d0218`、`7c942d79` | 旧策略标为历史；L2/L3、门槛类别、观测层级与回退顺序分开 |
+| 注入读取生命周期 | `4f9817b2` | Close 后不再打开检索；S1-only overlay 验证，不依赖后续门槛修改 |
+| 六项默认误拒 | `2af62ed6` | 单例、同源、近分、长查询等正例与无重叠负例；真实 provider 接口回归 |
+| 任务 query 投影 | `a66ea1d7` | 实际 testbed 前缀、XML/Issue/普通多行、正文语义、正则误识别 |
+| 异步预取代际 | `110cd235` | 可控交错复现旧任务进入新请求；修复后旧结果不覆盖当前缓存/请求 |
+
+本批已经完成定向 RED/GREEN、相关 Kernel/Bridge/Agent 的 Linux race、boot 生命周期及 vet，以及独立 Git 副本的修复通过→恢复原字节→观察测试重现失败。Windows 全包历史失败仍保留在本地证据中，不表述为全平台全量通过。回退脚本最初遇到 Git Bash `/tmp` 与 `/c` 的同目录别名，未写文件即退出；改用原生目录身份比对后完成回退，仍只接受指定独立副本。
+
+源码和测试仍保留修复；本地提交未自动 push、合并或发布。**这只是 S0–S5 的完成，不是第9.5节适用性/交付契约工作的完成，更不是实际模型收益证明。** `task_mismatch`、版本/依赖误拒及组装统计的语义问题继续单独处理，不用这批正例掩盖剩余断点。
