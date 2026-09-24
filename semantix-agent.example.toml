@@ -218,10 +218,10 @@ stalled_warning_seconds = 900   # warn once per background job after this many q
 
 # Milvus vector database over MCP: gives the agent vector search and collection
 # management tools. Requires `uvx` (uv) and a reachable Milvus — the `milvus`
-# profile in deploy/docker-compose.yml starts one.
-# Supply-chain note: the `mcp-server-milvus` package on PyPI is a community fork.
-# Zilliz's own server has no PyPI package and is run from a clone instead. Review
-# the package before enabling this, or use the upstream `uv run` form.
+# profile in deploy/docker-compose.milvus.yml starts one.
+# Source: official zilliztech/mcp-server-milvus (its pyproject declares the
+# `mcp-server-milvus` script, so uvx builds it straight from the repo — no
+# community PyPI fork involved). Pin a commit for security-sensitive deploys.
 # Note this cannot be installed from the public MCP registry: entries needing
 # environment variables are marked not-installable, so write it out here.
 # Full walkthrough: docs/integrations/milvus.md
@@ -229,7 +229,7 @@ stalled_warning_seconds = 900   # warn once per background job after this many q
 # name    = "milvus"
 # type    = "stdio"
 # command = "uvx"
-# args    = ["mcp-server-milvus"]
+# args    = ["--from", "git+https://github.com/zilliztech/mcp-server-milvus", "mcp-server-milvus"]
 # # ${VAR} expands from the environment, so credentials stay out of this file.
 # env     = { MILVUS_URI = "${MILVUS_URI:-http://127.0.0.1:19530}", MILVUS_TOKEN = "${MILVUS_TOKEN}" }
 

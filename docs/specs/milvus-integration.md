@@ -226,12 +226,12 @@ docker(`which docker` 无命中),且 milvus.io 被网络策略拦截,无法查�
 1. **镜像标签可用性**:`milvusdb/milvus:v2.5.4`、
    `quay.io/coreos/etcd:v3.5.16`、
    `minio/minio:RELEASE.2024-12-18T13-15-44Z` 未拉取验证。Milvus 钉 ≥ 2.5 是
-   刻意的——新版 Go SDK(`milvus/client/v2`)以此为下限,日后做 L2 时不必
+   刻意的——新版 Go SDK(`milvus/client/v2`)以此为下限,日后做 M2（Milvus 检索后端，代号避开缓存层 L2）时不必
    再换基座。
 2. **healthcheck 所用二进制是否存在于镜像内**:milvus 与 minio 的 healthcheck
    用 `curl`,etcd 用 `etcdctl`,均未在对应镜像内验证。若缺失,healthcheck 会
    一直 unhealthy 而服务本身正常——B2 会直接暴露此问题。
-3. **`MINIO_ACCESSKEYID` / `MINIO_SECRETACCESSKEY` 的覆盖语义**:这两个变量
+3. **`MINIO_ACCESS_KEY_ID` / `MINIO_SECRET_ACCESS_KEY` 的覆盖语义**（文档形式；Milvus 侧仍规范化为 minio.accesskeyid）:这两个变量
    名基于「Milvus 以 yaml 路径去点全大写的形式接受配置覆盖」的惯例,未对
    v2.5.4 核实。若不生效,Milvus 会以默认凭据连 MinIO 而失败。
 4. **`user.yaml` 的增量覆盖语义**未对 v2.5.4 核实。若该版本是整份替换而非
@@ -247,7 +247,7 @@ docker(`which docker` 无命中),且 milvus.io 被网络策略拦截,无法查�
    官方 `uv run` 形态待定——代价是不再零安装。
 7. **`docs/Security-安全设计.md:172` 的运行时服务身份校验未满足。** 该条要求
    调用方校验所连服务的进程/二进制指纹,校验失败 fail-closed。compose 层无法
-   提供,属客户端实现,随 L2 的 MilvusIndex 连接路径落地。已在使用者文档的
+   提供,属客户端实现,随 M2 的 MilvusIndex 连接路径落地。已在使用者文档的
    安全表中标为 ❌。当前安全姿态是三项中的两项。
 
 ## 6. 参考
