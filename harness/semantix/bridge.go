@@ -96,12 +96,6 @@ const (
 	RetrievalOff    RetrievalMode = "off"
 	RetrievalShadow RetrievalMode = "shadow"
 	RetrievalStrict RetrievalMode = "strict"
-
-	strictMinLibrarySize    = 5
-	strictMinSourceSessions = 2
-	strictMinScore          = 0.70
-	strictMinCoverage       = 0.25
-	strictMinTopMargin      = 0.15
 )
 
 var strictAllowedTypes = map[slice.SliceType]bool{
@@ -297,32 +291,23 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 	// silently veto every candidate. Zero them here; per-scale threshold
 	// calibration is the W0–W4 follow-up, not this wiring's job.
 	z.AbsHigh, z.AbsLow = 0, 0
-	// Four-layer distill spec §2.5 wanted tool_pattern/result slices never
-	// injected on the agent path (#268 admission evidence; W0 probe: 93.4%
-	// cross-project pseudo-hits on tool-name slices — the misleading-
-	// reference class the two-arm pilot paid +32% for). strictAllowedTypes
-	// ({Context, Memory}, #454) subsumes that ban at the source, so no
-	// per-type zone override is needed here.
+	// Context, Memory and host-verified Result remain eligible history;
+	// raw Prompt and ToolPattern cards do not become reusable evidence.
+	// Do not stack the #447 library/source-count, runner-up, score, coverage
+	// and margin vetoes on the original BM25/zone selection. A singleton or
+	// two corroborating cards can be useful without satisfying those proxies.
 	workspaceDir := b.workspaceDir()
 	inj, err := (&inject.Injector{
-		Index:                idx,
-		Scope:                slice.Project,
-		K:                    5,
-		Budget:               budget,
-		AllowedTypes:         strictAllowedTypes,
-		MinOrigin:            slice.OriginSessionAuto,
-		RootDir:              workspaceDir,
-		CurrentCommit:        readGitHead(workspaceDir),
-		LibrarySize:          len(projectSlices),
-		MinLibrarySize:       strictMinLibrarySize,
-		SourceSessionsByType: sourceSessionCounts(projectSlices),
-		MinSourceSessions:    strictMinSourceSessions,
-		MinScore:             strictMinScore,
-		MinCoverage:          strictMinCoverage,
-		MinTopMargin:         strictMinTopMargin,
-		RequireRunnerUp:      true,
-		Zones:                &z,
-		AllowGrey:            b.cfg.GreyMode == "audit",
+		Index:         idx,
+		Scope:         slice.Project,
+		K:             5,
+		Budget:        budget,
+		AllowedTypes:  strictAllowedTypes,
+		MinOrigin:     slice.OriginSessionAuto,
+		RootDir:       workspaceDir,
+		CurrentCommit: readGitHead(workspaceDir),
+		Zones:         &z,
+		AllowGrey:     b.cfg.GreyMode == "audit",
 		// Same-type admission for distilled plan-skeleton / outcome cards
 		// (four-layer distill spec §2.5): the turn's task classification
 		// gates task-tagged Memory slices. Classify the RAW query, not
@@ -423,28 +408,6 @@ func (b *Bridge) retrievalDiagnostics(query string, retrievalQuery RetrievalQuer
 		}
 	}
 	return d
-}
-
-func sourceSessionCounts(library []*slice.Slice) map[slice.SliceType]int {
-	sets := make(map[slice.SliceType]map[string]struct{})
-	for _, sl := range library {
-		if sl == nil {
-			continue
-		}
-		if sets[sl.Type] == nil {
-			sets[sl.Type] = make(map[string]struct{})
-		}
-		for _, source := range append([]string{sl.Meta.SourceSession}, sl.Meta.SourceSessions...) {
-			if source != "" {
-				sets[sl.Type][source] = struct{}{}
-			}
-		}
-	}
-	counts := make(map[slice.SliceType]int, len(sets))
-	for typ, sessions := range sets {
-		counts[typ] = len(sessions)
-	}
-	return counts
 }
 
 func summarizeQuery(query string) event.QuerySummary {

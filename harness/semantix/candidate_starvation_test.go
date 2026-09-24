@@ -107,8 +107,13 @@ func TestBridgeCandidateTypeLimit(t *testing.T) {
 			t.Fatalf("candidate cap exceeded: %+v", candidate)
 		}
 	}
-	if result.Text != "" {
-		t.Fatal("equal-score candidates bypassed margin guard")
+	if result.Text == "" || len(result.Targets) != 5 {
+		t.Fatalf("equal-score matches should fill, not veto, the bounded window: %v", result.Targets)
+	}
+	for i, id := range result.Targets {
+		if want := fmt.Sprintf("ctx-%d", i); id != want {
+			t.Fatalf("target[%d]=%q, want deterministic tie order %q", i, id, want)
+		}
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -21,7 +22,7 @@ import (
 // This is a transport/provenance test, not a model-benefit benchmark. Historical
 // tool events include explicit host verification fixtures; the later provider
 // only records the real Agent.Run request and returns a deterministic response.
-func TestMemoryFlowRejectsAmbiguousResultAndOutcome(t *testing.T) {
+func TestMemoryFlowCorroboratingResultAndOutcomeToProvider(t *testing.T) {
 	repo := t.TempDir()
 	paths := []string{"internal/orchard/cache.go", "internal/orchard/keys.go"}
 	for _, path := range paths {
@@ -118,7 +119,7 @@ func TestMemoryFlowRejectsAmbiguousResultAndOutcome(t *testing.T) {
 				foundResult = true
 				if history.id == "history-a" {
 					resultID = item.ID
-					t.Logf("ambiguous Result %s metadata=%+v content:\n%s", item.ID, item.Meta, item.Content)
+					t.Logf("corroborating Result %s metadata=%+v content:\n%s", item.ID, item.Meta, item.Content)
 				}
 				if string(item.Content) != final || item.Meta.EffectiveResultStatus() != slice.ResultStatusVerified {
 					t.Fatalf("%s lost its separate verified final answer: %+v", history.id, item)
@@ -147,7 +148,7 @@ func TestMemoryFlowRejectsAmbiguousResultAndOutcome(t *testing.T) {
 					t.Fatalf("outcome lost host-verified command: %s", card.Content)
 				}
 				wantID = card.ID
-				t.Logf("ambiguous outcome %s metadata=%+v content:\n%s", card.ID, card.Meta, card.Content)
+				t.Logf("corroborating outcome %s metadata=%+v content:\n%s", card.ID, card.Meta, card.Content)
 			}
 		}
 		for _, item := range append(items, cards...) {
@@ -209,25 +210,22 @@ func TestMemoryFlowRejectsAmbiguousResultAndOutcome(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if block != "" || strings.Contains(string(encoded), "[semantix-reuse]") || strings.Contains(string(encoded), verifiedCommand) {
-				t.Fatalf("%s leaked ambiguous history: %s", mode, encoded)
-			}
-			if mode == "off" {
-				offMessages = encoded
-				return
-			}
-			if string(encoded) != string(offMessages) {
-				t.Fatalf("%s changed provider input despite rejection:\noff=%s\nactual=%s", mode, offMessages, encoded)
-			}
-			if diagnostics == nil || diagnostics.Injected || diagnostics.Bytes != 0 || len(diagnostics.FinalOrder) != 0 {
-				t.Fatalf("ambiguous history was admitted: %+v", diagnostics)
-			}
-			wantReason := "no_admitted_slices"
-			if mode == "shadow" {
-				wantReason = "shadow_mode"
-			}
-			if diagnostics.DecisionReason != wantReason {
-				t.Fatalf("decision = %+v, want %s", diagnostics, wantReason)
+			if mode != "strict" {
+				if block != "" || strings.Contains(string(encoded), "[semantix-reuse]") || strings.Contains(string(encoded), verifiedCommand) {
+					t.Fatalf("%s leaked historical knowledge: %s", mode, encoded)
+				}
+				if mode == "off" {
+					offMessages = encoded
+					return
+				}
+				if string(encoded) != string(offMessages) {
+					t.Fatalf("shadow changed provider input:\noff=%s\nshadow=%s", offMessages, encoded)
+				}
+				if diagnostics == nil || diagnostics.Injected || diagnostics.Bytes != 0 || diagnostics.MessageRole != "" || diagnostics.DecisionReason != "shadow_mode" {
+					t.Fatalf("shadow did not withhold historical knowledge: %+v", diagnostics)
+				}
+			} else if diagnostics == nil || !diagnostics.Injected || diagnostics.Bytes != len(block) || diagnostics.MessageRole != "user" || diagnostics.DecisionReason != "admitted" || block == "" {
+				t.Fatalf("strict injection absent or wrong bytes/role: %+v", diagnostics)
 			}
 			var result, outcome *event.RetrievalCandidate
 			for i := range diagnostics.Candidates {
@@ -239,14 +237,40 @@ func TestMemoryFlowRejectsAmbiguousResultAndOutcome(t *testing.T) {
 					outcome = candidate
 				}
 			}
-			if result == nil || outcome == nil || result.Reason != "top_margin_low" || outcome.Reason != "top_margin_low" {
-				t.Fatalf("distinct Result/outcome did not retain ambiguity rejection: %+v", diagnostics)
+			// These are two representations of the same verified history, not
+			// competing answers. Their near tie must not veto the whole block.
+			if result == nil || outcome == nil || !result.Admitted || !outcome.Admitted || result.SourceSession != "history-a" || outcome.SourceSession != "history-a" || result.Verified != "verified" {
+				t.Fatalf("corroborating Result/outcome were not admitted: %+v", diagnostics)
 			}
 			margin := result.Score - outcome.Score
 			if margin <= 0 || margin >= 0.15 || diagnostics.TopMargin != margin {
-				t.Fatalf("actual score gap = %g, diagnostic gap = %g; want the original strict ambiguity guard", margin, diagnostics.TopMargin)
+				t.Fatalf("actual score gap = %g, diagnostic gap = %g; want the near-tied fixture", margin, diagnostics.TopMargin)
 			}
-			t.Logf("query=%q library=%d merged=%d actual margin=%g\ndiagnostics=%+v", query, len(all), merged.Merged, margin, diagnostics)
+			for _, id := range []string{resultID, wantID} {
+				if !slices.Contains(diagnostics.FinalOrder, id) {
+					t.Fatalf("final order lost corroborating slice %s: %+v", id, diagnostics)
+				}
+			}
+			if mode == "shadow" {
+				return
+			}
+			for _, want := range []string{"--- slice " + resultID + " ---", "--- slice " + wantID + " ---", `source="history-a"`, "Verified-by: " + verifiedCommand, `commit="` + revision + `"`, `origin=session-auto`} {
+				if !strings.Contains(block, want) {
+					t.Fatalf("history lacks %q:\n%s", want, block)
+				}
+			}
+			foundHistory, foundPolicy := false, false
+			for _, message := range request.Messages {
+				if strings.Contains(message.Content, verifiedCommand) && message.Role != provider.RoleUser {
+					t.Fatalf("knowledge elevated to %s", message.Role)
+				}
+				foundHistory = foundHistory || strings.Contains(message.Content, block)
+				foundPolicy = foundPolicy || (message.Role == provider.RoleSystem && strings.Contains(message.Content, semantixHistoryPolicy))
+			}
+			if !foundHistory || !foundPolicy {
+				t.Fatalf("provider lacks untrusted-reference placement: %s", encoded)
+			}
+			t.Logf("query=%q library=%d merged=%d actual margin=%g bytes=%d role=user\nprovider history:\n%s\ndiagnostics=%+v", query, len(all), merged.Merged, margin, len(block), block, diagnostics)
 		})
 	}
 }
