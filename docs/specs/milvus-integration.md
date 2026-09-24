@@ -236,15 +236,17 @@ docker(`which docker` 无命中),且 milvus.io 被网络策略拦截,无法查�
    v2.5.4 核实。若不生效,Milvus 会以默认凭据连 MinIO 而失败。
 4. **`user.yaml` 的增量覆盖语义**未对 v2.5.4 核实。若该版本是整份替换而非
    合并,§2.5 的做法会丢掉其余默认配置。
-5. **`docs/integrations/milvus.md` 中的改密命令**(`milvus_cli`)未验证其是否
-   存在于 milvus 镜像内。
-6. **`uvx mcp-server-milvus` 拉取的是第三方 fork,不是 zilliztech 官方仓库。**
-   官方仓库无 PyPI 包,其文档形态是从 clone 跑 `uv run
-   src/mcp_server_milvus/server.py`。PyPI 上同名包由他人维护。`MILVUS_URI` /
-   `MILVUS_TOKEN` 两个变量名已确认正确。**处置:使用者文档与 example 注释已
-   改为如实标注社区 fork 并提示自行审阅**(初稿误写成 zilliztech,已修;
-   commit `46403ec` 的 message 仍含该错误表述,属历史记录不改写)。是否改用
-   官方 `uv run` 形态待定——代价是不再零安装。
+5. ~~`docs/integrations/milvus.md` 中的改密命令**(`milvus_cli`)**未验证其是否
+   存在于 milvus 镜像内~~ **已修(评审 #497 指出)**:该镜像不包含
+   `milvus_cli`;改密命令已改为宿主机 pymilvus 一行
+   (`MilvusClient(...).update_password(...)`)。
+6. **MCP server 来源**:**已修(评审 #497 指出)**:zilliztech 官方仓库的
+   pyproject 已声明 `[project.scripts] mcp-server-milvus`,文档与 example 已
+   改为官方形态 `uvx --from git+https://github.com/zilliztech/mcp-server-milvus
+   mcp-server-milvus`(不经 PyPI 社区 fork),并提示安全敏感部署可钉 commit。
+   `MILVUS_URI` / `MILVUS_TOKEN` 两个变量名已确认正确。(初稿误写成
+   zilliztech 官方发布,后一度改为社区 fork 标注;
+   commit `46403ec` 的 message 仍含该错误表述,属历史记录不改写)。零安装与官方来源现已同时满足。
 7. **`docs/Security-安全设计.md:172` 的运行时服务身份校验未满足。** 该条要求
    调用方校验所连服务的进程/二进制指纹,校验失败 fail-closed。compose 层无法
    提供,属客户端实现,随 M2 的 MilvusIndex 连接路径落地。已在使用者文档的
