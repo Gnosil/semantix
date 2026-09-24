@@ -334,3 +334,11 @@ freshness 的运行条件与三种版本拒因见 §6.2，后续范围见 §7 / 
 - 项目完整 `go test ./... -count=1`，受影响包 Linux race 和 vet；原失败与修复输出都保存。使用隔离的精确 Git 源码副本，排除他人未提交改动。局部失败先回滚所属步骤，不擦掉他人改动。
 - 独立副本：本批原 Git 代码 + 新观察测试应 RED，修复代码 GREEN，ROLLBACK 恢复原字节后观察测试重新 RED；工作副本继续保留修复。产物在 `/lab/issue-447-admission-repair-20260924/closure/`：MODIFIED_FILE.tar.gz、DIFF_FILE.patch、VERIFICATION.txt、可执行 ROLLBACK.sh，全部重开核验。
 - 完成口径：链路软件契约可离线证明；显著成绩提升/模型采用不凭合成测试宣布。未迁移的旧库、真实模型相关性及显式调用者额外过滤条件仍如实列为使用前提，不将它们当成代码完成证明。
+
+#### S9 完成状态（2026-09-24，ZCode 接力 codex 额度断点收尾）
+
+- [x] 投影共享：`kernel/slice.TaskBody`（`47987b66`）+ Bridge 检索与 Distill 共用；task_body 三份测试入库。
+- [x] 独立副本 RED/GREEN/ROLLBACK-RED 三态一致；closure 四产物（DIFF_FILE.patch / MODIFIED_FILE.tar.gz / ROLLBACK.sh / VERIFICATION.txt）已生成并重开核验，均在 `lab/issue-447-admission-repair-20260924/closure/`。
+- [x] 批次受影响五包（kernel/slice、kernel/inject、harness/semantix、gateway、cmd/semantix）Windows 串行全绿；vet 通过。
+- [ ] Linux 原生 race 未执行（本机 WSL 无 Go、Windows 无 C 工具链），如实记为待办；全量 `go test ./...` 中批次外包失败已用 pristine BASE 对照归因为存量 Windows 环境问题（symlink 权限/终端类，BASE 同样失败），invoice exit 49 为登录 shell python3 Store 存根（见 docs/reports/2026-09-24-zcode-review 第 0 节）。
+- [x] 协作遗留同步落盘：round-2 测试清理 `204e8d9a`、文档 `5c8f4b7f`（F1/F2/F4 合并提交，S6–S9 提交交错所致，偏离四分步原计划的说明见 VERIFICATION.txt 第六节）。
