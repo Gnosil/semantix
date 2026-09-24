@@ -129,7 +129,7 @@ Agent 原始任务 → Bridge query → Project BM25 → Injector 资格/准入
 | 问题 | 已有源码证据 | 结论与处理边界 |
 |---|---|---|
 | 六项后加代理条件叠加造成误拒 | `Bridge.injectResult` 设置 library/source-count/runner-up/margin/score/coverage；单例及同源佐证卡可在进入模型前全被否决 | 删除 Bridge 默认设置，不添加六个新开关；Kernel 既有显式可选参数保持兼容 |
-| query 仍包含 runner 外壳 | `query.go` 仅识别 XML `<issue>`，实际 runner 也使用独立 `Issue:`；error 正则的 `(?i)` 泄漏到大写错误码分支，test 正则匹配裸 test/testbed | 在共享 query 投影识别已知任务边界，修正正则范围；保留普通多行及 Expected/Actual 正文，不用“任意冒号行”截断任务 |
+| query 仍包含 runner 外壳 | `query.go` 仅识别 XML `<issue>`，本轮实际 runner 使用固定 testbed 环境前缀后接问题正文；相关 #478 修复还覆盖独立 `Issue:`；error 正则的 `(?i)` 泄漏到大写错误码分支，test 正则匹配裸 test/testbed | 在共享 query 投影识别已知任务边界，修正正则范围；保留普通多行及 Expected/Actual 正文，不用“任意冒号行”截断任务 |
 | 会话依赖被当作每张卡的必要依赖 | `run_bench.py` 汇总整段镜像路径，`cmd/semantix/extract.go` 将同一 meta.Deps 交给各层提炼，`extractor.go`/`distill.go` 复制到每卡 | 一个无关文件变化可能淘汰通用操作知识；不能据此判断整条历史为假，也不能把 Deps 全清空当修复。见9.5 |
 | L2 的历史适用性与直接复用有效性混用 | `inject.go:freshnessReason` 对 Context/Memory/Result 共用当前版本检查 | 当前代码仍保持检查；必须先区分“历史观察”与“可迁移断言”，再有针对性改变，不能把撤六项门槛称为 freshness 已修好 |
 | task 标签的硬否决不等于相关性判断 | `task_type.go` 的词匹配分类有优先级；`inject.go:taskAdmits` 看正文首行，未标记卡反而不受约束 | “调查同一个 bug”可能需要 bugfix 历史；相同 task 标签也可能完全不相关。独立正负例评估，不把标签当权限边界；本批先不改变此接口 |
@@ -180,9 +180,9 @@ Agent 原始任务 → Bridge query → Project BM25 → Injector 资格/准入
 
 文件：`harness/semantix/query.go`、`query_test.go`。修改所有 clean/build 入口共用的任务正文提取，不让两者规则分叉。
 
-- [ ] 先加真实 `Issue:` 模板正例，正文带路径、Expected/Actual、多行描述；XML 与 bare 边界内的相同正文生成相同检索投影。
+- [ ] 先以实际 testbed 前缀加正文为回归，同时覆盖 `Issue:` 与 XML；正文带路径、Expected/Actual、多行描述，三个边界内的相同正文和无外壳输入生成相同检索投影。
 - [ ] 负例：包装的 runtime 路径及操作要求不变成 intent/path/error/test；正文中非边界的 `Issue:` 字样不被截断；保留无外壳的普通多行输入。
-- [ ] 仅识别已有明确外壳与边界；error 正则大小写只作用于异常名分支；test 识别命名格式而非裸单词。沿现有 tokenizer，不另造 query 模型。
+- [ ] 仅识别已知完整 testbed 前缀、开头的 Issue 标签或明确 git-checkout 外壳；正文内部 Expected/Actual/Requirements 不作通用截断。XML 也保留完整正文词义，不再只留标题加提取字段；因此正文里的普通叙述仍可能参与 BM25，这是避免丢需求的明确取舍。error 正则大小写只作用于异常名分支；test 识别命名格式而非裸单词。沿现有 tokenizer，不另造 query 模型。
 - 验收：`go test ./harness/semantix -run 'Test(Clean|Build)RetrievalQuery' -count=1 -v`，再跑整个 Bridge 包。
 - Commit：`fix(memory): separate issue content from runner query framing`。
 
