@@ -84,7 +84,7 @@ type Bridge struct {
 	// attribute the incremental per-turn delta in Reuse.
 	lastSavings float64
 	evolution   *EvolutionLoop
-	statsWG     sync.WaitGroup
+	statsWG     sync.WaitGroup // joins active injection reads and asynchronous stats writes
 	closing     bool
 }
 
@@ -251,6 +251,16 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 	if !b.Enabled() || b.mode == RetrievalOff {
 		return InjectResult{}
 	}
+	// Detached prefetch must finish before Close, or do nothing if it starts
+	// later. Register under the same lock that closes admission to disk work.
+	b.mu.Lock()
+	if b.closing {
+		b.mu.Unlock()
+		return InjectResult{}
+	}
+	b.statsWG.Add(1)
+	b.mu.Unlock()
+	defer b.statsWG.Done()
 	store, idx, err := b.kernelIndex()
 	if err != nil {
 		b.emitKernelCache("miss", "L2", nil, 0, "slice store unavailable")
