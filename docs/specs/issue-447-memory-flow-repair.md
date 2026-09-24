@@ -251,3 +251,24 @@ semantix extract --input "$SESSION_JSONL" \
 - 当前 Harness 仍要求 revision 已知；无 Deps 的卡在来源 commit 不同于当前 commit 时得到 `stale_commit`。**因此下一次提交后，依赖为空的旧卡仍可能全部退出候选。** 这正是9.5待处理的适用性契约，不用一个任意“允许最近 N 次提交”的新阈值掩盖它。
 
 上述命令是离线重提取配方，不是已执行的用户真实库迁移；本批未改历史实验、用户库或原始轨迹。
+
+
+### 9.9 S6 — 任务标签保留描述作用，不再默认否决相关历史
+
+用户已要求继续已批准的分步修复。目标仍是让来源明确、项目内、预算内且相关的 L2 历史供模型重新核查，不把它升级为直接答案或绕过 L3。按 systematic-debugging / writing-plans / TDD 执行，先提交本节设计再修改行为。
+
+**根因与调用范围：** Harness 的普通、degraded 和 warm-prefetch 都经过 `Bridge.injectResult`，此处向 `Injector.TaskType` 传入 `ClassifyTask(query)`。分类是带优先级的关键词匹配；`taskAdmits` 只解析 Memory 卡正文首行标签，未标记卡及 Context/Result 不受约束。相同代码问题仅因当前动作从“修复”换成“排查”或“修测试”，就会硬拒历史，而相同标签并不能证明相关。全仓调用检查只有 Harness 默认配置此字段；Kernel 显式 API 的调用者仍可请求过滤。
+
+**最小方案：** 撤除 Bridge 默认 `TaskType` 赋值，不新增开关、不改变提炼分类和卡片正文、不重写 Kernel 显式 `TaskType` 语义。原 BM25、eligible K=5、zone、origin、类型/Result 状态、项目 scope、版本/依赖校验、清洗、user-role 与精确字节预算保持。代价是跨任务类别且词法相似的历史可以作为参考进入；不保证语义正确或模型采用。相同任务标签但无词法重叠的负例仍不注入。
+
+**文件边界：** `harness/semantix/bridge.go`、`admission_defaults_test.go`、`candidate_starvation_test.go`；仅同步 `kernel/inject/inject.go`、`kernel/slice/task_type.go`、`kernel/slice/distill.go` 中原来将可选过滤描述成默认保证的注释。本轮不编辑他人正在修改的 `memory_flow_e2e_test.go` 或其它文档改动。
+
+**执行与验收：**
+- [ ] 先添加 `TestBridgeTaskLabelsAreDescriptive`：同问题跨 investigate/bugfix/test-update、真实 runner 外壳、normal/degraded、strict/shadow/off；先见 `task_type_mismatch` 的 RED。负例覆盖同标签无重叠、跨提交缺 Deps、未验证 Result，保持其它边界。
+- [ ] 删除共享 Bridge 默认赋值。将旧 candidate-window 的“task mismatch 阻断”用例改为“跨类别相关卡参与同一个 BM25/K 窗口”，保留 stale 分支、完整分数/元数据/五槽/阴影模式断言。Kernel 显式 task gate 的现有测试原样通过。
+- [ ] 运行 `go test ./harness/semantix ./kernel/inject ./kernel/slice -count=1`，再运行 Linux `go test -race ./harness/semantix ./kernel/... ./harness/agent -count=1`、`go vet ./harness/semantix ./kernel/... ./harness/agent` 和项目 `go test ./... -count=1`；全部输出保留，任何非本改动造成的失败也明确列出。
+- [ ] 独立 Git 副本运行相同正负例：原代码失败、修改通过、回退代码后失败，主工作树保留修复；更新本节状态后分步提交。
+
+**回退：** 一个步骤失败先保留 diff/输出，只恢复本步骤拥有的代码，再调整方案。已提交的错误使用 Git revert。独立副本回退只恢复本节文件，不触及原实验、真实记忆库、他人文档或其它未提交改动。
+
+**尚未覆盖：** 本节解决 task 标签代理误拒，不解决 §9.5 的逐卡依赖、freshness 或真实 provider 交付记账；不批量删除 Deps、不伪造版本、不重新解释既有 Injected 统计，不追加付费评测。
