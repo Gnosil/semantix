@@ -33,7 +33,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Existing desktop tag to build and publish (e.g. desktop-v1.0.0).'
+        description: 'Desktop tag to cut, e.g. desktop-v0.1.0. Created at main HEAD if it does not exist.'
         required: true
 
 permissions:
@@ -58,10 +58,13 @@ jobs:
             platform: windows/amd64
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Check out the tagged commit
+      - name: Check out the source to build
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          # push(tag) → the tag's commit. workflow_dispatch → main's HEAD (the
+          # publish step creates the tag at main), so a manual run always builds
+          # current main, regardless of which branch's workflow file triggered it.
+          ref: ${{ github.event_name == 'push' && github.ref || 'main' }}
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -216,6 +219,7 @@ jobs:
             --repo "${{ github.repository }}" \
             --title "Semantix Desktop $TAG" \
             --latest=false \
+            --target main \
             --notes "$NOTES" \
             dist/*
 
@@ -236,5 +240,6 @@ jobs:
             --repo "${{ github.repository }}" \
             --title "Semantix Desktop (latest)" \
             --latest=false \
+            --target main \
             --notes "指向最新桌面构建（$TAG）的滚动发布，供官网下载按钮使用稳定链接。历史版本见带 desktop-v 号的发布。" \
             dist/*
