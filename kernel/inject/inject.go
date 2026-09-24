@@ -126,11 +126,10 @@ type Injector struct {
 	AllowGrey bool
 	// TaskType, when non-empty, gates task-tagged Memory slices (the
 	// distilled plan-skeleton / outcome cards, which carry a "task=<type>"
-	// marker) on matching the current turn's classified type. Cross-type
-	// instance locators are exactly the "misleading reference" failure the
-	// two-arm pilot measured — a bugfix outcome card must not steer a
-	// feature task. Untagged Memory slices and every other slice type are
-	// unaffected; empty TaskType keeps the historical behavior.
+	// marker) on matching the caller's requested type. This is an explicit
+	// filter, not a relevance or permission check; Harness leaves it empty.
+	// Untagged Memory slices and every other slice type are unaffected;
+	// empty TaskType keeps the historical behavior.
 	TaskType string
 }
 

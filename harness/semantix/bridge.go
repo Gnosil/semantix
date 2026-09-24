@@ -281,7 +281,7 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 		return InjectResult{}
 	}
 	// Keep full-corpus BM25 scores. BuildHits applies the candidate cap only
-	// after its shared type, task and freshness eligibility checks.
+	// after its shared type and freshness eligibility checks.
 	z := zone.Default()
 	// This is a pure-BM25 path (kernelIndex), and the absolute floors are
 	// by design cosine-scale guards ("only bind on the bounded cosine
@@ -308,12 +308,9 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 		CurrentCommit: readGitHead(workspaceDir),
 		Zones:         &z,
 		AllowGrey:     b.cfg.GreyMode == "audit",
-		// Same-type admission for distilled plan-skeleton / outcome cards
-		// (four-layer distill spec §2.5): the turn's task classification
-		// gates task-tagged Memory slices. Classify the RAW query, not
-		// cleanedQuery — the cleaned form is a BM25 token projection that
-		// splits CJK words, and ClassifyTask matches contiguous substrings.
-		TaskType: slice.ClassifyTask(query),
+		// A task tag describes the source action, not relevance to this turn.
+		// Keep it in the history; do not turn the keyword classifier into a
+		// veto on cross-action reference material (e.g. fix -> investigate).
 	}).BuildHits(cleanedQuery, hits)
 	if err != nil {
 		op := "miss"

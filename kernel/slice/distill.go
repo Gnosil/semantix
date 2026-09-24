@@ -17,7 +17,7 @@ import (
 //   - plan-skeleton card (Memory): the session's tool trajectory abstracted
 //     to canonical stages, tagged with the classified task type;
 //   - outcome card (Memory): task summary, edited files and the verifying
-//     command — the instance-level locator, admission-gated by task type.
+//     command — an instance-level locator tagged with its source task type.
 //
 // (The fourth layer — the subsystem overview card — is ConsolidateContext,
 // which merges the Context cards this and the base extractor emit.)

@@ -3,6 +3,7 @@ package semantix
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"semantix/kernel/slice"
@@ -65,5 +66,57 @@ func TestBridgeAdmissionWithoutExtraGates(t *testing.T) {
 				t.Fatalf("history role=%q, want user", got.Diagnostics.MessageRole)
 			}
 		})
+	}
+}
+
+func TestBridgeTaskLabelsAreDescriptive(t *testing.T) {
+	const runner = "Fix the following issue in /testbed. The matching Python environment and dependencies are preinstalled at /opt/miniconda3/envs/testbed; use that Python and the existing tests.\n\n"
+	for _, tc := range []struct {
+		name, query, body, oldCommit string
+		typ                          slice.SliceType
+		want                         bool
+	}{
+		{"investigate_after_bugfix", "Investigate orchard expiry", "Task outcome (task=bugfix): orchard expiry", "", slice.Memory, true},
+		{"test_after_bugfix", "Fix failing test orchard expiry", "Task outcome (task=bugfix): orchard expiry", "", slice.Memory, true},
+		{"runner_after_investigation", runner + "Investigate orchard expiry", "Task outcome (task=investigate): orchard expiry", "", slice.Memory, true},
+		{"untagged_history", "Investigate orchard expiry", "orchard expiry", "", slice.Memory, true},
+		{"same_tag_unrelated", "wrong orchard expiry", "Task outcome (task=bugfix): quasar photometry spectrum", "", slice.Memory, false},
+		{"stale_cross_task", "Investigate orchard expiry", "Task outcome (task=bugfix): orchard expiry", "older-revision", slice.Memory, false},
+		{"probation_result", "Investigate orchard expiry", "orchard expiry", "", slice.Result, false},
+	} {
+		for _, mode := range []string{"strict", "shadow", "off"} {
+			for _, degraded := range []bool{false, true} {
+				t.Run(fmt.Sprintf("%s/%s/degraded=%t", tc.name, mode, degraded), func(t *testing.T) {
+					card := &slice.Slice{ID: "history", Type: tc.typ, Scope: slice.Project, Content: []byte(tc.body),
+						Meta: slice.SliceMeta{SourceSession: "prior-task", Origin: slice.OriginSessionAuto, BaseCommit: tc.oldCommit}}
+					b := NewBridge(Config{Enabled: true, Mode: mode, Budget: 4096, ProjectDir: writeKernelDir(t, []*slice.Slice{card}, nil)})
+					defer b.Close()
+					call, budget := b.InjectDetailed, 4096
+					if degraded {
+						call, budget = b.InjectDegradedDetailed, 2048
+					}
+					got := call(context.Background(), tc.query)
+					wantTarget, wantText := tc.want && mode != "off", tc.want && mode == "strict"
+					if (len(got.Targets) == 1 && got.Targets[0] == "history") != wantTarget || len(got.Targets) > 1 {
+						t.Fatalf("task=%s targets=%v want=%t diagnostics=%+v", slice.ClassifyTask(tc.query), got.Targets, wantTarget, got.Diagnostics)
+					}
+					if (got.Text != "") != wantText || len(got.Text) > budget {
+						t.Fatalf("text bytes=%d wantText=%t budget=%d", len(got.Text), wantText, budget)
+					}
+					if mode == "off" {
+						if got.Diagnostics != nil {
+							t.Fatal("off mode performed retrieval")
+						}
+						return
+					}
+					if got.Diagnostics == nil || got.Diagnostics.Injected != wantText {
+						t.Fatalf("assembly status=%+v", got.Diagnostics)
+					}
+					if wantText && (got.Diagnostics.MessageRole != "user" || !strings.Contains(got.Text, tc.body) || !strings.Contains(got.Text, `source="prior-task"`)) {
+						t.Fatalf("history content/provenance/user-role changed: %+v", got)
+					}
+				})
+			}
+		}
 	}
 }

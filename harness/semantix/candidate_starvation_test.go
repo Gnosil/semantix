@@ -117,8 +117,8 @@ func TestBridgeCandidateTypeLimit(t *testing.T) {
 	}
 }
 
-func TestBridgeCandidateWindowAfterTaskAndFreshness(t *testing.T) {
-	for _, blocker := range []string{"stale", "task_mismatch", "all_stale"} {
+func TestBridgeCandidateWindowAfterFreshness(t *testing.T) {
+	for _, blocker := range []string{"stale", "cross_task", "all_stale"} {
 		for _, mode := range []string{"strict", "shadow"} {
 			t.Run(blocker+"/"+mode, func(t *testing.T) {
 				items := []*slice.Slice{
@@ -132,7 +132,7 @@ func TestBridgeCandidateWindowAfterTaskAndFreshness(t *testing.T) {
 				}
 				for i := 0; i < 6; i++ {
 					item := &slice.Slice{ID: fmt.Sprintf("blocked-%d", i), Type: slice.Context, Scope: slice.Project, Content: []byte("repair parser regression repair parser regression"), Meta: slice.SliceMeta{BaseCommit: "2222222222222222222222222222222222222222"}}
-					if blocker == "task_mismatch" {
+					if blocker == "cross_task" {
 						item.Type = slice.Memory
 						item.Meta.BaseCommit = ""
 						item.Meta.SourceSession = fmt.Sprintf("blocked-source-%d", i)
@@ -172,6 +172,15 @@ func TestBridgeCandidateWindowAfterTaskAndFreshness(t *testing.T) {
 					if len(result.Targets) != 0 || result.Text != "" {
 						t.Fatalf("all-stale candidates admitted: %+v", result)
 					}
+				} else if blocker == "cross_task" {
+					if len(result.Targets) != 5 {
+						t.Fatalf("cross-action history should fill the same bounded window: %v", result.Targets)
+					}
+					for i, id := range result.Targets {
+						if want := fmt.Sprintf("blocked-%d", i); id != want {
+							t.Fatalf("cross-action target[%d]=%s, want %s", i, id, want)
+						}
+					}
 				} else if len(result.Targets) != 1 || result.Targets[0] != "ctx-strong" {
 					t.Fatalf("targets = %v, want [ctx-strong]; candidates = %+v", result.Targets, result.Diagnostics.Candidates)
 				}
@@ -190,10 +199,10 @@ func TestBridgeCandidateWindowAfterTaskAndFreshness(t *testing.T) {
 					if strings.HasPrefix(candidate.ID, "blocked-") {
 						blocked++
 						want := "stale_commit"
-						if blocker == "task_mismatch" {
-							want = "task_type_mismatch"
+						if blocker == "cross_task" {
+							want = "admitted"
 						}
-						if candidate.Admitted || candidate.Reason != want {
+						if candidate.Admitted != (blocker == "cross_task") || candidate.Reason != want {
 							t.Fatalf("blocker admission = %+v, want %s", candidate, want)
 						}
 					}
