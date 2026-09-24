@@ -102,6 +102,13 @@ func Import(store Store, r io.Reader, origin Origin) (imported, skipped int, err
 			continue
 		}
 		sl.Meta.Origin = origin // untrusted channel: never inherit file claims
+		// Verification is a local, host-observed property, not portable file
+		// provenance. Even a trusted import must explicitly re-verify Results.
+		if sl.Type == Result {
+			sl.Meta.ResultStatus = ResultStatusProbation
+			sl.Meta.ResultVerifiedBy = ""
+			sl.Meta.ResultVerificationEvidence = ""
+		}
 		if err := store.Put(&sl); err != nil {
 			return imported, skipped, err
 		}
@@ -130,6 +137,9 @@ func readJSONLLine(br *bufio.Reader) (line []byte, tooLong bool, err error) {
 		}
 		if ferr == io.EOF && len(full) == 0 {
 			return nil, false, io.EOF
+		}
+		if ferr != nil && ferr != io.EOF {
+			return nil, false, ferr
 		}
 		// ferr is nil (line ended with '\n') or io.EOF with trailing data.
 		return full, false, nil
@@ -174,11 +184,11 @@ type GCOptions struct {
 
 // GCResult summarizes one GC pass.
 type GCResult struct {
-	Checked         int      // slices inspected
-	Removed         int      // slices removed (or that would be, in dry-run)
-	Expired         []string // ids expired by retention
-	LowScore        []string // ids below the weight threshold
-	OverCap []string // ids evicted by the capacity cap
+	Checked  int      // slices inspected
+	Removed  int      // slices removed (or that would be, in dry-run)
+	Expired  []string // ids expired by retention
+	LowScore []string // ids below the weight threshold
+	OverCap  []string // ids evicted by the capacity cap
 	// EvictedByType counts the capacity-cap evictions per type wire name
 	// (result/tool_pattern/memory/prompt/context; Issue #277). Same source
 	// of truth as OverCap — retention/low-score removals never mix in.

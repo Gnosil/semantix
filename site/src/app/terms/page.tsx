@@ -20,8 +20,8 @@ const sections = [
   {
     title: "2. 开源许可边界",
     body: [
-      `本项目代码采用 ${siteIdentity.licenseName} 许可发布。各版本将依照许可证条款，在规定的日期后转换为 MIT License。`,
-      "使用、修改或分发项目代码前，请阅读仓库内随附的 LICENSE 文件及 FSL-1.1 许可的完整条款。代码的使用行为受对应许可证约束，与本服务条款相互独立。",
+      `本项目代码采用 ${siteIdentity.licenseName} License 发布。使用、修改或分发代码时，请以仓库中的 LICENSE 文件为准。`,
+      "代码许可证与本网站服务条款分别适用。",
     ],
   },
   {

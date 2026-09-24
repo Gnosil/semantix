@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Semantix
+Comment=Semantix desktop — a Wails shell around the Go kernel
+Exec=semantix-launcher
+Icon=semantix-desktop
+Categories=Development;Utility;
+Terminal=false
+StartupWMClass=semantix-desktop

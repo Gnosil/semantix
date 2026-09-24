@@ -13,6 +13,7 @@ METRICS = (
     "resolved", "executor_calls", "steps", "input_tokens", "tool_calls",
     "read_calls", "search_calls", "test_calls", "wall_ms", "cost_usd",
     "provider_retries", "semantix_inject_turns", "semantix_inject_bytes",
+    "semantix_fuse_turns", "semantix_rejected_slices",
     "repeated_tool_calls", "repeated_read_calls", "repeated_search_calls",
     "repeated_test_calls",
 )
@@ -180,8 +181,8 @@ def fmt(value: float | None) -> str:
 
 def markdown(report: dict) -> str:
     lines = [
-        "| arm | paired n | resolved | Δ executor median/P75/P90 | Δ input median/P75/P90 | Δ tools median/P75/P90 | Δ repeats median/P75/P90 |",
-        "|---|---:|---:|---:|---:|---:|---:|",
+        "| arm | paired n | resolved | Δ executor median/P75/P90 | Δ input median/P75/P90 | Δ tools median/P75/P90 | Δ repeats median/P75/P90 | Δ fuses median/P75/P90 |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for arm, data in report["arms"].items():
         def delta(metric: str) -> str:
@@ -194,7 +195,7 @@ def markdown(report: dict) -> str:
             f"| {arm} | {data['instances']} | "
             f"{'n/a' if resolved is None else f'{resolved:.1%}'} | "
             f"{delta('executor_calls')} | {delta('input_tokens')} | {delta('tool_calls')} | "
-            f"{delta('repeated_tool_calls')} |"
+            f"{delta('repeated_tool_calls')} | {delta('semantix_fuse_turns')} |"
         )
     return "\n".join(lines) + "\n"
 

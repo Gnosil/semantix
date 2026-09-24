@@ -31,11 +31,15 @@ type turnRuntime struct {
 	input           string
 	workDurationMs  func() int64
 
-	// injectBlock is the locked [semantix-reuse] block for this turn,
-	// assembled on the first user message and reused across tool rounds so
-	// the injected prefix stays byte-stable (L1 cache friendly). Empty
-	// disables injection for the turn.
+	// injectBlock is assembled on the first user message and reused across tool
+	// rounds so the injected prefix stays byte-stable. A loop/progress guard may
+	// clear it once as the explicit negative-transfer fuse.
 	injectBlock string
+	// injectTargets are the canonical slice IDs represented by injectBlock.
+	// injectionFused prevents a loop guard from penalizing or announcing the
+	// same slices more than once in one user turn.
+	injectTargets  []string
+	injectionFused bool
 
 	// reuse is this turn's semantix reuse panel data (U33/H4a): hit slices,
 	// incremental cost savings, and top source sessions, gathered on the

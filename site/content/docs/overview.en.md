@@ -18,7 +18,7 @@ Semantix separates the problem into four steps:
 | Area | Responsibility | Main paths |
 |---|---|---|
 | CLI | Extraction, retrieval, verification, diagnostics, maintenance | `cmd/semantix` |
-| Coding agent | Reasonix-derived harness and executable | `cmd/semantix-agent`, `harness` |
+| Coding agent | Semantix Agent harness and executable | `cmd/semantix-agent`, `harness` |
 | Slices | Types, scopes, storage, compression, eviction | `kernel/slice` |
 | Retrieval | BM25, embeddings, fusion, zones | `kernel/bm25`, `kernel/embed`, `kernel/fuse`, `kernel/zone` |
 | Reuse | Lookup, injection, L3 gates, fingerprints, promotion | `kernel/lookup`, `kernel/inject`, `kernel/cache`, `kernel/fingerprint`, `kernel/judge`, `kernel/promote` |

@@ -13,6 +13,32 @@ import memory_matrix_report  # noqa: E402
 
 
 class MemoryMatrixCommandTest(unittest.TestCase):
+    def test_defaults_to_core_abc_without_legacy_binary(self):
+        args = argparse.Namespace(
+            dataset="dataset.jsonl",
+            ids="ids.txt",
+            model="deepseek-v4-flash",
+            semantix_bin="bin/current-agent",
+            semantix_kernel_bin="bin/semantix",
+            semantix_seed_dir="seed",
+            repetitions=1,
+            prefix="issue447",
+            results_dir="results",
+            work_dir="work",
+            state_dir="state",
+            workers=3,
+            timeout=1200,
+            max_turns=80,
+            preset="balanced",
+            effort="",
+            prices="",
+            openai_base="",
+            anthropic_base="",
+        )
+        runs = memory_matrix.build_runs(args)
+        self.assertEqual([r.arm for r in runs], ["A", "B", "C"])
+        self.assertEqual(memory_matrix.manifest_for(args, runs)["arm_order"], ["A", "B", "C"])
+
     def test_builds_repeated_abcd_commands_with_isolated_state(self):
         args = argparse.Namespace(
             dataset="dataset.jsonl",
@@ -21,6 +47,7 @@ class MemoryMatrixCommandTest(unittest.TestCase):
             semantix_bin="bin/current-agent",
             legacy_semantix_bin="bin/legacy-agent",
             semantix_kernel_bin="bin/semantix",
+            semantix_seed_dir="seed",
             repetitions=2,
             prefix="issue447",
             results_dir="results",
@@ -46,6 +73,10 @@ class MemoryMatrixCommandTest(unittest.TestCase):
         self.assertIn("strict", commands["C"])
         self.assertIn("bin/legacy-agent", commands["D"])
         self.assertIn("bin/current-agent", commands["C"])
+        self.assertNotIn("--semantix-seed-dir", commands["A"])
+        for arm in ("B", "C", "D"):
+            self.assertIn("--semantix-seed-dir", commands[arm])
+            self.assertIn("seed", commands[arm])
         self.assertEqual(len({r.state_dir for r in runs}), 8)
         self.assertEqual(len({r.work_dir for r in runs}), 8)
 
@@ -110,6 +141,7 @@ class MemoryMatrixReportTest(unittest.TestCase):
             self.assertEqual(c["metrics"]["repeated_read_calls"]["delta_vs_A"]["median"], -1.0)
             self.assertEqual(c["metrics"]["repeated_search_calls"]["delta_vs_A"]["median"], -1.0)
             self.assertIn("Δ repeats median/P75/P90", memory_matrix_report.markdown(report))
+            self.assertIn("Δ fuses median/P75/P90", memory_matrix_report.markdown(report))
 
     def test_report_rejects_unpaired_instance_sets(self):
         manifest = {"schema": 1, "runs": [

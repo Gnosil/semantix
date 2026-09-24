@@ -16,11 +16,14 @@ package inject
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"unicode"
 
 	"semantix/kernel/bm25"
+	"semantix/kernel/fingerprint"
 	"semantix/kernel/sanitize"
 	"semantix/kernel/slice"
 	"semantix/kernel/zone"
@@ -84,6 +87,10 @@ type Injector struct {
 	// AllowedTypes, when non-nil, is a fail-closed injection allowlist. Search
 	// results outside it remain in Decisions for shadow analysis.
 	AllowedTypes map[slice.SliceType]bool
+	// RootDir and CurrentCommit enable strict source-freshness admission.
+	// Callers that leave both empty retain the generic injector behavior.
+	RootDir       string
+	CurrentCommit string
 	// LibrarySize and MinLibrarySize gate immature Project libraries.
 	LibrarySize    int
 	MinLibrarySize int
@@ -116,6 +123,14 @@ type Injector struct {
 	// preserving the verified/grey boundary inside the block. Grey slices
 	// share the exact-byte budget bound — audit mode is not a bypass.
 	AllowGrey bool
+	// TaskType, when non-empty, gates task-tagged Memory slices (the
+	// distilled plan-skeleton / outcome cards, which carry a "task=<type>"
+	// marker) on matching the current turn's classified type. Cross-type
+	// instance locators are exactly the "misleading reference" failure the
+	// two-arm pilot measured — a bugfix outcome card must not steer a
+	// feature task. Untagged Memory slices and every other slice type are
+	// unaffected; empty TaskType keeps the historical behavior.
+	TaskType string
 }
 
 // Injection is the assembled, deterministic reuse block.
@@ -141,7 +156,9 @@ type Injection struct {
 // slice. Reason is a stable enum: admitted, below_min_score, zone_grey,
 // zone_miss, sanitized_empty, origin_below_floor, budget, nil_slice,
 // type_not_allowed, library_too_small, type_sources_too_few,
-// runner_up_missing, top_margin_low, or coverage_low.
+// runner_up_missing, top_margin_low, coverage_low, current_commit_unknown,
+// commit_unknown, stale_commit, path_missing, dependency_path_invalid, or
+// dependency_changed.
 type CandidateDecision struct {
 	ID       string
 	Score    float64
@@ -178,9 +195,19 @@ func (in *Injector) BuildHits(query string, hits []slice.Hit) (*Injection, error
 	if budget <= 0 {
 		budget = DefaultBudget
 	}
+	// Eligibility feeds the relative-confidence denominator (top1) and the
+	// runner-up margin: a candidate the type allowlist or the task gate
+	// rejects must not depress every other candidate's score/top1 ratio —
+	// the exact denominator artifact the W6 ablation measured on cold
+	// libraries (one lexically strong ineligible slice emptying the block).
 	eligibleScores := make([]float64, 0, len(hits))
+	freshnessReasons := make(map[*slice.Slice]string, len(hits))
 	for _, h := range hits {
-		if h.Slice != nil && in.typeAllowed(h.Slice.Type) {
+		if h.Slice != nil {
+			freshnessReasons[h.Slice] = in.freshnessReason(h.Slice)
+		}
+		if h.Slice != nil && in.admissionTypeEligible(h.Slice) && in.taskAdmits(h.Slice) &&
+			freshnessReasons[h.Slice] == "" {
 			eligibleScores = append(eligibleScores, h.Score)
 		}
 	}
@@ -225,6 +252,18 @@ func (in *Injector) BuildHits(query string, hits []slice.Hit) (*Injection, error
 			dropped++
 			continue
 		}
+		if in.AllowedTypes != nil && h.Slice.Type == slice.Result && h.Slice.Meta.EffectiveResultStatus() != slice.ResultStatusVerified {
+			d.Reason = "result_probation"
+			decisions = append(decisions, d)
+			dropped++
+			continue
+		}
+		if reason := freshnessReasons[h.Slice]; reason != "" {
+			d.Reason = reason
+			decisions = append(decisions, d)
+			dropped++
+			continue
+		}
 		if in.MinLibrarySize > 0 && in.LibrarySize < in.MinLibrarySize {
 			d.Reason = "library_too_small"
 			decisions = append(decisions, d)
@@ -257,6 +296,15 @@ func (in *Injector) BuildHits(query string, hits []slice.Hit) (*Injection, error
 		}
 		if in.MinCoverage > 0 && d.Coverage < in.MinCoverage {
 			d.Reason = "coverage_low"
+			decisions = append(decisions, d)
+			dropped++
+			continue
+		}
+		// Task-type admission for tagged Memory cards (see the TaskType
+		// field doc): a card distilled from a different task type is
+		// dropped before zone classification even sees it.
+		if !in.taskAdmits(h.Slice) {
+			d.Reason = "task_type_mismatch"
 			decisions = append(decisions, d)
 			dropped++
 			continue
@@ -370,18 +418,122 @@ func (in *Injector) BuildHits(query string, hits []slice.Hit) (*Injection, error
 	}, nil
 }
 
+// taskAdmits applies the task-type gate: with a non-empty TaskType, a
+// Memory slice carrying a different task tag is inadmissible (both for the
+// block and for the relative-confidence denominator).
+func (in *Injector) taskAdmits(sl *slice.Slice) bool {
+	if in.TaskType == "" || sl.Type != slice.Memory {
+		return true
+	}
+	tag := taskTagOf(string(sl.Content))
+	return tag == "" || tag == in.TaskType
+}
+
+// taskTagOf extracts the "task=<type>" marker a distilled Memory card
+// carries in its head line ("Plan skeleton (task=bugfix):", "Task outcome
+// (task=bugfix): …"). Empty for untagged content — legacy Memory slices
+// carry no tag and are never task-gated.
+func taskTagOf(content string) string {
+	head := content
+	if i := strings.IndexByte(head, '\n'); i >= 0 {
+		head = head[:i]
+	}
+	_, rest, ok := strings.Cut(head, "task=")
+	if !ok {
+		return ""
+	}
+	end := strings.IndexFunc(rest, func(r rune) bool {
+		return !(r == '-' || r == '_' || r >= '0' && r <= '9' || r >= 'a' && r <= 'z')
+	})
+	if end < 0 {
+		return rest
+	}
+	return rest[:end]
+}
+
 func formatSliceItem(sl *slice.Slice, score float64, content string, grey bool) string {
 	header := fmt.Sprintf("--- slice %s ---\n", sl.ID)
 	if grey {
 		header = fmt.Sprintf("--- slice %s (grey, unverified) ---\n", sl.ID)
 	}
+	verified := "unknown"
+	if sl.Type == slice.Result {
+		verified = string(sl.Meta.EffectiveResultStatus())
+	}
 	provenance := fmt.Sprintf(
-		"type=%s project=%q source=%q origin=%s verified=unknown score=%.4f created_at=%d\n",
-		sl.Type.String(), sl.Meta.ProjectSlug, sl.Meta.SourceSession, sl.Meta.Origin, score, sl.CreatedAt,
+		"type=%s project=%q source=%q commit=%q origin=%s verified=%s score=%.4f created_at=%d\n",
+		sl.Type.String(), sl.Meta.ProjectSlug, sl.Meta.SourceSession, sl.Meta.BaseCommit, sl.Meta.Origin, verified, score, sl.CreatedAt,
 	)
 	return header + provenance + content + "\n"
 }
 
 func (in *Injector) typeAllowed(t slice.SliceType) bool {
 	return in.AllowedTypes == nil || in.AllowedTypes[t]
+}
+
+func (in *Injector) admissionTypeEligible(sl *slice.Slice) bool {
+	if sl == nil || !in.typeAllowed(sl.Type) {
+		return false
+	}
+	return in.AllowedTypes == nil || sl.Type != slice.Result || sl.Meta.EffectiveResultStatus() == slice.ResultStatusVerified
+}
+
+func (in *Injector) freshnessReason(sl *slice.Slice) string {
+	if sl == nil || (in.RootDir == "" && in.CurrentCommit == "") {
+		return ""
+	}
+	if in.CurrentCommit == "" {
+		return "current_commit_unknown"
+	}
+	if sl.Meta.BaseCommit == "" {
+		return "commit_unknown"
+	}
+	if sl.Meta.BaseCommit != in.CurrentCommit && len(sl.Meta.Deps) == 0 {
+		return "stale_commit"
+	}
+	if len(sl.Meta.Deps) == 0 {
+		return ""
+	}
+
+	paths := make([]string, 0, len(sl.Meta.Deps))
+	for path := range sl.Meta.Deps {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	root, err := filepath.Abs(in.RootDir)
+	if err != nil {
+		return "dependency_path_invalid"
+	}
+	root, err = filepath.EvalSymlinks(root)
+	if err != nil {
+		return "dependency_path_invalid"
+	}
+	for _, path := range paths {
+		if !filepath.IsLocal(path) {
+			return "dependency_path_invalid"
+		}
+		parts := strings.Split(filepath.Clean(filepath.FromSlash(path)), string(filepath.Separator))
+		current := root
+		for i, part := range parts {
+			current = filepath.Join(current, part)
+			info, err := os.Lstat(current)
+			if os.IsNotExist(err) {
+				return "path_missing"
+			}
+			if err != nil || info.Mode()&os.ModeSymlink != 0 {
+				return "dependency_path_invalid"
+			}
+			if i < len(parts)-1 && !info.IsDir() {
+				return "dependency_path_invalid"
+			}
+			if i == len(parts)-1 && !info.Mode().IsRegular() {
+				return "dependency_path_invalid"
+			}
+		}
+	}
+	changed, err := fingerprint.Verify(root, sl.Meta.Deps)
+	if err != nil || len(changed) > 0 {
+		return "dependency_changed"
+	}
+	return ""
 }

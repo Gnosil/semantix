@@ -28,7 +28,7 @@ semantix lookup --query "<query>" [--limit N] [--scope user] [--db <path>] [--js
 
 ## 框架注册示例
 
-### Semantix（Gnosil/DeepSeek-Reasonix fork，已内置）
+### Semantix Agent（已内置）
 
 参考 `internal/tool/semantix.go`（H1 挂载）——`semantix_lookup` 已注册，
 子进程协议 + 3s 超时 + 软降级。

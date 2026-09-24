@@ -13,6 +13,7 @@ import (
 	"semantix/harness/evidence"
 	"semantix/harness/jobs"
 	"semantix/harness/provider"
+	"semantix/harness/semantix"
 	"semantix/harness/taskintent"
 	"semantix/harness/taskpolicy"
 	"semantix/harness/tool"
@@ -272,11 +273,14 @@ func (a *Agent) beginRunTurn(ctx context.Context, input string) (rawInput string
 		// Issue #270 step 2: the degrade_inject tier shrinks the injection
 		// (halved block budget) instead of dropping it, so tight budgets still
 		// get some reuse context. Any other action keeps the full injection.
+		var result semantix.InjectResult
 		if a.budgetCtrl != nil && a.budgetCtrl.Action() == sched.BudgetActionDegradeInject {
-			state.injectBlock = a.semantix.InjectDegraded(ctx, input)
+			result = a.semantix.InjectDegradedDetailed(ctx, input)
 		} else {
-			state.injectBlock = a.semantix.InjectDetailed(ctx, input).Text
+			result = a.semantix.InjectDetailed(ctx, input)
 		}
+		state.injectBlock = result.Text
+		state.injectTargets = append([]string(nil), result.Targets...)
 		// U33/H4a reuse panel: capture the kernel's per-turn reuse summary
 		// (hit slices + incremental cost savings + top source sessions)
 		// alongside the injection block. Same soft-degrade contract: a zero

@@ -116,11 +116,12 @@ Prefer to build from source (Go 1.26+)? `go build -o semantix ./cmd/semantix && 
 
 | Agent / harness | Integration path | Status |
 | --- | --- | --- |
-| DeepSeek-Reasonix | Built-in bundle: `[semantix] enabled=true` + `semantix_lookup` tool | ✅ shipped since v0.3.0 |
+| Semantix Agent | Built-in bundle: `[semantix] enabled=true` + `semantix_lookup` tool | ✅ shipped since v0.3.0 |
 | Claude Code | Tool registration via `semantix_lookup` / `semantix_inject` schemas | ✅ documented (`agent-skill/tools/`) |
 | LangChain apps | Middleware with two hooks (message rewrite + session extraction) | ✅ documented ([report](./docs/reports/langchain-middleware.md)) |
 | Custom / self-hosted | Session bypass: export / event bypass / direct call | ✅ documented (`agent-skill/hooks/session-bypass.md`) |
 | Any OpenAI-compatible client | `semantix-gateway` in front, custom base URL | ✅ shipped |
+| Milvus (vector DB) | Optional compose stack (docker-compose.milvus.yml) + MCP server; orchestrator does RAG, Semantix caches LLM calls | ✅ documented ([guide](./docs/integrations/milvus.md)) |
 
 Cursor, Windsurf, Codex CLI, Gemini CLI, Copilot agent mode and Cline / Continue / Aider all reach the kernel through one of the paths above; none requires kernel changes. Priorities follow observed usage — concrete integration requests are tracked as [issues](https://github.com/Gnosil/semantix/issues) (template: `.github/ISSUE_TEMPLATE/integration_request.yml`).
 

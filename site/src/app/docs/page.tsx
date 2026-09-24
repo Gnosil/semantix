@@ -18,7 +18,7 @@ const learningPaths = [
   {
     index: "02",
     title: "接入现有 Agent",
-    description: "选择 Reasonix、Claude Code 或自定义 harness 的最小接线。",
+    description: "选择 Semantix Agent、Claude Code 或自定义 harness 的最小接线。",
     href: "/docs/agent-integration",
     link: "选择接入方式",
   },

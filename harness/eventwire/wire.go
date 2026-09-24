@@ -67,11 +67,24 @@ type QuerySummary struct {
 	Tokens int    `json:"tokens,omitempty"`
 }
 
+type RetrievalQueryStructure struct {
+	Strategy       string   `json:"strategy,omitempty"`
+	Intent         string   `json:"intent,omitempty"`
+	Repo           string   `json:"repo,omitempty"`
+	Paths          []string `json:"paths,omitempty"`
+	Symbols        []string `json:"symbols,omitempty"`
+	ErrorCodes     []string `json:"errorCodes,omitempty"`
+	TestNames      []string `json:"testNames,omitempty"`
+	Dependencies   []string `json:"dependencies,omitempty"`
+	FallbackReason string   `json:"fallbackReason,omitempty"`
+}
+
 type RetrievalCandidate struct {
 	ID            string  `json:"id,omitempty"`
 	Type          string  `json:"type,omitempty"`
 	SourceSession string  `json:"sourceSession,omitempty"`
 	Project       string  `json:"project,omitempty"`
+	BaseCommit    string  `json:"baseCommit,omitempty"`
 	Origin        string  `json:"origin,omitempty"`
 	Verified      string  `json:"verified,omitempty"`
 	Score         float64 `json:"score,omitempty"`
@@ -82,20 +95,21 @@ type RetrievalCandidate struct {
 }
 
 type RetrievalDiagnostics struct {
-	Mode           string               `json:"mode,omitempty"`
-	LibrarySize    int                  `json:"librarySize,omitempty"`
-	Repo           string               `json:"repo,omitempty"`
-	BaseCommit     string               `json:"baseCommit,omitempty"`
-	QueryBefore    QuerySummary         `json:"queryBefore,omitempty"`
-	QueryAfter     QuerySummary         `json:"queryAfter,omitempty"`
-	TopMargin      float64              `json:"topMargin,omitempty"`
-	Candidates     []RetrievalCandidate `json:"candidates,omitempty"`
-	Injected       bool                 `json:"injected,omitempty"`
-	Bytes          int                  `json:"bytes,omitempty"`
-	MessageRole    string               `json:"messageRole,omitempty"`
-	FinalOrder     []string             `json:"finalOrder,omitempty"`
-	Decision       string               `json:"decision,omitempty"`
-	DecisionReason string               `json:"decisionReason,omitempty"`
+	Mode           string                  `json:"mode,omitempty"`
+	LibrarySize    int                     `json:"librarySize,omitempty"`
+	Repo           string                  `json:"repo,omitempty"`
+	BaseCommit     string                  `json:"baseCommit,omitempty"`
+	QueryBefore    QuerySummary            `json:"queryBefore,omitempty"`
+	QueryAfter     QuerySummary            `json:"queryAfter,omitempty"`
+	QueryStructure RetrievalQueryStructure `json:"queryStructure,omitempty"`
+	TopMargin      float64                 `json:"topMargin,omitempty"`
+	Candidates     []RetrievalCandidate    `json:"candidates,omitempty"`
+	Injected       bool                    `json:"injected,omitempty"`
+	Bytes          int                     `json:"bytes,omitempty"`
+	MessageRole    string                  `json:"messageRole,omitempty"`
+	FinalOrder     []string                `json:"finalOrder,omitempty"`
+	Decision       string                  `json:"decision,omitempty"`
+	DecisionReason string                  `json:"decisionReason,omitempty"`
 }
 
 // CompletionSummary is the JSON form of event.CompletionSummaryInfo.
@@ -299,12 +313,18 @@ func toWireRetrieval(in *event.RetrievalDiagnostics) *RetrievalDiagnostics {
 		Mode: in.Mode, LibrarySize: in.LibrarySize, Repo: in.Repo, BaseCommit: in.BaseCommit,
 		QueryBefore: QuerySummary{SHA256: in.QueryBefore.SHA256, Bytes: in.QueryBefore.Bytes, Tokens: in.QueryBefore.Tokens},
 		QueryAfter:  QuerySummary{SHA256: in.QueryAfter.SHA256, Bytes: in.QueryAfter.Bytes, Tokens: in.QueryAfter.Tokens},
-		TopMargin:   in.TopMargin, Injected: in.Injected, Bytes: in.Bytes, MessageRole: in.MessageRole,
+		QueryStructure: RetrievalQueryStructure{
+			Strategy: in.QueryStructure.Strategy, Intent: in.QueryStructure.Intent, Repo: in.QueryStructure.Repo,
+			Paths: append([]string(nil), in.QueryStructure.Paths...), Symbols: append([]string(nil), in.QueryStructure.Symbols...),
+			ErrorCodes: append([]string(nil), in.QueryStructure.ErrorCodes...), TestNames: append([]string(nil), in.QueryStructure.TestNames...),
+			Dependencies: append([]string(nil), in.QueryStructure.Dependencies...), FallbackReason: in.QueryStructure.FallbackReason,
+		},
+		TopMargin: in.TopMargin, Injected: in.Injected, Bytes: in.Bytes, MessageRole: in.MessageRole,
 		FinalOrder: append([]string(nil), in.FinalOrder...), Decision: in.Decision, DecisionReason: in.DecisionReason,
 	}
 	for _, c := range in.Candidates {
 		out.Candidates = append(out.Candidates, RetrievalCandidate{
-			ID: c.ID, Type: c.Type, SourceSession: c.SourceSession, Project: c.Project,
+			ID: c.ID, Type: c.Type, SourceSession: c.SourceSession, Project: c.Project, BaseCommit: c.BaseCommit,
 			Origin: c.Origin, Verified: c.Verified, Score: c.Score, Coverage: c.Coverage,
 			Zone: c.Zone, Admitted: c.Admitted, Reason: c.Reason,
 		})

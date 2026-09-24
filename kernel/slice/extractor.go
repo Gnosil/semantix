@@ -26,9 +26,14 @@ type Extractor interface {
 // transcriptLine is one line of a session JSONL transcript (Semantix-style).
 // Only the fields the extractor needs are decoded; unknown fields are ignored.
 type transcriptLine struct {
-	Role      string `json:"role"`
-	Content   string `json:"content"`
-	ToolCalls []struct {
+	Role              string `json:"role"`
+	Type              string `json:"type,omitempty"`
+	Content           string `json:"content"`
+	Name              string `json:"name,omitempty"`
+	ToolCall          string `json:"tool_call_id,omitempty"`
+	Verification      string `json:"verification,omitempty"`
+	WorkspaceMutation bool   `json:"workspace_mutation,omitempty"`
+	ToolCalls         []struct {
 		ID        string          `json:"id"`
 		Name      string          `json:"name"`
 		Arguments json.RawMessage `json:"arguments,omitempty"`
@@ -327,6 +332,11 @@ func parseTranscript(data []byte) ([]transcriptLine, error) {
 			continue // tolerant: skip malformed lines
 		}
 		if tl.Role == "" {
+			if tl.Type == "tool" {
+				tl.Role = "tool"
+			}
+		}
+		if tl.Role == "" {
 			if e, err := kernelevent.FromJSON(line); err == nil {
 				switch e.Kind {
 				case kernelevent.SliceHit:
@@ -442,6 +452,14 @@ func toolPatternSlicesStepSplit(turn []transcriptLine, meta SliceMeta) []*Slice 
 }
 
 func finalResultSlice(lines []transcriptLine, meta SliceMeta) *Slice {
+	meta.ResultStatus = ResultStatusProbation
+	meta.ResultVerifiedBy = ""
+	meta.ResultVerificationEvidence = ""
+	if evidence, ok := resultVerifiedAfterLatestMutation(lines); ok {
+		meta.ResultStatus = ResultStatusVerified
+		meta.ResultVerifiedBy = "command"
+		meta.ResultVerificationEvidence = evidence
+	}
 	for i := len(lines) - 1; i >= 0; i-- {
 		l := lines[i]
 		if l.Role == "assistant" && len(l.ToolCalls) == 0 {
@@ -453,6 +471,39 @@ func finalResultSlice(lines []transcriptLine, meta SliceMeta) *Slice {
 		}
 	}
 	return nil
+}
+
+func resultVerifiedAfterLatestMutation(lines []transcriptLine) (string, bool) {
+	calls := make(map[string]toolCall)
+	for _, line := range lines {
+		for _, call := range line.ToolCalls {
+			calls[call.ID] = toolCall{name: call.Name, args: decodeToolArgs(call.Arguments)}
+		}
+	}
+	latestMutation, latestVerification := -1, -1
+	latestPassed := false
+	evidence := ""
+	for i, line := range lines {
+		if line.Role != "tool" {
+			continue
+		}
+		if line.WorkspaceMutation {
+			latestMutation = i
+		}
+		if line.Verification == "passed" || line.Verification == "failed" {
+			latestVerification = i
+			latestPassed = line.Verification == "passed"
+			evidence = line.Name
+			if call, ok := calls[line.ToolCall]; ok {
+				if command := commandValue(call.args); command != "" {
+					evidence = command
+				} else if call.name != "" {
+					evidence = call.name
+				}
+			}
+		}
+	}
+	return evidence, latestPassed && latestVerification > latestMutation
 }
 
 func compressionMeta(meta SliceMeta, original string, stored []byte) SliceMeta {

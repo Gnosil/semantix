@@ -18,7 +18,7 @@ Semantix 把问题拆成四步：
 | 模块 | 责任 | 主要目录 |
 |---|---|---|
 | CLI | 提取、检索、注入、验证、诊断和维护 | `cmd/semantix` |
-| Coding agent | Reasonix 派生 harness 与可执行入口 | `cmd/semantix-agent`、`harness` |
+| Coding agent | Semantix Agent harness 与可执行入口 | `cmd/semantix-agent`、`harness` |
 | 语义切片 | 类型、作用域、存储、压缩与淘汰 | `kernel/slice` |
 | 检索 | BM25、embedding、融合与 zone | `kernel/bm25`、`kernel/embed`、`kernel/fuse`、`kernel/zone` |
 | 复用 | lookup、注入、L3 判定、指纹与提升 | `kernel/lookup`、`kernel/inject`、`kernel/cache`、`kernel/fingerprint`、`kernel/judge`、`kernel/promote` |

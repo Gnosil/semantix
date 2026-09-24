@@ -3,8 +3,10 @@ import Hero from "@/components/Hero";
 import Features from "@/components/Features";
 import Components from "@/components/Components";
 import Community from "@/components/Community";
+import DesktopDownload from "@/components/DesktopDownload";
 import Install from "@/components/Install";
-import Footer from "@/components/Footer";
+import BloomCurtain from "@/components/BloomCurtain";
+import FinaleInfo from "@/components/FinaleInfo";
 import BrandIntroOverlay from "@/components/BrandIntroOverlay";
 import { siteIdentity } from "@/lib/site-identity";
 
@@ -33,9 +35,11 @@ export default function Home() {
         <Features />
         <Components />
         <Community />
+        <DesktopDownload />
         <Install />
+        <BloomCurtain />
       </main>
-      <Footer />
+      <FinaleInfo />
     </>
   );
 }

@@ -16,7 +16,7 @@ Semantix 桌面端原生主题包。主题是**受控皮肤**：语义颜色令�
 外观拆成两个界面（不增加第三套入口）：
 
 1. **外观概览页** — 当前主题摘要、明暗模式、**唯一**基础配色控件、字体与缩放。主操作：**浏览主题**。
-2. **主题画廊** — 官方 / 我的主题 / 基础配色三个分类；点击卡片仅选中；详情区隔离预览；
+2. **主题画廊** — 我的主题 / 基础配色两个分类；点击卡片仅选中；详情区隔离预览；
    「临时预览」才覆盖全应用；只有「应用主题」会持久化。沉浸式预览是画廊详情的一部分。
 
 状态模型（`desktop-theme-state.json` schema v2）：
@@ -25,7 +25,7 @@ Semantix 桌面端原生主题包。主题是**受控皮肤**：语义颜色令�
 | --- | --- | --- |
 | `themeMode` | 自动 / 浅色 / 深色 | 桌面配置 |
 | `baseStyle` | Graphite…Amber | 桌面配置（`theme_style`） |
-| `activeThemeId` | 仅官方、用户或插件主题 | `desktop-theme-state.json` |
+| `activeThemeId` | 仅用户或插件主题 | `desktop-theme-state.json` |
 | `selectedThemeId` / `previewThemeId` | 画廊选中 / 临时预览 | 仅前端内存 |
 
 - `activeThemeId` **禁止**保存基础配色 id。选择基础配色会清空主题包。
@@ -34,35 +34,18 @@ Semantix 桌面端原生主题包。主题是**受控皮肤**：语义颜色令�
 
 ## 主题类型
 
-画廊分四组：
+画廊分三组：
 
 | 类型 | 来源 | 可编辑 | 可删除 | 可导出 |
 | --- | --- | --- | --- | --- |
 | **基础风格** | 六种视觉方向（Graphite、Aurora、Slate、Carbon、Nocturne、Amber），无令牌覆盖 | 否（需先复制） | 否 | 否 |
-| **官方主题** | 安装包内嵌的八款只读主题（清单 + 原创背景 + 缩略图，MIT） | 否（需先复制） | 否 | 否 |
 | **我的主题** | 编辑器新建、复制，或导入 `.semantix-theme` | 是 | 是 | 是 |
 | **插件主题** | 已启用插件贡献的 `.semantix-theme`（Manifest v2 `contributes.themes`），直接从插件目录读取——从不拷入用户库 | 否 | 否（禁用或卸载插件） | 否 |
 
-- 14 个内置 id（6 基础 + 8 官方）均为**保留名**：保存、导入、覆盖复制与删除都会拒绝冲突。
-- 激活官方主题时，仅把其 id 写入 `desktop-theme-state.json`；资源在运行时从嵌入副本读取。
-- 对基础/官方主题执行「复制」会生成可编辑的用户主题（官方背景会拷入用户库），之后可编辑或导出。
+- 6 个基础配色 id 均为**保留名**：保存、导入、覆盖复制与删除都会拒绝冲突。
+- 对基础主题执行「复制」会生成可编辑的用户主题，之后可编辑或导出。
 - v1 若把基础配色 id 存为 `activeThemeId`，加载时会迁移到 `desktop.theme_style` 并清空活动主题。
 - 插件主题的外部 id 形如 `plugin:<plugin>:<theme>`；包内 `id` 仍遵循既有 id 规则。无效的 contributed 文件会被跳过并在主题视图中给出警告，绝不致命。当活动 id 对应的插件缺失、被禁用或被卸载时，界面回退到已配置的基础风格，但该 id **保留**在 `desktop-theme-state.json` 中——重新安装同一插件即可恢复主题。保存/删除/复制/导出都会以只读为由拒绝插件主题 id。
-
-### 八款官方主题
-
-| ID | 名称 | 基础风格 | 画面 |
-| --- | --- | --- | --- |
-| `official-rose-dawn` | Rose Dawn / 玫瑰晨光 | graphite | 象牙白晨光、柔粉玫瑰、原创插画女性 |
-| `official-fortune-forge` | Fortune Forge / 鸿运工坊 | amber | 朱红/金/玉绿工坊、原创吉祥程序员 |
-| `official-crimson-horizon` | Crimson Horizon / 赤曜新城 | graphite | 珊瑚红未来城市天际线，无人物 |
-| `official-sage-breeze` | Sage Breeze / 鼠尾草清风 | slate | 奶油纸张、鼠尾草、原创读者 |
-| `official-spark-notebook` | Spark Notebook / 灵感手账 | aurora | 手账网格与文具、原创动漫成年人 |
-| `official-violet-starlight` | Violet Starlight / 紫曜星夜 | nocturne | 蓝紫星空、蝴蝶、剪影女性 |
-| `official-cyan-stage` | Cyan Stage / 青岚舞台 | carbon | 青蓝舞台与光环、原创数字表演者 |
-| `official-noir-gold` | Noir Gold / 黑金序曲 | carbon | 黑丝绒、金色聚光灯、原创绅士 |
-
-预览在应用内主题库（设置 → 外观）中展示，来自真实 Semantix 构建。**请勿把应用截图当作主题背景导入。** 素材来源、哈希与许可记录见 [THEME_ASSETS.zh-CN.md](./THEME_ASSETS.zh-CN.md)；生成脚本在 `scripts/official-theme-art/`（程序化、固定种子、可复现）。
 
 ## 包格式
 

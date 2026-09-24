@@ -40,6 +40,8 @@ const (
 	EvolutionTick
 	// ResourceCatalog reports the harness resource inventory.
 	ResourceCatalog
+	// SliceOutcome attributes an observed post-injection outcome and reason.
+	SliceOutcome
 
 	// KindCount is the sentinel for validation and tests.
 	KindCount
@@ -112,6 +114,13 @@ type SliceInjectPayload struct {
 // SliceRejectPayload reports injection pollution.
 type SliceRejectPayload struct {
 	SliceID string `json:"slice_id"`
+	Reason  string `json:"reason,omitempty"`
+}
+
+// SliceOutcomePayload reports a useful, neutral, or harmful injection outcome.
+type SliceOutcomePayload struct {
+	SliceID string `json:"slice_id"`
+	Outcome string `json:"outcome"`
 	Reason  string `json:"reason,omitempty"`
 }
 

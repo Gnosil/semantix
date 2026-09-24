@@ -124,7 +124,7 @@ Prompt、ToolPattern 默认 shadow-only；Result 只有在具有成功验证或�
 
 #### 5.7 查询结构化
 
-检索 query 从完整 prompt 改为任务意图、repo、路径、符号和错误码；固定 benchmark 外壳不参与检索。
+检索 query 从完整 prompt 改为任务意图、repo、路径、符号、错误码/异常、测试名和依赖；固定 benchmark 外壳与 URL 不参与检索。找不到结构化信号时回退到 P0 lexical cleaning，并记录稳定 fallback reason。
 
 #### 5.8 ToolPattern 升级
 
@@ -134,9 +134,17 @@ T-Slice 至少携带路径、查询词、命令族、验证边界和结果状态
 
 Result 初始为 probation；只有验证命令通过、无回滚，或外部评测 resolved 后才提升为 injectable。
 
+实现合同：自动 session 抽取把 Result 标记为 `probation`；只有最新 workspace
+mutation 之后的最后一条 verification 结果为 `passed` 时，抽取器才写入
+`result_status=verified`，并保留具体命令作为 evidence。外部官方评测或用户确认走
+`semantix verify-result <slice-id> --method command|official|user --evidence <text>`，
+晋级写入 audit；用户确认还要求 source session、project 和 origin 完整。导入文件中
+自报的 verified 字段一律重置为 probation。strict 检索允许 Result 进入候选分析，
+但以稳定原因 `result_probation` 拒绝未晋级结果。
+
 #### 5.10 负迁移熔断
 
-将 slice ID 与后续工具行为关联。连续出现重复读取、重复搜索、重复测试、无效路径或回滚时，当前 turn 停止使用该 slice，并累计 reject/waste，而不是仅累计 injected。
+将 slice ID 与后续工具行为关联。第一阶段复用 harness 已有 loop/progress guard：只有该 guard 已确认连续调用没有新增证据时，才从后续 provider request 清除当前 turn 的历史块，并为关联 slice 发出 `SliceReject(reason=loop_guard)`、累计 `Rejected`。熔断在同一 turn 幂等，后台 prefetch 也不能重新注入。重复调用本身仍只是相关信号，不单独证明某 slice 有害。
 
 ### P2：检索升级
 
@@ -191,7 +199,11 @@ Result 初始为 probation；只有验证命令通过、无回滚，或外部评
 - P0.3 Repo 隔离：已完成，采用真实 repo 独立 store 和 repo 内确定性串行；
 - P0.4 严格准入：已实现 C/M allowlist、小库/来源会话/绝对分/coverage/margin/runner-up 门禁和 query 清洗；
 - P0.5 历史正文降权、provenance、严格预算和 score-first 稳定排序：已实现；
-- 后续：A-D 配对实验、Result 成功提升和负迁移熔断。
+- P1.1 结构化 query：已实现确定性 intent/repo/path/symbol/error/test/dependency 提取、lexical fallback 和 eventwire 观测；
+- P1.3 Result 成功提升：已实现默认 probation、宿主验证自动晋级、外部显式晋级、导入重置和 strict 准入门禁；
+- P1.4 第一阶段负迁移熔断：已接入 loop/progress guard、本轮移除、slice reject 反馈及 SWE metrics；
+- A-D 执行器已支持冻结种子，离线 strict/shadow/legacy 注入管线已验证；
+- 后续：冻结样本正式配对实验，以及按无效路径/回滚/外部 unresolved 细分 fuse reason。
 
 P0.4 的具体默认值、reason code、校准和回滚合同见 `docs/specs/semantix-l2-admission-policy.md`；
 P0.5 的 provider 消息合同、完整字节预算口径和回滚步骤见

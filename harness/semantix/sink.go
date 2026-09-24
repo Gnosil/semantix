@@ -18,12 +18,14 @@ import (
 // sessionLine is one line of the kernel session JSONL consumed by
 // `semantix extract --input`. Fields mirror the extractor contract.
 type sessionLine struct {
-	Role      string         `json:"role,omitempty"`
-	Content   string         `json:"content,omitempty"`
-	ToolCalls []toolCallLine `json:"tool_calls,omitempty"`
-	Type      string         `json:"type,omitempty"`
-	ToolCall  string         `json:"tool_call_id,omitempty"`
-	Name      string         `json:"name,omitempty"`
+	Role              string         `json:"role,omitempty"`
+	Content           string         `json:"content,omitempty"`
+	ToolCalls         []toolCallLine `json:"tool_calls,omitempty"`
+	Type              string         `json:"type,omitempty"`
+	ToolCall          string         `json:"tool_call_id,omitempty"`
+	Name              string         `json:"name,omitempty"`
+	Verification      string         `json:"verification,omitempty"`
+	WorkspaceMutation bool           `json:"workspace_mutation,omitempty"`
 }
 
 // EmitKernel appends the original kernel event wire object to the same real
@@ -64,8 +66,14 @@ type HarnessSink struct {
 	text    string // assistant text buffer
 	reason  string // reasoning buffer
 	tools   []toolCallLine
-	outputs map[string]string // tool output keyed by tool call ID (filled by ToolResult)
+	outputs map[string]toolResultLine // host-owned result metadata keyed by call ID
 	err     error
+}
+
+type toolResultLine struct {
+	content           string
+	verification      string
+	workspaceMutation bool
 }
 
 // NewHarnessSink creates the sink, creating the sessions dir (0700).
@@ -137,9 +145,13 @@ func (s *HarnessSink) Emit(e event.Event) {
 			out = e.Tool.Err
 		}
 		if s.outputs == nil {
-			s.outputs = make(map[string]string)
+			s.outputs = make(map[string]toolResultLine)
 		}
-		s.outputs[e.Tool.ID] = out
+		verification := ""
+		if e.Tool.Execution != nil {
+			verification = e.Tool.Execution.Verification
+		}
+		s.outputs[e.Tool.ID] = toolResultLine{content: out, verification: verification, workspaceMutation: e.Tool.WorkspaceMutation}
 	case event.TurnDone:
 		s.flushLocked()
 		s.turn = false
@@ -159,11 +171,15 @@ func (s *HarnessSink) flushLocked() {
 		lines = append(lines, sessionLine{Role: "assistant", Content: s.text, ToolCalls: s.tools})
 	}
 	for _, t := range s.tools {
-		content := s.outputs[t.ID]
+		result := s.outputs[t.ID]
+		content := result.content
 		if content == "" {
 			content = "(tool output)"
 		}
-		lines = append(lines, sessionLine{Type: "tool", ToolCall: t.ID, Name: t.Name, Content: content})
+		lines = append(lines, sessionLine{
+			Type: "tool", ToolCall: t.ID, Name: t.Name, Content: content,
+			Verification: result.verification, WorkspaceMutation: result.workspaceMutation,
+		})
 	}
 	s.first = ""
 	s.outputs = nil

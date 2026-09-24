@@ -183,6 +183,10 @@ func buildCommands() []commandSpec {
 			run: func(args []string, stdout, stderr io.Writer, _ dependencies) int {
 				return runVersion(args, stdout, stderr)
 			}},
+		{name: "prune", group: groupMaintenance,
+			usage:   "semantix prune [--scope project|user] [--dry-run|--apply] [--json]",
+			summary: "preview conservative memory cleanup; archive and delete only with --apply",
+			run:     errCommand("prune", runPrune)},
 		{name: "gc", group: groupMaintenance,
 			usage:   "semantix gc [--retention-days N] [--min-weight W] [--max-slices M] [--no-rescore] [--no-archive] [--dry-run] [--json]",
 			summary: "rescore weights, prune stale / low-weight slices, enforce the library cap",
@@ -191,6 +195,11 @@ func buildCommands() []commandSpec {
 			usage:   "semantix trust <slice-id> [--origin user-curated] [--db <path>] [--audit-db <path>]",
 			summary: "upgrade a slice's provenance tag (Issue #279, audit-logged)",
 			run:     depsCommand(runTrust),
+		},
+		{name: "verify-result", group: groupMaintenance,
+			usage:   "semantix verify-result <slice-id> --method command|official|user --evidence <text> [--db <path>]",
+			summary: "promote a Result slice from probation with auditable evidence",
+			run:     depsCommand(runVerifyResult),
 		},
 		{name: "import", group: groupMaintenance,
 			usage:   "semantix import --input <file.jsonl> [--trust] [--db <path>] [--audit-db <path>]",

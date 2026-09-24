@@ -502,15 +502,13 @@ func (s *Server) handler() http.Handler {
 	mux.HandleFunc("GET /assets/logo-wordmark.svg", s.logoWordmark)
 	mux.HandleFunc("GET /provider-setup", s.providerSetupStatus)
 	mux.HandleFunc("POST /provider-setup", s.providerSetupSave)
-	mux.HandleFunc("GET /setup/providers", s.setupProviders)
-	mux.HandleFunc("POST /setup/providers", s.saveSetupProvider)
-	mux.HandleFunc("POST /setup/providers/test", s.testSetupProvider)
 	mux.HandleFunc("GET /workspace", s.workspacePage)
 	mux.HandleFunc("GET /workspace/tokens.css", staticBytes("text/css; charset=utf-8", &workspaceTokensCSS))
 	mux.HandleFunc("GET /workspace/layout.css", staticBytes("text/css; charset=utf-8", &workspaceLayoutCSS))
 	mux.HandleFunc("GET /workspace/shell.js", staticBytes("text/javascript; charset=utf-8", &workspaceShellJS))
 	mux.HandleFunc("GET /events", s.events)
 	mux.HandleFunc("GET /workspace/events", s.workspaceEvents)
+	mux.HandleFunc("GET /workspace/replay", s.workspaceReplay)
 	mux.HandleFunc("GET /history", s.history)
 	mux.HandleFunc("GET /context", s.context)
 	mux.HandleFunc("POST /submit", s.submit)
@@ -650,8 +648,8 @@ func (s *Server) logoWordmark(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write(logoWordmarkSVG)
 }
 
-// workspacePage serves the embedded workspace application. Its script hydrates
-// durable history and then projects the versioned SSE stream into the UI.
+// workspacePage serves the static GUI-1 shell. Like index it needs no session
+// or backend round-trips; everything interactive is inert placeholder content.
 func (s *Server) workspacePage(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write(workspaceHTML)

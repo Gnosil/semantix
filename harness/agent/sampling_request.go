@@ -101,15 +101,21 @@ func (a *Agent) buildSamplingRequest(ctx context.Context, trigger string) (sampl
 	}
 	// L2 semantic injection (U8): keep only a fixed trust policy at system
 	// authority and place this turn's locked [semantix-reuse] body in ordinary
-	// user-role history. The block is assembled once per turn and is byte-stable,
-	// so the provider prefix cache keeps hitting across rounds.
+	// user-role history. The block is byte-stable until a loop/progress guard
+	// trips the negative-transfer fuse; after that it stays absent for the turn.
 	// When the synchronous injection missed (kernel timeout on turn start),
 	// fall back to the block warmed during LLM wait time (N12 prefetch).
 	if block := a.turn.injectBlock; block != "" {
 		a.wastePrefetch()
 		requestMessages = prependSemantixHistory(requestMessages, block)
-	} else if pb := a.takePrefetch(a.semantixTurn.Load()); pb != nil && pb.Text != "" {
-		requestMessages = prependSemantixHistory(requestMessages, pb.Text)
+	} else if !a.turn.injectionFused {
+		if pb := a.takePrefetch(a.semantixTurn.Load()); pb != nil && pb.Text != "" {
+			a.turn.injectBlock = pb.Text
+			a.turn.injectTargets = append([]string(nil), pb.Targets...)
+			requestMessages = prependSemantixHistory(requestMessages, pb.Text)
+		}
+	} else {
+		a.wastePrefetch()
 	}
 	// Injection can create an adjacent history/current-task user run. Apply
 	// provider compatibility after injection so strict providers receive one

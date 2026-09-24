@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 112" role="img" aria-label="Semantix">
+  <style>
+    .wm-text { fill: #14181d; }
+    .wm-ring { stroke: #171a1e; }
+    @media (prefers-color-scheme: dark) {
+      .wm-text { fill: #f1f5f2; }
+      .wm-ring { stroke: #f1f5f2; }
+    }
+  </style>
+  <g transform="translate(8 8) scale(0.1071429)">
+    <path d="M512 244 L780 512 L512 780 L244 512 Z" fill="none" stroke-width="41" class="wm-ring" stroke-linejoin="miter"/>
+    <g stroke="#6cd0a3" stroke-width="43">
+      <path d="M610.56 162.56 L865.92 417.92"/>
+      <path d="M861.44 610.56 L606.08 865.92"/>
+      <path d="M413.44 861.44 L158.08 606.08"/>
+      <path d="M162.56 413.44 L417.92 158.08"/>
+    </g>
+    <path d="M512 401 L623 512 L512 623 L401 512 Z" fill="#6cd0a3"/>
+  </g>
+  <text class="wm-text" x="118" y="56" dominant-baseline="central" font-family="'Space Grotesk','Segoe UI Variable Display','Segoe UI',system-ui,sans-serif" font-size="55" font-weight="700" letter-spacing="-1.5">Semantix</text>
+</svg>

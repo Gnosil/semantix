@@ -1,6 +1,6 @@
 # Semantix L2 严格准入策略
 
-> 状态：P0 基线（2026-09-02）
+> 状态：P0 基线 + P1.1 结构化 query（2026-09-03）
 >
 > 跟踪 Issue：[#447](https://github.com/Gnosil/semantix/issues/447)
 >
@@ -21,15 +21,17 @@
 
 ## 2. 查询处理
 
-Bridge 不再直接把完整 benchmark prompt 交给 BM25，而是生成确定性的低权威 token 投影：
+Bridge 不再直接把完整 benchmark prompt 交给 BM25，而是生成确定性的低权威 token 投影。P1.1 在 P0 模板清洗上继续提取：
 
 1. 删除 `<execution-policy ...>...</execution-policy>`；
 2. 存在 `<issue>...</issue>` 时只使用 issue 正文；
-3. 删除少量英文 benchmark/仓库外壳词；
-4. 保留代码符号、测试名、错误信息、依赖名和 CJK token；
-5. 清洗后为空时 fail closed，reason 为 `empty_query_after_cleaning`。
+3. 从 runner 外壳识别 repo，从 issue 标题识别 intent；
+4. 确定性提取 workspace path、代码 symbol、error code/exception、test name 和 import dependency；
+5. URL 本身不参与 path/symbol 提取，避免链接路径伪装成 workspace 证据；
+6. structured 模式只把 intent 和这些高信息字段投影给 BM25，正文叙述和固定 benchmark 外壳不参与检索；
+7. 没有结构化信号时保留原 P0 清洗结果，记录 `lexical_fallback/no_structured_signals`；清洗后为空仍 fail closed。
 
-事件只保存原 query 与清洗后 query 的 SHA-256、字节数和 token 数，不记录原文。
+事件继续只保存完整 query 与最终检索 query 的 SHA-256、字节数和 token 数，不复制完整 prompt；同时在 `queryStructure` 记录被选中的 intent/repo/path/symbol/error/test/dependency 及 fallback reason，使检索输入可解释。
 
 ## 3. 生产默认值
 
@@ -96,6 +98,7 @@ Project 至少有 5 个切片，Context 来自至少 2 个独立 session；top-1
 
 - mode、library size、repo、base commit；
 - query before/after 摘要；
+- query strategy、结构化字段和 fallback reason；
 - candidate ID/type/source session；
 - score、coverage、eligible top margin；
 - admitted/rejected/withheld 与 reason；

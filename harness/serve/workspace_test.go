@@ -465,3 +465,48 @@ func TestServeWorkspaceDesignTokens(t *testing.T) {
 		}
 	}
 }
+
+// TestServeWorkspacePanelRecoveryContract pins the epic #403 core-usability
+// fixes in the workspace shell:
+//   - the /sessions "recovered" status renders a pill instead of crashing the
+//     task list (TASK_PILLS key + defensive fallback);
+//   - the composer running latch is re-synced from /status when a turn ends or
+//     aborts instead of staying disabled forever;
+//   - a JSON replay window (/workspace/replay) rebuilds the Diff/Terminal/
+//     Review panels after a refresh without duplicating timeline cards.
+func TestServeWorkspacePanelRecoveryContract(t *testing.T) {
+	js := string(workspaceShellJS)
+	for _, want := range []string{
+		`recovered: ["待恢复", "ws-state-recovered"]`,
+		`TASK_PILLS[stateKey] || TASK_PILLS.empty`,
+		`function refreshRunningState`,
+		`refreshRunningState(); // #403: turn finished`,
+		`refreshRunningState(); // #403: turn aborted`,
+		`"/workspace/replay"`,
+		`function loadWorkspaceReplay`,
+		`function applyReplayFrames`,
+		`must NOT advance the shared lastEventSeq`,
+		`if (record.card) renderTool(record.card, record);`,
+	} {
+		if !strings.Contains(js, want) {
+			t.Errorf("workspace shell.js missing %q", want)
+		}
+	}
+	// Replay must stay a panel-only projection: timeline user/assistant/tool
+	// cards are owned by /history + live frames, so applyReplayFrames may never
+	// create timeline cards (it only feeds workflow state into the context
+	// panels). The function is bounded by the next function declaration.
+	replayBody := strings.Split(strings.Split(js, "function applyReplayFrames")[1], "function connectWorkspaceEvents")[0]
+	for _, forbidden := range []string{`makeEvent(`, `el.timeline`, `addOptimisticUserMessage`} {
+		if strings.Contains(replayBody, forbidden) {
+			t.Errorf("applyReplayFrames must not render timeline cards, found %q", forbidden)
+		}
+	}
+
+	css := string(workspaceLayoutCSS)
+	for _, want := range []string{".ws-state-recovered", "var(--sx-orange-dim)", "var(--sx-orange-border)"} {
+		if !strings.Contains(css, want) {
+			t.Errorf("workspace layout.css missing %q", want)
+		}
+	}
+}

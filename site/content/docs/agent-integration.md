@@ -6,7 +6,7 @@ Semantix 的内核不要求 agent 更换执行循环。最小接入面只有三�
 
 | 场景 | 推荐路径 | 改动范围 |
 |---|---|---|
-| Semantix 完整产品 / Reasonix fork | 使用内置 harness 集成 | 无需重复注册工具 |
+| Semantix 完整产品 | 使用内置 Semantix Agent 集成 | 无需重复注册工具 |
 | Claude Code | 安装 agent skill | 用户级 skill 目录 |
 | 支持 function calling 的 agent | 注册 `semantix_lookup`，按需注册 inject/extract | 工具层 |
 | 自定义 harness | 会话导出、事件旁路或直接调用 | 适配层 |
@@ -19,9 +19,9 @@ semantix install --target claude-code
 
 安装目标默认是 `~/.claude/skills/semantix/`。安装完成后重启 Claude Code，并用 `semantix lookup --help` 验证二进制仍可从 `PATH` 找到。
 
-## Reasonix
+## Semantix Agent
 
-仓库中的 Reasonix 派生 harness 已内置 Semantix 接口。配置中启用对应段落后，harness 会暴露 lookup 能力并把会话事件旁路给内核。不要在同一轮再手工注入第二份相同内容。
+仓库中的 Semantix Agent harness 已内置 Semantix 接口。配置中启用对应段落后，harness 会暴露 lookup 能力并把会话事件旁路给内核。不要在同一轮再手工注入第二份相同内容。
 
 ## 自定义 harness 的生命周期
 

@@ -25,10 +25,13 @@ func runExtract(args []string, stdout, stderr io.Writer, deps dependencies) erro
 	project := flags.String("project", "", "project slug")
 	taskType := flags.String("task-type", "", "task type metadata")
 	language := flags.String("language", "", "language metadata")
+	baseCommit := flags.String("base-commit", "", "repository revision visible when the session ran")
 	fingerprintPaths := flags.String("fingerprint", "", "comma-separated relative paths to fingerprint (sha256) into each slice's Deps")
 	l3Safe := flags.Bool("l3-safe", false, "mark dependency-free Result slices as explicitly L3-reusable (opt-in; ignored when --fingerprint is set)")
 	embedder := flags.String("embedder", "hash", "embedder for stored slices: hash (default, zero-dependency) | model (remote OpenAI-compatible API; see SEMANTIX_EMBED_* env)")
 	tStepSplit := flags.Bool("t-step-split", false, "split tool sequences into subtask-level T-slices at verification (test) boundaries")
+	distill := flags.Bool("distill", false, "additionally distill the four-layer knowledge cards (repo-ops, plan-skeleton, outcome) from the transcript")
+	consolidate := flags.Bool("consolidate", false, "after storing, merge near-duplicate Context slices into overview cards (ConsolidateContext, default threshold)")
 	if err := flags.Parse(args); err != nil {
 		return usageWrap(err)
 	}
@@ -60,6 +63,7 @@ func runExtract(args []string, stdout, stderr io.Writer, deps dependencies) erro
 		TaskType:      *taskType,
 		Language:      *language,
 		ProjectSlug:   *project,
+		BaseCommit:    strings.TrimSpace(*baseCommit),
 		Origin:        slice.OriginUserCurated, // Issue #279: explicit user action
 	}
 	if *fingerprintPaths != "" {
@@ -97,6 +101,13 @@ func runExtract(args []string, stdout, stderr io.Writer, deps dependencies) erro
 	items, err := extractor.Extract(data, meta)
 	if err != nil {
 		return fmt.Errorf("extract slices: %w", err)
+	}
+	if *distill {
+		cards, err := slice.Distill(data, meta)
+		if err != nil {
+			return fmt.Errorf("distill cards: %w", err)
+		}
+		items = append(items, cards...)
 	}
 
 	emb, err := buildEmbedder(*embedder, stderr)
@@ -142,6 +153,18 @@ func runExtract(args []string, stdout, stderr io.Writer, deps dependencies) erro
 	rawBytes, storedBytes, compressionRatio := extractionCompression(storedItems)
 	fmt.Fprintf(stdout, "extracted=%d stored=%d scope=%s db=%s raw_bytes=%d stored_bytes=%d compression_ratio=%.4f\n",
 		len(items), stored, scopeName(scope), dbPath, rawBytes, storedBytes, compressionRatio)
+	if *consolidate {
+		// Layer-B wiring (semantic-four-layer-distill spec §2.3): fold
+		// near-duplicate Context cards into overview cards as part of the
+		// routine extract path, not only at gc time. Same maintenance-window
+		// caveat as gc --consolidate-context: run between sessions, not
+		// while a live session is injecting.
+		res, err := slice.ConsolidateContext(store, slice.ConsolidateOptions{})
+		if err != nil {
+			return fmt.Errorf("consolidate context: %w", err)
+		}
+		fmt.Fprintf(stdout, "consolidated checked=%d groups=%d merged=%d\n", res.Checked, res.Groups, res.Merged)
+	}
 	// Water-level hint (never an error, never triggers eviction here — the
 	// hot write path stays O(1); the cap is enforced at gc / gateway boot).
 	if maxSlices := cfgInt(deps.resolved, "store.max_slices", 5000); maxSlices > 0 {
