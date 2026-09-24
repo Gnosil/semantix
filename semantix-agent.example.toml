@@ -216,6 +216,23 @@ stalled_warning_seconds = 900   # warn once per background job after this many q
 # # Enabled MCP servers connect automatically in the background after session
 # # start. Use /mcp or the desktop MCP panel to refresh, reconnect, or disable.
 
+# Milvus vector database over MCP: gives the agent vector search and collection
+# management tools. Requires `uvx` (uv) and a reachable Milvus — the `milvus`
+# profile in deploy/docker-compose.milvus.yml starts one.
+# Source: official zilliztech/mcp-server-milvus (its pyproject declares the
+# `mcp-server-milvus` script, so uvx builds it straight from the repo — no
+# community PyPI fork involved). Pin a commit for security-sensitive deploys.
+# Note this cannot be installed from the public MCP registry: entries needing
+# environment variables are marked not-installable, so write it out here.
+# Full walkthrough: docs/integrations/milvus.md
+# [[plugins]]
+# name    = "milvus"
+# type    = "stdio"
+# command = "uvx"
+# args    = ["--from", "git+https://github.com/zilliztech/mcp-server-milvus", "mcp-server-milvus"]
+# # ${VAR} expands from the environment, so credentials stay out of this file.
+# env     = { MILVUS_URI = "${MILVUS_URI:-http://127.0.0.1:19530}", MILVUS_TOKEN = "${MILVUS_TOKEN}" }
+
 # Bot gateway: multi-channel IM bot for QQ, Feishu, and WeChat.
 # Start with `semantix bot start --channels qq,feishu,weixin`.
 # All secrets are read from environment variables; never put keys here.

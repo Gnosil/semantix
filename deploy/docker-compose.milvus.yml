@@ -1,0 +1,115 @@
+# 可选 · Milvus 向量库（profile `milvus`）——叠加到主 compose 之上使用。
+#
+# 为什么独立成文件而不是主 compose 里的 profile：Compose 在过滤 profile **之前**
+# 就对整个文件做变量插值，主文件里任何 ${MINIO_ROOT_USER:?} 都会让未设置该
+# 变量的现有用户连默认 `up -d` 都无法执行。拆出本文件后：
+#   - 默认部署（docker compose -f deploy/docker-compose.yml up -d）零改动；
+#   - 本文件的 :? 硬失败语义完整保留——显式启用 Milvus 时缺凭据立即报错。
+#
+# 用法（两条命令）：
+#   cp deploy/.env.example deploy/.env   # 额外填 MINIO_ROOT_USER / MINIO_ROOT_PASSWORD
+#   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.milvus.yml \
+#     --profile milvus up -d
+#
+# 注意：semantix 自身的检索后端此刻不使用 Milvus（retriever 仍是 bm25|vector|
+# hybrid），二者职责正交。接法与能力边界见 docs/integrations/milvus.md。
+#
+# 安全（docs/Security-安全设计.md:172 / :221 / :228）：
+#   1. 仅回环可达 —— milvus 只绑 127.0.0.1，etcd / minio 仅 expose 内网；
+#   2. 启用本地认证 —— Milvus 开鉴权（见 milvus-user.yaml），凭据走 .env；
+#   3. 运行时服务身份校验 —— compose 无法提供，属 MilvusIndex 连接路径的实现
+#      要求（M2 范围），此处未满足，见 docs/integrations/milvus.md 能力边界。
+# 版本全部钉定：Milvus 必须 >= 2.5（新版 Go SDK milvus/client/v2 的下限）。
+
+services:
+  milvus:
+    image: milvusdb/milvus:v2.5.4
+    profiles: [milvus]
+    restart: unless-stopped
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+      # Milvus 以 <yaml 路径去掉点、全大写> 的形式接受配置覆盖，用于把 MinIO
+      # 凭据从 .env 注入，避免写死在文件里（CONTRIBUTING.md:31）。
+      # 注：此处的 MINIO_ACCESS_KEY_ID 形式同样会被规范化为 minio.accesskeyid。
+      MINIO_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?set in deploy/.env}
+      MINIO_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?set in deploy/.env}
+    volumes:
+      - milvus-data:/var/lib/milvus
+      # user.yaml 是 Milvus 的增量覆盖文件（milvus.yaml 的默认值仍生效），
+      # 这里只用它打开鉴权，不整份替换默认配置。
+      - ./milvus-user.yaml:/milvus/configs/user.yaml:ro
+    expose:
+      - "9091"  # /healthz，仅 compose 内部网络
+    ports:
+      # 显式绑定 127.0.0.1：MCP server（uvx mcp-server-milvus）是跑在宿主机上的
+      # stdio 子进程，不在 compose 网络里，只靠 expose 连不上。绑回环既让它可
+      # 达，又正是 Security-安全设计.md:172「仅绑定回环地址」要求的形态。
+      # 切勿写成 "19530:19530" —— 那会绑到 0.0.0.0，把切片向量暴露到局域网。
+      - "127.0.0.1:19530:19530"
+    depends_on:
+      etcd:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9091/healthz"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 90s # standalone 冷启动含索引节点初始化，留足窗口
+
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.16
+    profiles: [milvus]
+    restart: unless-stopped
+    environment:
+      ETCD_AUTO_COMPACTION_MODE: revision
+      ETCD_AUTO_COMPACTION_RETENTION: "1000"
+      ETCD_QUOTA_BACKEND_BYTES: "4294967296"
+      ETCD_SNAPSHOT_COUNT: "50000"
+    volumes:
+      - etcd-data:/etcd
+    command:
+      - etcd
+      - --advertise-client-urls=http://etcd:2379
+      - --listen-client-urls=http://0.0.0.0:2379
+      - --data-dir=/etcd
+    expose:
+      - "2379"
+    healthcheck:
+      # 必需：milvus 用 condition: service_healthy 等它，缺 healthcheck 会导致
+      # Milvus 在 etcd 就绪前启动并反复重启。
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2024-12-18T13-15-44Z
+    profiles: [milvus]
+    restart: unless-stopped
+    environment:
+      # 新版变量名；MINIO_ACCESS_KEY / MINIO_SECRET_KEY 已废弃。无默认值，
+      # 未设置即启动失败，避免 minioadmin/minioadmin 这类弱口令进生产。
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set in deploy/.env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set in deploy/.env}
+    volumes:
+      - minio-data:/minio-data
+    command: minio server /minio-data --address ":9000"
+    expose:
+      - "9000"
+    healthcheck:
+      # 官方 compose 形态：mc ready local（较新镜像不保证有 curl）。
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  milvus-data:
+  etcd-data:
+  minio-data:
