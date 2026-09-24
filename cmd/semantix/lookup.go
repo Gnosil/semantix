@@ -169,18 +169,7 @@ func runInject(args []string, stdout, stderr io.Writer, deps dependencies) error
 	if err != nil {
 		return err
 	}
-	// Injection accounting stays on the caller side — Injector.Build itself
-	// must remain read-only (kernel decision chain has no side effects).
-	if inj != nil && len(inj.Slices) > 0 {
-		deltas := make(map[string]slice.SliceStats, len(inj.Slices))
-		nowUnix := time.Now().Unix()
-		for _, sl := range inj.Slices {
-			deltas[sl.ID] = slice.SliceStats{Injected: 1, LastUsed: nowUnix}
-		}
-		if err := slice.ApplyStats(store, deltas); err != nil {
-			fmt.Fprintf(stderr, "semantix: stats write-back: %v\n", err)
-		}
-	}
+	// This command only assembles text; no provider has accepted it.
 	fmt.Fprintf(stdout, "%s\n", stripESC(inj.Text))
 	return nil
 }

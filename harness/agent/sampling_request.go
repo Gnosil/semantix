@@ -17,7 +17,22 @@ type samplingRequest struct {
 }
 
 func (a *Agent) streamProviderRequest(ctx context.Context, req provider.Request) (<-chan provider.Chunk, error) {
-	return a.svc.prov.Stream(ctx, req)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	ch, err := a.svc.prov.Stream(ctx, req)
+	if err == nil && ch != nil && a.semantix != nil && !a.turn.injectionDelivered && a.turn.injectBlock != "" {
+		// Interceptors/budget/projection can discard or replace an assembled
+		// block. Attribute only the host-owned block still in final user input.
+		for _, msg := range provider.ModelMessages(req.Messages) {
+			if msg.Role == provider.RoleUser && strings.Contains(msg.Content, a.turn.injectBlock) {
+				a.turn.injectionDelivered = true
+				a.semantix.RecordInjectionDelivery(a.turn.injectTargets, len(a.turn.injectBlock))
+				break
+			}
+		}
+	}
+	return ch, err
 }
 
 func (a *Agent) handleSamplingError(

@@ -59,7 +59,7 @@ func TestBridgeAdmissionWithoutExtraGates(t *testing.T) {
 			if len(got.Targets) != tc.want || (got.Text != "") != (tc.want > 0) {
 				t.Fatalf("targets=%v, want %d matching cards; decisions=%+v", got.Targets, tc.want, got.Diagnostics.Candidates)
 			}
-			if len(got.Text) > 4096 || got.Diagnostics.Injected != (tc.want > 0) {
+			if len(got.Text) > 4096 || (got.Diagnostics.Decision == "assembled") != (tc.want > 0) {
 				t.Fatalf("budget/injection status changed: %+v", got.Diagnostics)
 			}
 			if tc.want > 0 && got.Diagnostics.MessageRole != "user" {
@@ -109,7 +109,7 @@ func TestBridgeTaskLabelsAreDescriptive(t *testing.T) {
 						}
 						return
 					}
-					if got.Diagnostics == nil || got.Diagnostics.Injected != wantText {
+					if got.Diagnostics == nil || (got.Diagnostics.Decision == "assembled") != wantText {
 						t.Fatalf("assembly status=%+v", got.Diagnostics)
 					}
 					if wantText && (got.Diagnostics.MessageRole != "user" || !strings.Contains(got.Text, tc.body) || !strings.Contains(got.Text, `source="prior-task"`)) {

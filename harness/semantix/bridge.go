@@ -344,13 +344,11 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 		}
 	}
 	sort.Strings(targets)
-	b.recordInjection(targets, inj.Bytes)
-	diagnostics.Injected = true
 	diagnostics.Bytes = inj.Bytes
 	diagnostics.MessageRole = "user"
-	diagnostics.Decision = "injected"
+	diagnostics.Decision = "assembled"
 	diagnostics.DecisionReason = "admitted"
-	op := "inject"
+	op := "assembled"
 	if budget < b.cfg.Budget {
 		op = "degraded"
 	}
@@ -476,39 +474,46 @@ func (b *Bridge) emitKernelCacheDetailed(op, layer string, ids []string, bytes i
 		KernelCache: &event.KernelCachePayload{Op: op, Layer: layer, SliceIDs: ids, Bytes: bytes, Reason: reason, Retrieval: retrieval}})
 }
 
-func (b *Bridge) recordInjection(ids []string, bytes int) {
+// RecordInjectionDelivery records host-confirmed provider acceptance, never
+// selection or speculative warm-up. Callers deduplicate their logical turn.
+// It is evidence of dispatch, not model use, correctness, or saved cost.
+func (b *Bridge) RecordInjectionDelivery(ids []string, bytes int) {
+	if !b.InjectEnabled() || len(ids) == 0 || bytes <= 0 {
+		return
+	}
+	ids = canonicalPrefetchTargets(ids)
 	if len(ids) == 0 {
 		return
 	}
-	ids = append([]string(nil), ids...)
-	now := time.Now().UTC()
-	projectDB := filepath.Join(b.projectDir(), ".semantix", "project.db")
 	b.mu.Lock()
 	if b.closing {
 		b.mu.Unlock()
+		b.emitKernelCache("stats_error", "L2", ids, bytes, "bridge_closed")
 		return
 	}
 	b.statsWG.Add(1)
 	session := b.label
 	b.mu.Unlock()
-
-	data, err := json.Marshal(kernelevent.SliceInjectPayload{SliceIDs: ids, Bytes: bytes})
+	defer b.statsWG.Done()
+	now := time.Now().UTC()
+	data, _ := json.Marshal(kernelevent.SliceInjectPayload{SliceIDs: ids, Bytes: bytes})
+	b.events.Emit(kernelevent.Event{Kind: kernelevent.SliceInject, SessionID: session, At: now, Data: data})
+	b.emitKernelCacheDetailed("inject", "L2", ids, bytes, "provider_accepted", &event.RetrievalDiagnostics{
+		Mode: string(b.mode), Injected: true, Bytes: bytes, MessageRole: "user", FinalOrder: ids,
+		Decision: "delivered", DecisionReason: "provider_accepted",
+	})
+	store, err := slice.NewFileStore(filepath.Join(b.projectDir(), ".semantix", "project.db"))
 	if err == nil {
-		b.events.Emit(kernelevent.Event{Kind: kernelevent.SliceInject, SessionID: session, At: now, Data: data})
-	}
-	go func() {
-		defer b.statsWG.Done()
-		store, err := slice.NewFileStore(projectDB)
-		if err != nil {
-			return
-		}
-		defer closeSliceStore(store)
 		deltas := make(map[string]slice.SliceStats, len(ids))
 		for _, id := range ids {
 			deltas[id] = slice.SliceStats{Injected: 1, LastUsed: now.Unix()}
 		}
-		_ = slice.ApplyStats(store, deltas)
-	}()
+		err = slice.ApplyStats(store, deltas)
+		closeSliceStore(store)
+	}
+	if err != nil {
+		b.emitKernelCache("stats_error", "L2", ids, bytes, "delivery write-back: "+err.Error())
+	}
 }
 
 // RecordInjectionReject attributes a conservative negative-transfer signal to
@@ -529,6 +534,14 @@ func (b *Bridge) recordInjectionOutcome(ids []string, outcome, reason string, le
 	if b == nil || !b.Enabled() || len(ids) == 0 {
 		return
 	}
+	b.mu.Lock()
+	if b.closing {
+		b.mu.Unlock()
+		return
+	}
+	b.statsWG.Add(1)
+	b.mu.Unlock()
+	defer b.statsWG.Done()
 	outcome = strings.ToLower(strings.TrimSpace(outcome))
 	if outcome != "useful" && outcome != "neutral" && outcome != "harmful" {
 		return
@@ -549,7 +562,8 @@ func (b *Bridge) recordInjectionOutcome(ids []string, outcome, reason string, le
 		reason = "negative_transfer"
 	}
 	now := time.Now().UTC()
-	if store, err := slice.NewFileStore(filepath.Join(b.projectDir(), ".semantix", "project.db")); err == nil {
+	store, err := slice.NewFileStore(filepath.Join(b.projectDir(), ".semantix", "project.db"))
+	if err == nil {
 		deltas := make(map[string]slice.SliceStats, len(unique))
 		for _, id := range unique {
 			delta := slice.SliceStats{LastUsed: now.Unix()}
@@ -564,8 +578,11 @@ func (b *Bridge) recordInjectionOutcome(ids []string, outcome, reason string, le
 			}
 			deltas[id] = delta
 		}
-		_ = slice.ApplyStats(store, deltas)
+		err = slice.ApplyStats(store, deltas)
 		closeSliceStore(store)
+	}
+	if err != nil {
+		b.emitKernelCache("stats_error", "L2", unique, 0, "outcome write-back: "+err.Error())
 	}
 	b.mu.Lock()
 	session := b.label

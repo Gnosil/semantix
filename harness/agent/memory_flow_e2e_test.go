@@ -224,7 +224,7 @@ func TestMemoryFlowCorroboratingResultAndOutcomeToProvider(t *testing.T) {
 				if diagnostics == nil || diagnostics.Injected || diagnostics.Bytes != 0 || diagnostics.MessageRole != "" || diagnostics.DecisionReason != "shadow_mode" {
 					t.Fatalf("shadow did not withhold historical knowledge: %+v", diagnostics)
 				}
-			} else if diagnostics == nil || !diagnostics.Injected || diagnostics.Bytes != len(block) || diagnostics.MessageRole != "user" || diagnostics.DecisionReason != "admitted" || block == "" {
+			} else if diagnostics == nil || diagnostics.Decision != "assembled" || diagnostics.Bytes != len(block) || diagnostics.MessageRole != "user" || diagnostics.DecisionReason != "admitted" || block == "" {
 				t.Fatalf("strict injection absent or wrong bytes/role: %+v", diagnostics)
 			}
 			var result, outcome *event.RetrievalCandidate
@@ -516,7 +516,7 @@ class InvoiceBasicTests(unittest.TestCase):
 				}
 				return
 			}
-			if diagnostics == nil || !diagnostics.Injected || diagnostics.Bytes != len(block) || diagnostics.MessageRole != "user" || len(block) == 0 {
+			if diagnostics == nil || diagnostics.Decision != "assembled" || diagnostics.Bytes != len(block) || diagnostics.MessageRole != "user" || len(block) == 0 {
 				t.Fatalf("strict injection absent or wrong bytes/role: %+v", diagnostics)
 			}
 			for _, want := range []string{"--- slice " + wantID + " ---", `source="prior-zero"`, "Verified-by: " + command, "tests/test_invoice_zero.py", `commit="` + revision + `"`, `origin=session-auto`} {
@@ -562,7 +562,7 @@ class InvoiceBasicTests(unittest.TestCase):
 			t.Fatalf("historical invoice dependencies changed: %v, %v", changed, err)
 		}
 		request, block, diagnostics := memoryFlowRun(t, repo, "strict", query)
-		if diagnostics == nil || !diagnostics.Injected || diagnostics.BaseCommit != current || diagnostics.Bytes != len(block) {
+		if diagnostics == nil || diagnostics.Decision != "assembled" || diagnostics.BaseCommit != current || diagnostics.Bytes != len(block) {
 			t.Fatalf("cross-commit matching dependencies did not pass production Bridge: %+v", diagnostics)
 		}
 		for _, want := range []string{"--- slice " + wantID + " ---", `commit="` + revision + `"`, `origin=session-auto`, "Verified-by: " + command} {

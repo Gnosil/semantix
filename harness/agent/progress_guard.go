@@ -184,7 +184,7 @@ func (a *Agent) armLoopGuardPass(receiptMark int) {
 	targets := append([]string(nil), a.turn.injectTargets...)
 	a.turn.injectBlock = ""
 	a.turn.injectionFused = true
-	if a.semantix != nil {
+	if a.semantix != nil && a.turn.injectionDelivered {
 		a.semantix.RecordInjectionReject(targets, "loop_guard")
 	}
 	detail, _ := json.Marshal(map[string]any{"slices": len(targets), "reason": "loop_guard"})

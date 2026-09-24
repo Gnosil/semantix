@@ -586,6 +586,8 @@ type RetrievalCandidate struct {
 // RetrievalDiagnostics is the replayable per-turn L2 retrieval record. In
 // shadow mode Candidates and the counterfactual FinalOrder are populated but
 // Injected/Bytes/MessageRole remain zero because provider input is untouched.
+// Strict selection emits Decision=assembled with Injected=false; a later host
+// provider-acceptance record emits Decision=delivered and Injected=true.
 type RetrievalDiagnostics struct {
 	Mode           string                  `json:"mode,omitempty"`
 	LibrarySize    int                     `json:"librarySize,omitempty"`
