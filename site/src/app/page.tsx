@@ -6,6 +6,7 @@ import Community from "@/components/Community";
 import DesktopDownload from "@/components/DesktopDownload";
 import Install from "@/components/Install";
 import BloomCurtain from "@/components/BloomCurtain";
+import FinaleInfo from "@/components/FinaleInfo";
 import BrandIntroOverlay from "@/components/BrandIntroOverlay";
 import { siteIdentity } from "@/lib/site-identity";
 
@@ -38,6 +39,7 @@ export default function Home() {
         <Install />
         <BloomCurtain />
       </main>
+      <FinaleInfo />
     </>
   );
 }

@@ -14,15 +14,7 @@ function FinaleCopy({
   const foreground = inverse ? "text-[#168b6d]" : "text-[#f8f8f4]";
   const button = inverse
     ? "bg-[#168b6d] text-white"
-    : "bg-[#f8f8f4] text-[#0b654f]";
-  const utilityLinks = [
-    ["About", "/about"],
-    ["Docs", "/docs"],
-    ["Privacy", "/privacy"],
-    ["Contact", "/contact"],
-    ["GitHub", siteIdentity.repositoryUrl],
-  ] as const;
-
+    : "bg-[var(--finale-paper)] text-[#0b654f]";
   return (
     <div
       aria-hidden={decorative || undefined}
@@ -71,35 +63,6 @@ function FinaleCopy({
             </a>
           )}
         </div>
-      </div>
-
-      <div className="absolute bottom-[0.65svh] left-2 z-40 font-mono text-[7px] font-semibold uppercase leading-[1.7] tracking-[0.2em] md:text-[9px]">
-        Semantix © 2026
-        <br />
-        {siteIdentity.licenseName}
-      </div>
-
-      <div className="absolute bottom-[0.65svh] right-2 z-40 max-w-[48vw] text-right font-mono text-[7px] font-semibold leading-[1.7] tracking-[0.12em] md:text-[9px]">
-        <p className="hidden md:block">
-          由 {siteIdentity.operator.legalName} 运营与维护
-        </p>
-        <nav aria-label={decorative ? undefined : "终章导航"} className="mt-1 flex flex-wrap justify-end gap-x-3 uppercase md:gap-x-4">
-          {utilityLinks.map(([label, href]) =>
-            decorative ? (
-              <span key={label}>{label}</span>
-            ) : (
-              <a
-                key={label}
-                href={href}
-                target={href.startsWith("http") ? "_blank" : undefined}
-                rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
-                className="pointer-events-auto underline decoration-current/30 underline-offset-4 transition-opacity hover:opacity-65"
-              >
-                {label}
-              </a>
-            ),
-          )}
-        </nav>
       </div>
     </div>
   );
@@ -278,7 +241,7 @@ export default function BloomCurtain() {
       aria-labelledby="bloom-finale-title"
       className="relative h-[200svh] bg-[#168b6d]"
     >
-      <div className="sticky top-0 isolate h-[100svh] overflow-hidden border-x-[10px] border-b-[10px] border-[#168b6d] bg-[#168b6d] md:border-x-[18px] md:border-b-[18px]">
+      <div className="sticky top-0 isolate h-[100svh] overflow-hidden bg-[#168b6d]">
         <div className="absolute inset-0 z-20">
           <FinaleCopy />
         </div>
@@ -286,13 +249,15 @@ export default function BloomCurtain() {
         <video
           ref={videoRef}
           aria-hidden="true"
-          className="absolute inset-0 z-10 h-full w-full -translate-y-[2svh] object-contain object-bottom mix-blend-screen will-change-transform md:-translate-y-[3.5svh]"
+          className="absolute inset-0 z-10 h-full w-full translate-y-[6.5svh] scale-[1.01] object-contain object-bottom mix-blend-screen will-change-transform"
           muted
           playsInline
           preload="auto"
           style={{
             filter:
               "grayscale(1) brightness(0.67) contrast(4.4) brightness(1.5)",
+            maskImage: "linear-gradient(to bottom, #000 0%, #000 88%, transparent 100%)",
+            WebkitMaskImage: "linear-gradient(to bottom, #000 0%, #000 88%, transparent 100%)",
           }}
         >
           <source src="/media/semantix-bloom-4k.mp4" type="video/mp4" />
@@ -301,7 +266,7 @@ export default function BloomCurtain() {
         <div
           ref={curtainRef}
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-30 overflow-hidden bg-[#f8f8f4] will-change-transform"
+          className="pointer-events-none absolute inset-0 z-30 overflow-hidden bg-[var(--finale-paper)] will-change-transform"
         >
           <div
             ref={curtainContentRef}
@@ -309,6 +274,8 @@ export default function BloomCurtain() {
           >
             <FinaleCopy inverse decorative />
           </div>
+          <div className="absolute inset-y-0 left-0 z-10 w-[10px] bg-[#168b6d] md:w-[18px]" />
+          <div className="absolute inset-y-0 right-0 z-10 w-[10px] bg-[#168b6d] md:w-[18px]" />
         </div>
       </div>
     </section>

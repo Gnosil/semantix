@@ -135,7 +135,7 @@ export default function AboutPage() {
               <div>
                 <h3 className="font-semibold text-foreground">许可方式</h3>
                 <p className="mt-3 leading-7 text-muted-foreground">
-                  项目当前采用 {siteIdentity.licenseName} 许可。各版本会依照许可证条款在规定日期转换为 MIT License。
+                  项目当前采用 {siteIdentity.licenseName} License。具体使用、修改与分发条件以仓库中的 LICENSE 文件为准。
                 </p>
               </div>
               <div>

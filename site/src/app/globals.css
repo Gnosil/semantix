@@ -52,6 +52,7 @@
 }
 
 :root {
+  --finale-paper: #fff;
   --background: oklch(1 0 0);
   --foreground: oklch(0.21 0.006 260);
   --card: oklch(1 0 0);
