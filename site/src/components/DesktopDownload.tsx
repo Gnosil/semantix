@@ -6,7 +6,7 @@ import Reveal from "@/components/Reveal";
 import { cn } from "@/lib/utils";
 
 /**
- * DesktopDownload — the "下载桌面版" section.
+ * Desktop downloads within the shared installation section.
  *
  * Links point at the rolling `desktop-latest` GitHub release, whose assets are
  * replaced on every desktop release (see .github/workflows/desktop-release.yml).
@@ -51,25 +51,21 @@ export default function DesktopDownload() {
   const os = useDetectedOS();
 
   return (
-    <section
+    <div
       id="desktop"
-      className="border-x-[10px] border-[#168b6d] bg-[#101313] md:border-x-[18px]"
+      className="mt-10 scroll-mt-24 text-[#111411]"
     >
-      <div className="mx-auto max-w-[1600px] px-5 py-16 md:px-10 md:py-20 lg:px-12 lg:py-24">
         <Reveal>
-          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.24em] text-[#68d0a0]">
-            Desktop 桌面版
-          </p>
-          <h2 className="font-brand-display mt-4 text-5xl font-black tracking-[-0.055em] text-[#f8f8f4] md:text-6xl lg:text-[4.5rem]">
-            下载即用的桌面版。
-          </h2>
-          <p className="mt-3 max-w-2xl text-base leading-7 text-[#a7b0b4] md:text-lg">
-            原生窗口包裹同一套 Go 内核，无需装 Go/Node。选择你的系统直接下载。
+          <h3 className="font-brand-display text-xl font-bold tracking-[-0.025em]">
+            桌面版
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            下载应用，无需安装 Go 或 Node。
           </p>
         </Reveal>
 
         <Reveal delay={80}>
-          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:mt-14">
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <DownloadCard
               primary={os === "mac"}
               platform="macOS"
@@ -88,15 +84,15 @@ export default function DesktopDownload() {
         </Reveal>
 
         <Reveal delay={160}>
-          <div className="mt-6 flex items-start gap-3 border border-[#68d0a0]/25 bg-[#68d0a0]/[0.06] px-4 py-3 text-sm leading-6 text-[#a7b0b4]">
+          <div className="mt-7 flex items-start gap-3 text-xs leading-6 text-muted-foreground">
             <Info
               aria-hidden="true"
-              className="mt-0.5 h-4 w-4 shrink-0 text-[#68d0a0]"
+              className="mt-1 h-4 w-4 shrink-0 text-accent"
             />
             <p>
-              <span className="font-semibold text-[#f8f8f4]">首次打开 macOS：</span>{" "}
+              <span className="font-semibold text-[#111411]">首次打开 macOS：</span>{" "}
               当前为未签名 beta，被 Gatekeeper 拦时右键 App →「打开」，或终端执行{" "}
-              <code className="rounded bg-black/40 px-1.5 py-0.5 font-mono text-[#68d0a0]">
+              <code className="break-words rounded bg-accent/5 px-1.5 py-0.5 font-mono text-accent">
                 xattr -cr /Applications/Semantix.app
               </code>
               。Windows 遇 SmartScreen 点「更多信息 → 仍要运行」。
@@ -107,13 +103,13 @@ export default function DesktopDownload() {
         <Reveal delay={220}>
           <nav
             aria-label="桌面版其他下载方式"
-            className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm"
+            className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs"
           >
             <a
               href={SOURCE}
               target="_blank"
               rel="noopener"
-              className="inline-flex items-center gap-2 font-semibold text-[#68d0a0] transition-colors hover:text-[#f8f8f4]"
+              className="inline-flex min-h-10 items-center gap-2 font-semibold text-accent underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
             >
               <Terminal aria-hidden="true" className="h-4 w-4" />
               Linux / 从源码构建
@@ -122,15 +118,14 @@ export default function DesktopDownload() {
               href={ALL_RELEASES}
               target="_blank"
               rel="noopener"
-              className="inline-flex items-center gap-2 font-semibold text-[#a7b0b4] transition-colors hover:text-[#f8f8f4]"
+              className="inline-flex min-h-10 items-center gap-2 font-semibold text-muted-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
             >
               历史版本
               <span aria-hidden="true">↗</span>
             </a>
           </nav>
         </Reveal>
-      </div>
-    </section>
+    </div>
   );
 }
 
@@ -155,33 +150,33 @@ function DownloadCard({
         // No justify-between: the buttons top-align right after the equal-height
         // title rows, so both cards' primary actions sit on one baseline; the
         // Windows zip link extends below without pushing its button up.
-        "flex flex-col gap-6 border p-6 transition-colors md:p-7",
+        "flex flex-col gap-6 rounded-lg border p-6 transition-colors md:p-7",
         primary
-          ? "border-[#68d0a0] bg-[#68d0a0]/[0.08]"
-          : "border-[#f8f8f4]/14 bg-[#f8f8f4]/[0.03] hover:border-[#f8f8f4]/28",
+          ? "border-accent/35 bg-white"
+          : "border-border bg-white hover:border-accent/30",
       )}
     >
       <div>
         <div className="flex items-center justify-between">
-          <h3 className="font-brand-display text-2xl font-black tracking-[-0.035em] text-[#f8f8f4]">
+          <h4 className="font-brand-display text-2xl font-black tracking-[-0.035em] text-[#111411]">
             {platform}
-          </h3>
+          </h4>
           {primary ? (
-            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[#68d0a0]">
+            <span className="font-mono text-[10px] font-semibold tracking-[0.12em] text-accent">
               你的系统
             </span>
           ) : null}
         </div>
-        <p className="mt-2 text-sm text-[#a7b0b4]">{note}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{note}</p>
       </div>
       <div>
         <a
           href={href}
           className={cn(
-            "inline-flex w-full items-center justify-center gap-2 px-5 py-3 text-sm font-bold transition-colors",
+            "inline-flex min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md border px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent",
             primary
-              ? "bg-[#68d0a0] text-[#101313] hover:bg-[#7fdcb1]"
-              : "border border-[#f8f8f4]/28 text-[#f8f8f4] hover:border-[#68d0a0] hover:text-[#68d0a0]",
+              ? "border-accent bg-accent text-white hover:bg-accent/90"
+              : "border-border text-[#111411] hover:border-accent hover:text-accent",
           )}
         >
           <Download aria-hidden="true" className="h-4 w-4" />
@@ -190,7 +185,7 @@ function DownloadCard({
         {secondaryHref ? (
           <a
             href={secondaryHref}
-            className="mt-3 inline-flex text-xs font-semibold text-[#a7b0b4] underline-offset-4 transition-colors hover:text-[#68d0a0] hover:underline"
+            className="ml-4 inline-flex min-h-9 items-center text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
           >
             {secondaryLabel}
           </a>
