@@ -282,3 +282,34 @@ semantix extract --input "$SESSION_JSONL" \
 **S6 已验收：** 设计 `aac310da`，补齐既有中文断言的计划纠正 `4ef94afc`，实现 `a17ba134`。原代码正例出现 `task_type_mismatch`；修改后普通/降级与 strict/shadow/off 的正负例通过。精确 Git 源码副本通过项目 `go test ./... -count=1`、相关 Kernel/Bridge/Agent race 与 vet；独立评审无阻塞发现。独立副本回退后，同一观察测试重新失败，恢复旧默认误拒；原文件复核后留存，工作树继续保留修复。首次失败后六文件回滚、原始 Windows 失败、所有命令输出与回退均保存在本步骤 `/lab/` 证据，不伪称 Windows 全包通过。
 
 本步骤已解除 Harness 默认的 task 标签否决；Kernel 调用者显式设置 `TaskType` 的过滤仍原样存在。§9.5 的逐卡依赖/freshness 与交付记账依然未完成；其它检查仍可导致整批候选被拒绝。未改变旧实验、真实库、收费条件，未进行模型调用，未推送或更新远端 PR。其它进行中的文档及 invoice 测试改动没有混入本步骤提交和独立验收副本。
+
+
+### 9.10 S7–S9 — 已授权的剩余闭环修复（2026-09-24）
+
+用户要求按同一 workflow 连续完成：本地 SPEC 先提交，红灯复现，最小实现，验证后分步 commit；实现失败先保存并恢复该步骤拥有的改动再调整。继续原 worktree，不改旧实验/真实库，不追加付费调用，不自动推送或修改远端 PR。
+
+**第一性原理：** L2 提供有来源的历史观察，L3 才声称直接复用当前答案。一次会话访问的所有文件并非每条历史观察的当前依赖。当前 extractor/distiller 将同一 Deps 复制到所有卡，Injector 又把它们当当前有效结论；于是“以前运行过某命令/改过某文件”随任意文件改变而消失。相反，任意自然语言 Result 的真实依赖并不能从词匹配证明完整，仍须保守核验，不伪造逐文件归属。
+
+#### S7：逐卡声明历史观察，而非按类型豁免
+
+- 仅确定性 extractor 的 repeated-tool Context，以及 Distill 的 repo-ops / plan-skeleton / outcome 模板卡，由生产者标记 `SliceMeta.Historical=true`。标记描述“过去发生过”，不声明现在仍适用。Prompt、ToolPattern、任意最终 Result 不继承输入的 historical 标记，默认/旧库保持 snapshot 语义。
+- Kernel 仅对带该标记、Context/Memory、origin 至少 session-auto、非空 source session/base commit 的卡使用历史语义。仍要求当前项目/版本可识别，仍检查依赖路径语法；保留原 source/commit/Deps 值作来源审计，绝不全库清空或改写历史指纹。历史卡不读取当前文件以证明过去事件，因此相关或无关文件变化/删除不会把真实过去变成假过去；输出明确 `applicability=historical_observation; revalidate_before_use`。
+- 其它卡不变：当前结果依赖变化/缺失/越界/symlink、来源不明、未验证 Result 继续拒绝；Result 即使误带 historical 也不豁免，L3 验证完全不变。旧库需可信原轨迹重新提取才获得新分类，不自动升级旧记录。
+- 这不是将 Context/Memory 全部放行，也不把模板观察称为通用真理。收敛复用维持 metadata 一致规则，来源聚合不抹掉版本/指纹边界。
+- 文件：`kernel/slice/{slice,extractor,distill}.go`、`kernel/inject/inject.go` 和相邻测试。测试覆盖四种模板真实抽取→存储重开→跨提交/文件变更的注入；原文本 Result、未知/旧卡、假标记/来源、无关词、项目、预算、清洗与 L3 负例。
+
+#### S8：组装不是交付；反馈只认真正进入 provider 的历史
+
+- `InjectDetailed`/degraded/prefetch 是候选选择与组装；它们仅输出诊断，不提前增长持久 `Injected`/LastUsed。CLI `inject` 只输出文本，同样没有 provider 交付；保持输出形状，取消提前记入 SliceInject/Injected。
+- Agent 在 finalized request（含 interceptor、预算、角色投影）之后调用 provider，只有 `Stream` 成功返回非空 channel 且最终 user-role 内容仍包含本 turn 的完整 host-owned block，才记 `SliceInject`/Injected；取消、预算退出、删除/改写/拒绝、未消费预取、provider 同步失败不记。每个 user turn 的同一 block 只记一次，重试和多轮复用不放大演化权重。
+- 这项计数证明 provider 接口接受请求，不等于模型采用/收益，也不等于第一字节生成成功。内建 HTTP provider 的接受点在成功响应头之后；用本地 HTTP recorder 独立核实序列化内容。Responses stateful 延续可以沿用已经交付的历史，不必每轮重新传输；过期 ID 回退完整请求、删除历史后全量重放均应测试。
+- 复用 Bridge 事件和 stats，不新增计数表/ID/hash/gate；持久化错误通过现有 KernelCache 诊断显式报告，不虚称保存。loop/progress guard 仍可熔断组装块，但仅对已交付 IDs 记录负反馈，信号仍不是因果证明。
+- 同步修所有 Injected 写入口：Gateway 在成功 forward 的 2xx 后才记录；转换/网络/非2xx不记，CLI 无 provider 不记。历史已持久计数不篡改，报告注明旧计数含组装与新语义的版本边界。
+- 文件：Bridge、Agent sampling/turn/fuse、Gateway pipeline、CLI lookup 与对应测试；Kernel event 注释同步语义。不改权限、TLS、上游、预算或 provider 重试策略。
+
+#### S9：真实输入与全链验收
+
+- 把已验证的 runner task-body 投影提到 Kernel 共用的纯文本 helper；Bridge 检索与 Distill 标题/描述标签共同使用，避免检索修了但新卡仍记录 testbed 外壳。普通多行任务语义保留；不修改真正发给 provider 的任务/权限指令。
+- 项目完整 `go test ./... -count=1`，受影响包 Linux race 和 vet；原失败与修复输出都保存。使用隔离的精确 Git 源码副本，排除他人未提交改动。局部失败先回滚所属步骤，不擦掉他人改动。
+- 独立副本：本批原 Git 代码 + 新观察测试应 RED，修复代码 GREEN，ROLLBACK 恢复原字节后观察测试重新 RED；工作副本继续保留修复。产物在 `/lab/issue-447-admission-repair-20260924/closure/`：MODIFIED_FILE.tar.gz、DIFF_FILE.patch、VERIFICATION.txt、可执行 ROLLBACK.sh，全部重开核验。
+- 完成口径：链路软件契约可离线证明；显著成绩提升/模型采用不凭合成测试宣布。未迁移的旧库、真实模型相关性及显式调用者额外过滤条件仍如实列为使用前提，不将它们当成代码完成证明。
