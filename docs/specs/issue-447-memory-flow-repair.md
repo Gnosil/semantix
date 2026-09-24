@@ -264,10 +264,10 @@ semantix extract --input "$SESSION_JSONL" \
 **文件边界：** `harness/semantix/bridge.go`、`admission_defaults_test.go`、`candidate_starvation_test.go`；仅同步 `kernel/inject/inject.go`、`kernel/slice/task_type.go`、`kernel/slice/distill.go` 中原来将可选过滤描述成默认保证的注释。本轮不编辑他人正在修改的 `memory_flow_e2e_test.go` 或其它文档改动。
 
 **执行与验收：**
-- [ ] 先添加 `TestBridgeTaskLabelsAreDescriptive`：同问题跨 investigate/bugfix/test-update、真实 runner 外壳、normal/degraded、strict/shadow/off；先见 `task_type_mismatch` 的 RED。负例覆盖同标签无重叠、跨提交缺 Deps、未验证 Result，保持其它边界。
-- [ ] 删除共享 Bridge 默认赋值。将旧 candidate-window 的“task mismatch 阻断”用例改为“跨类别相关卡参与同一个 BM25/K 窗口”，保留 stale 分支、完整分数/元数据/五槽/阴影模式断言。Kernel 显式 task gate 的现有测试原样通过。
-- [ ] 运行 `go test ./harness/semantix ./kernel/inject ./kernel/slice -count=1`，再运行 Linux `go test -race ./harness/semantix ./kernel/... ./harness/agent -count=1`、`go vet ./harness/semantix ./kernel/... ./harness/agent` 和项目 `go test ./... -count=1`；全部输出保留，任何非本改动造成的失败也明确列出。
-- [ ] 独立 Git 副本运行相同正负例：原代码失败、修改通过、回退代码后失败，主工作树保留修复；更新本节状态后分步提交。
+- [x] 先添加 `TestBridgeTaskLabelsAreDescriptive`：同问题跨 investigate/bugfix/test-update、真实 runner 外壳、normal/degraded、strict/shadow/off；先见 `task_type_mismatch` 的 RED。负例覆盖同标签无重叠、跨提交缺 Deps、未验证 Result，保持其它边界。
+- [x] 删除共享 Bridge 默认赋值。将旧 candidate-window 的“task mismatch 阻断”用例改为“跨类别相关卡参与同一个 BM25/K 窗口”，保留 stale 分支、完整分数/元数据/五槽/阴影模式断言。Kernel 显式 task gate 的现有测试原样通过。
+- [x] 运行 `go test ./harness/semantix ./kernel/inject ./kernel/slice -count=1`，再运行 Linux `go test -race ./harness/semantix ./kernel/... ./harness/agent -count=1`、`go vet ./harness/semantix ./kernel/... ./harness/agent` 和项目 `go test ./... -count=1`；全部输出保留，任何非本改动造成的失败也明确列出。
+- [x] 独立 Git 副本运行相同正负例：原代码失败、修改通过、回退代码后失败，主工作树保留修复；更新本节状态后分步提交。
 
 **回退：** 一个步骤失败先保留 diff/输出，只恢复本步骤拥有的代码，再调整方案。已提交的错误使用 Git revert。独立副本回退只恢复本节文件，不触及原实验、真实记忆库、他人文档或其它未提交改动。
 
@@ -277,3 +277,8 @@ semantix extract --input "$SESSION_JSONL" \
 #### S6 验收修正：补齐既有中文任务标签断言
 
 第一次整包验证发现 `tasktype_admission_test.go:TestBridgeGatesMemoryCardsByTaskType` 仍按旧默认行为要求拒绝跨类别卡；这是本步骤漏列的契约测试，不是通过降低安全断言来绕过失败。已先保存失败日志与六文件 diff，并恢复本步骤代码，再补充文件范围：该中文用例改为两条同相关度历史均保留来源和原标签；原 ToolPattern/未验证 Result 拒绝断言不变。新目标回归的 12 个标签误拒已在原代码复现，首次修改后目标通过。整包同时出现 Windows TempDir RemoveAll / Access denied，原始输出保留；使用原生 Linux 对相同断言复核，仍不表述为 Windows 全包通过。
+
+
+**S6 已验收：** 设计 `aac310da`，补齐既有中文断言的计划纠正 `4ef94afc`，实现 `a17ba134`。原代码正例出现 `task_type_mismatch`；修改后普通/降级与 strict/shadow/off 的正负例通过。精确 Git 源码副本通过项目 `go test ./... -count=1`、相关 Kernel/Bridge/Agent race 与 vet；独立评审无阻塞发现。独立副本回退后，同一观察测试重新失败，恢复旧默认误拒；原文件复核后留存，工作树继续保留修复。首次失败后六文件回滚、原始 Windows 失败、所有命令输出与回退均保存在本步骤 `/lab/` 证据，不伪称 Windows 全包通过。
+
+本步骤已解除 Harness 默认的 task 标签否决；Kernel 调用者显式设置 `TaskType` 的过滤仍原样存在。§9.5 的逐卡依赖/freshness 与交付记账依然未完成；其它检查仍可导致整批候选被拒绝。未改变旧实验、真实库、收费条件，未进行模型调用，未推送或更新远端 PR。其它进行中的文档及 invoice 测试改动没有混入本步骤提交和独立验收副本。
