@@ -58,6 +58,9 @@ func TestMemoryFlowCorroboratingResultAndOutcomeToProvider(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if closer, ok := store.(interface{ Close() error }); ok {
+		defer closer.Close()
+	}
 	const query = "Validate orchard cache expired-entry regression"
 	const verifiedCommand = "go test ./internal/orchard -run TestExpiredCacheEntry"
 	wantID, resultID := "", ""
@@ -71,6 +74,7 @@ func TestMemoryFlowCorroboratingResultAndOutcomeToProvider(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer hs.Close()
 		hs.Emit(event.Event{Kind: event.TurnStarted, Text: history.task})
 		hs.Emit(event.Event{Kind: event.Text, Text: "Inspect the cache implementation."})
 		hs.Emit(event.Event{Kind: event.Message, Text: "Inspect the cache implementation."})
@@ -381,6 +385,9 @@ class InvoiceBasicTests(unittest.TestCase):
 	if err != nil {
 		t.Fatal(err)
 	}
+	if closer, ok := store.(interface{ Close() error }); ok {
+		defer closer.Close()
+	}
 	wantID := ""
 	for _, history := range []struct{ id, task, name, class, input string }{
 		{"prior-zero", "Add invoice total regression tests for zero quantity; locate the invoice suite and verify it.", "zero", "Zero", `[("12.50", 0)]`},
@@ -390,6 +397,7 @@ class InvoiceBasicTests(unittest.TestCase):
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer hs.Close()
 		hs.Emit(event.Event{Kind: event.TurnStarted, Text: history.task})
 		emit := func(id, name string, args map[string]string, execute func() string, mutation, verify bool) {
 			t.Helper()
