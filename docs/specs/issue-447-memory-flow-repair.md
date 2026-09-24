@@ -272,3 +272,8 @@ semantix extract --input "$SESSION_JSONL" \
 **回退：** 一个步骤失败先保留 diff/输出，只恢复本步骤拥有的代码，再调整方案。已提交的错误使用 Git revert。独立副本回退只恢复本节文件，不触及原实验、真实记忆库、他人文档或其它未提交改动。
 
 **尚未覆盖：** 本节解决 task 标签代理误拒，不解决 §9.5 的逐卡依赖、freshness 或真实 provider 交付记账；不批量删除 Deps、不伪造版本、不重新解释既有 Injected 统计，不追加付费评测。
+
+
+#### S6 验收修正：补齐既有中文任务标签断言
+
+第一次整包验证发现 `tasktype_admission_test.go:TestBridgeGatesMemoryCardsByTaskType` 仍按旧默认行为要求拒绝跨类别卡；这是本步骤漏列的契约测试，不是通过降低安全断言来绕过失败。已先保存失败日志与六文件 diff，并恢复本步骤代码，再补充文件范围：该中文用例改为两条同相关度历史均保留来源和原标签；原 ToolPattern/未验证 Result 拒绝断言不变。新目标回归的 12 个标签误拒已在原代码复现，首次修改后目标通过。整包同时出现 Windows TempDir RemoveAll / Access denied，原始输出保留；使用原生 Linux 对相同断言复核，仍不表述为 Windows 全包通过。
