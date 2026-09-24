@@ -215,13 +215,18 @@ jobs:
             配置 API key：桌面端读取全局 `.env`，可用 `semantix-agent setup` 向导配置。
         run: |
           set -euo pipefail
-          gh release create "$TAG" \
-            --repo "${{ github.repository }}" \
-            --title "Semantix Desktop $TAG" \
-            --latest=false \
-            --target "$GITHUB_SHA" \
-            --notes "$NOTES" \
-            dist/*
+          REPO="${{ github.repository }}"
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            # A release for this tag already exists (e.g. the tag was pushed
+            # separately) — refresh its metadata and (re)upload the assets.
+            gh release edit "$TAG" --repo "$REPO" \
+              --title "Semantix Desktop $TAG" --latest=false --notes "$NOTES"
+            gh release upload "$TAG" --repo "$REPO" --clobber dist/*
+          else
+            gh release create "$TAG" --repo "$REPO" \
+              --title "Semantix Desktop $TAG" --latest=false \
+              --target "$GITHUB_SHA" --notes "$NOTES" dist/*
+          fi
 
       - name: Update the rolling desktop-latest release
         env:
