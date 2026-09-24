@@ -66,8 +66,20 @@ func (a *Agent) storePrefetch(next *prefetchedInjectResult) {
 	if next == nil || next.Text == "" {
 		return
 	}
-	if old := a.prefetchedInject.Swap(next); old != nil {
-		a.recordPrefetch(false, old)
+	for {
+		old := a.prefetchedInject.Load()
+		if next.Turn != a.semantixTurn.Load() {
+			a.recordPrefetch(false, next)
+			return
+		}
+		// Read the cached pointer before checking the turn. If the new turn
+		// has stored history meanwhile, CAS retries instead of evicting it.
+		if a.prefetchedInject.CompareAndSwap(old, next) {
+			if old != nil {
+				a.recordPrefetch(false, old)
+			}
+			return
+		}
 	}
 }
 
