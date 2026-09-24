@@ -86,10 +86,45 @@ Agent 原始任务 → Bridge query → Project BM25 → Injector 资格/准入
 | 正式 SWE 可确认的注入 → 采用 → 收益 | **未达成**；后29题正 bytes+sliceIds 日志0，前7题观测不完整 |
 | 本次36题证明最终提交版本显著提升 | **未证明**；两段构建且最终 shell 修复未参加该轮 |
 
+### 6.1 旧库重收割配方（逐个真实会话执行）
+
+本批没有原地迁移旧库。一个只含 Prompt/ToolPattern、缺真实来源或缺版本信息的库，应用 S2 后仍可能全部被现有类型/来源/freshness 条件拒绝。需要从原始会话重新提取；将旧卡直接改成 Context、补造 session/origin 或把历史 revision 改成当前 HEAD，并不是供给修复。
+
+有原始 Harness 会话镜像时，在**单独输出库**离线重新提取。SWE 历史与交互式历史都建议启用 `--distill --consolidate`，而非只对 SWE 启用。每个会话分别设置下列变量，再执行一次；命令使用已有 CLI 参数，hash embedder 不调用远端模型：
+
+```sh
+semantix extract --input "$SESSION_JSONL" \
+  --db "$REPLAY_DB" --scope project \
+  --session "$SOURCE_SESSION" --project "$SOURCE_PROJECT" \
+  --base-commit "$SOURCE_REVISION" --origin session-auto \
+  --embedder hash --distill --consolidate
+```
+
+- `SESSION_JSONL`、`SOURCE_SESSION`、`SOURCE_PROJECT`、`SOURCE_REVISION` 必须分别来自该真实会话的镜像路径、会话 ID、项目标识和观察时版本，不从当前任务猜测，也不为凑来源数量拆分或伪造会话。
+- **ObservedCommit 是会话当时观察到的版本**（上面的 `SOURCE_REVISION`，经 `--base-commit` 写入现有 `BaseCommit` 字段），不是执行重收割时的当前 HEAD。不要用此时的 `git rev-parse HEAD` 补填未知历史版本；缺失证据就保持未知，且不声称重提取后已具备注入资格。
+- `REPLAY_DB` 指向新建的离线检查目录，同项目的真实会话逐个写入该输出库，原库不覆盖；`session-auto` 仅对应实际自动生成的 Harness 镜像，外部导入材料不靠改标签取得该身份。
+- 只有恢复了对应来源工作区、且掌握真实相关文件路径时，才从该来源工作区运行并追加 `--fingerprint "$SOURCE_RELATIVE_PATHS"`。现有 CLI 把这一组 Deps 赋给所有产物，仍不是逐卡归属。没有原始证据时保持未知。
+- 不传 `--l3-safe`；重提取不授予直接答案复用能力。先查看真实产物类型、来源、验证状态及拒因，再决定使用；四层 flags 不保证任意短会话都产生可用知识。
+
+上述命令是离线重提取配方，不是已执行的用户真实库迁移；本批未改历史实验、用户库或原始轨迹。
+
+### 6.2 freshness 的现行运行后果
+
+以下是 Harness 在候选到达 freshness 检查时的拒绝 reason；更早的类型、状态等检查也可能先拒绝它。
+
+| 运行条件 | reason / 后果 |
+|---|---|
+| 当前工作区提交未知，例如非 Git 工作区或 HEAD 解析失败 | `current_commit_unknown`；历史卡不注入 |
+| 当前提交已知，但卡片 `BaseCommit` 未知 | `commit_unknown`；历史卡不注入，即使存有 Deps 也不绕过来源版本缺失 |
+| 当前提交和 `BaseCommit` 均已知且不同，卡片没有 Deps | `stale_commit`；原本合格的卡在 HEAD 变化后失格 |
+
+**无 Deps 且绑定旧提交的合格卡，在下一次提交使 HEAD 改变后即被拒绝，不论这次提交是否只改无关文档。** 若库中所有原本合格的卡都满足此条件，L2 会再次零注入；检索命中或重提取成功不消除这一后果。有真实 Deps 的跨提交卡仍需通过依赖校验与其它资格检查，不保证一定注入。S2 撤除的六项默认门槛不包含 freshness，§6.1 的重收割配方也不改变该契约。
+
 ## 7. 后续问题，不在本 PR 中伪装完成
 
 - 逐卡“断言 → 实际来源工具证据 → 必要依赖”归属。需要真实跨题正负例，不能仅凭卡片名称、TaskType 或 body 关键词省略 Deps。
 - 区分“某版本上观察到的历史事实”和“适用于当前任务的建议”，不将前者直接当可迁移保证。
+- freshness 仍可产生 `current_commit_unknown` / `commit_unknown` / `stale_commit`（条件见 §6.2）；无 Deps、绑定旧提交的合格卡在 HEAD 变化后失格，甚至使整库 L2 再次零注入。逐卡适用性另按 §9.5 设计；不采用最近 N 提交窗口回退，理由见 §9.3。
 - 类型、验证状态、task tag、版本与依赖检查继续独立审查误拒。撤除六项默认阻断不等于证明这些检查全部正确，也不等于所有历史零注入已解决；需要分别识别错误供给、正确拒绝和过粗适用性绑定。
 - 更完整的 shell 嵌套/动态形式验证需要独立设计；本次只声称所列 AST 回归形状被覆盖。
 - 小型配对观察到传输及采用迹象，但正式 SWE 没有收益因果证据；是否继续评测需另行决定，不自动追加付费任务。
@@ -144,6 +179,7 @@ Agent 原始任务 → Bridge query → Project BM25 → Injector 资格/准入
 
 - **整体回到旧版：不选。** 会同时撤掉真实来源、消息权限、精确预算、host 收据与缺陷修复，难以归因。
 - **六个阈值调低或全部参数化：不选。** 仍要求无关代理信号为历史参考背书，只是把误拒藏进另一套默认值。
+- **无 Deps 卡的最近 N 提交窗口回退：不采用。** 提交距离不是必要依赖未变的证据：一个提交就能改变关键行为，许多无关文档提交也可能完全不影响历史。任意 N 既会放过已失效卡，也会拒绝仍相关的旧卡；它只是另一个未经校准的代理阈值，没有解决“历史观察”与“当前适用断言”的区别。本批保留现行 freshness 与显式拒因，代价是 §6.2 所述 HEAD 变化后的失格；后续按 §9.5 用逐卡来源、必要依赖和跨提交正负例独立验收，不以窗口或伪造 Deps 掩盖缺口。
 - **分解契约，先减法再修接线：采用。** 先撤默认六项否决，保留原排序/预算/边界；查询污染、异步代际和生命周期按独立缺陷处理；卡片适用性与交付统计各自单独验收。不引入新模型、Jev、额外评分器或策略框架。
 
 **预期与代价：** 合格的单条/同源/近分相关历史可以回到 provider 上下文，但词汇相似、语义不适用的历史也可能更多。离线正例证明“能进去”，负例守住明确无关及权限边界；这不等于质量提升，更不等于任务正确率会提高。
@@ -164,7 +200,7 @@ Agent 原始任务 → Bridge query → Project BM25 → Injector 资格/准入
 - [x] 检查已开始读取能够退出、关闭后不重开库；实际 Agent/provider 用例重复运行验证清理。不宣称阻断所有其它 Bridge API 或 join 整个异步任务。
 - 关键代码顺序：`Lock → closing? return → statsWG.Add(1) → Unlock → defer statsWG.Done → kernelIndex → defer closeSliceStore`。
 - 验收：`go test ./harness/semantix -run '^TestBridgeAdmissionAfterClose$' -count=1 -v`；Linux race 与实际 Agent 用例再检验。
-- Commit：`fix(memory): join injection reads before bridge shutdown`。
+- Commit：`4f9817b2` — `fix(memory): join injection reads before bridge shutdown`。
 
 #### S2 — 撤除六项默认代理门槛
 
@@ -174,7 +210,7 @@ Agent 原始任务 → Bridge query → Project BM25 → Injector 资格/准入
 - [x] 删除六项 Bridge 设置及只为来源数量门槛存在的 helper；不修改 Kernel 显式可选参数。
 - [x] 真实 transcript → 提取/提炼 → Store → Bridge → Agent → recordingProvider；同源 Result/outcome 近分仍可交付，off/shadow 请求保持无块，user-role/来源/精确预算保持。
 - 验收：`go test ./harness/semantix ./kernel/inject -count=1`；`go test ./harness/agent -run '^TestMemoryFlow(CorroboratingResultAndOutcomeToProvider|InvoiceHistoryToProvider)$' -count=3 -v`。
-- Commit：`fix(memory): remove uncalibrated default admission vetoes`。
+- Commit：`2af62ed6` — `fix(memory): remove uncalibrated default admission vetoes`。
 
 #### S3 — 查询取真实任务，不取 runner 包装
 
@@ -184,17 +220,17 @@ Agent 原始任务 → Bridge query → Project BM25 → Injector 资格/准入
 - [x] 负例：包装的 runtime 路径及操作要求不变成 intent/path/error/test；正文中非边界的 `Issue:` 字样不被截断；保留无外壳的普通多行输入。
 - [x] 仅识别已知完整 testbed 前缀、开头的 Issue 标签或明确 git-checkout 外壳；正文内部 Expected/Actual/Requirements 不作通用截断。XML 也保留完整正文词义，不再只留标题加提取字段；因此正文里的普通叙述仍可能参与 BM25，这是避免丢需求的明确取舍。error 正则大小写只作用于异常名分支；test 识别命名格式而非裸单词。沿现有 tokenizer，不另造 query 模型。
 - 验收：`go test ./harness/semantix -run 'Test(Clean|Build)RetrievalQuery' -count=1 -v`，再跑整个 Bridge 包。
-- Commit：`fix(memory): separate issue content from runner query framing`。
+- Commit：`a66ea1d7` — `fix(memory): separate issue content from runner query framing`。
 
 #### S4 — 异步预取绑定发起任务
 
-文件：`harness/agent/agent.go`、`prefetch_feedback.go`、现有 prefetch 测试文件。
+文件：`harness/agent/agent.go`、`prefetch_feedback.go`、`prefetch_feedback_test.go`。
 
 - [x] 在启动处捕获 `turn := a.semantixTurn.Load()`，与 input 一同传给异步结果；结果不再在完成时取得新 turn。
 - [x] 旧 turn 结果不得覆盖当前 turn 的有效结果；延迟结果仍按原 turn 记废弃反馈。
 - [x] channel/既有事件同步构造 A 发起 → B 开始 → A 完成，断言 B 请求没有 A 历史、新缓存不被旧缓存替换；保留原 prefetch 命中/浪费统计语义。
 - 验收：`go test -race ./harness/agent -run 'Prefetch|InjectWarm|RetrievalInput' -count=1`，再跑全 Agent 包；不通过 sleep 或删除断言掩盖竞态。
-- Commit：`fix(agent): keep speculative memory within its originating turn`。
+- Commit：`110cd235` — `fix(agent): keep speculative memory within its originating turn`。2026-09-24 ZCode 第二轮审查通过，无阻塞缺陷；本轮保持这三个文件不变。
 
 #### S5 — 合并验证与独立回退
 
@@ -233,24 +269,9 @@ Agent 原始任务 → Bridge query → Project BM25 → Injector 资格/准入
 
 ### 9.8 旧库、重提取与仍可能零注入的运行条件
 
-本批没有原地迁移旧库。一个只含 Prompt/ToolPattern、缺真实来源或缺版本信息的库，应用 S2 后仍可能全部被现有类型/来源/freshness 条件拒绝。将旧卡直接改成 Context、补造 session/origin 或把历史 revision 改成当前 HEAD，并不是合法的供给修复。
+重收割配方统一见 §6.1；不在这里维护另一份命令。
 
-有原始 Harness 会话镜像时，可以在**单独输出库**离线重新提取；命令中的值来自该会话的真实记录，不从当前任务猜测。下列是 `cmd/semantix/extract.go` 已有 CLI 参数的使用方式，hash embedder 不调用远端模型：
-
-```sh
-semantix extract --input "$SESSION_JSONL" \
-  --db "$REPLAY_DB" --scope project \
-  --session "$SOURCE_SESSION" --project "$SOURCE_PROJECT" \
-  --base-commit "$SOURCE_REVISION" --origin session-auto \
-  --embedder hash --distill --consolidate
-```
-
-- `REPLAY_DB` 指向新建的离线检查目录，原库不覆盖；`session-auto` 仅对应实际自动生成的 Harness 镜像，外部导入材料不靠改标签取得该身份。
-- 只有恢复了对应来源工作区、且掌握真实相关文件路径时，才从该来源工作区运行并追加 `--fingerprint "$SOURCE_RELATIVE_PATHS"`。现有 CLI 把这一组 Deps 赋给所有产物，仍不是逐卡归属。没有原始证据时保持未知。
-- 不传 `--l3-safe`；重提取不授予直接答案复用能力。先查看真实产物类型、来源、验证状态及拒因，再决定使用；四层 flags 不保证任意短会话都产生可用知识。
-- 当前 Harness 仍要求 revision 已知；无 Deps 的卡在来源 commit 不同于当前 commit 时得到 `stale_commit`。**因此下一次提交后，依赖为空的旧卡仍可能全部退出候选。** 这正是9.5待处理的适用性契约，不用一个任意“允许最近 N 次提交”的新阈值掩盖它。
-
-上述命令是离线重提取配方，不是已执行的用户真实库迁移；本批未改历史实验、用户库或原始轨迹。
+freshness 的运行条件与三种版本拒因见 §6.2，后续范围见 §7 / §9.5；最近 N 提交窗口回退不予采用的设计决策见 §9.3。
 
 
 ### 9.9 S6 — 任务标签保留描述作用，不再默认否决相关历史

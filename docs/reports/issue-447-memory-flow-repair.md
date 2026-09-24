@@ -2,6 +2,12 @@
 
 日期：2026-09-18。状态：Draft PR；关联 [实现 SPEC](../specs/issue-447-memory-flow-repair.md)。本报告只提交经整理的指标与结果，不上传原始模型轨迹、凭据、机器路径或二进制。
 
+## 2026-09-24 本地 PR 文案补充（待同步远端）
+
+- 旧库不自动迁移；Prompt/ToolPattern 或缺来源/版本的旧记录不会因为撤除六项默认门槛就取得注入资格。重收割的完整命令统一见 [SPEC §6.1](../specs/issue-447-memory-flow-repair.md#61-旧库重收割配方逐个真实会话执行)，不覆盖原库。
+- SWE 与交互式 Harness 历史均建议逐会话使用 `--distill --consolidate --origin session-auto --base-commit "$SOURCE_REVISION" --embedder hash`；输入路径、会话 ID、项目与版本必须来自真实会话。ObservedCommit 是当时版本，不是当前 HEAD；不通过改标签、补造来源或改写历史版本制造合格卡。
+- 本地文案更新不代表远端 PR 已更新，也不代表已经执行真实库重收割或新一轮模型收益实验。
+
 ## 1. 结果摘要及可比性
 
 | 组 | 版本说明 | 输出 | 有效 | PASS | FAIL | 超时 | 其它 |
