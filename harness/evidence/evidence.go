@@ -1651,9 +1651,14 @@ func bashCommandMasksVerificationExit(command string) bool {
 		masked = masked || stmt.Background
 		switch cmd := stmt.Cmd.(type) {
 		case *syntax.BinaryCmd:
-			// Only && preserves failure of the left-hand command. The final
-			// pipeline stage inherits its parent's status propagation.
-			return maskedVerifier(cmd.X, masked || cmd.Op != syntax.AndStmt) || maskedVerifier(cmd.Y, masked)
+			// Only && preserves failure of the left-hand command (X's
+			// failure still sets the overall exit). The final pipeline
+			// stage inherits its parent's status propagation. For || both
+			// sides are conditional evidence: X's failure is swallowed when
+			// Y succeeds, and Y never runs at all when X succeeds — so a
+			// verifier on either side cannot be trusted for the exit.
+			return maskedVerifier(cmd.X, masked || cmd.Op != syntax.AndStmt) ||
+				maskedVerifier(cmd.Y, masked || cmd.Op == syntax.OrStmt)
 		case *syntax.CallExpr:
 			if !masked {
 				return false
