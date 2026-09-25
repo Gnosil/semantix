@@ -71,8 +71,8 @@ func TestLookupHitWritesStats(t *testing.T) {
 	}
 }
 
-// inject credits Injected+1 to exactly the slices in the assembled block.
-func TestInjectWritesStats(t *testing.T) {
+// CLI assembly has no provider acceptance and must not credit delivery.
+func TestInjectAssemblyDoesNotWriteDeliveryStats(t *testing.T) {
 	deps, db := buildLookupStatsDeps(t)
 	seedLookupCorpus(t, db)
 
@@ -88,8 +88,8 @@ func TestInjectWritesStats(t *testing.T) {
 
 	st := openTestStore(t, db)
 	got, _ := st.Get("target")
-	if got == nil || got.Stats.Injected != 1 || got.Stats.LastUsed == 0 {
-		t.Fatalf("injection not recorded on target: %+v", got)
+	if got == nil || got.Stats.Injected != 0 || got.Stats.LastUsed != 0 {
+		t.Fatalf("assembly wrongly recorded delivery on target: %+v", got)
 	}
 	if got.Stats.Hits != 0 {
 		t.Fatalf("inject must not count as lookup hit: %+v", got.Stats)

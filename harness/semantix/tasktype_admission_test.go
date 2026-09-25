@@ -8,13 +8,11 @@ import (
 	"semantix/kernel/slice"
 )
 
-// Four-layer distill spec §2.5: tool_pattern and result slices never reach
+// Raw tool_pattern and unverified result slices never reach
 // the agent injection block, however strong their lexical match — and their
 // scores must not act as the relative-confidence denominator that squeezes
-// eligible candidates out. The fixture mirrors admissionFixtureSlices: five
-// slices, two source sessions per admitted type, a strong match plus a
-// runner-up so the strict gates (#454) are satisfied.
-func TestBridgeNeverInjectsToolPatternOrResult(t *testing.T) {
+// eligible candidates out. Verified Results are covered separately.
+func TestBridgeNeverInjectsToolPatternOrUnverifiedResult(t *testing.T) {
 	dir := writeKernelDir(t, []*slice.Slice{
 		&slice.Slice{ID: "t-blocked", Type: slice.ToolPattern, Scope: slice.Project,
 			Content: []byte("修复 go 测试失败"), Meta: slice.SliceMeta{SourceSession: "boot-3"}},
@@ -45,11 +43,9 @@ func TestBridgeNeverInjectsToolPatternOrResult(t *testing.T) {
 	}
 }
 
-// The turn's classified task type gates task-tagged Memory cards: a card
-// distilled from a different task type never injects, an equally-matching
-// same-type card does — and the rejected card must not act as the
-// relative-confidence denominator or the runner-up.
-func TestBridgeGatesMemoryCardsByTaskType(t *testing.T) {
+// Task labels describe source actions, not whether equally matching history
+// is useful for the current problem. Keep the original tags for the reader.
+func TestBridgeKeepsRelatedMemoryAcrossTaskTypes(t *testing.T) {
 	dir := writeKernelDir(t, []*slice.Slice{
 		&slice.Slice{ID: "m-bugfix", Type: slice.Memory, Scope: slice.Project,
 			Content: []byte("Task outcome (task=bugfix): 修复 go 测试失败\nEdited:\n- core/numbers.py"),
@@ -73,7 +69,12 @@ func TestBridgeGatesMemoryCardsByTaskType(t *testing.T) {
 	if !strings.Contains(res.Text, "m-bugfix") {
 		t.Errorf("same-type outcome card missing from the block:\n%s", res.Text)
 	}
-	if strings.Contains(res.Text, "m-feature") {
-		t.Errorf("cross-type outcome card leaked into the block:\n%s", res.Text)
+	if !strings.Contains(res.Text, "m-feature") {
+		t.Errorf("equally matching cross-type history missing from the block:\n%s", res.Text)
+	}
+	for _, marker := range []string{"task=bugfix", "task=feature", `source="boot-1"`, `source="boot-2"`} {
+		if !strings.Contains(res.Text, marker) {
+			t.Errorf("source task/provenance %q missing from the block", marker)
+		}
 	}
 }

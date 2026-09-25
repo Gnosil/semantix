@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	kernelevent "semantix/kernel/event"
 	"semantix/kernel/sanitize"
 )
 
@@ -92,7 +91,8 @@ func (e extractor) Extract(sessionJSONL []byte, meta SliceMeta) ([]*Slice, error
 		}
 		if e.opts.TStepSplit {
 			out = append(out, toolPatternSlicesStepSplit(turn, meta)...)
-		} else if s := toolPatternSlice(turn, meta); s != nil {			out = append(out, s)
+		} else if s := toolPatternSlice(turn, meta); s != nil {
+			out = append(out, s)
 		}
 		turn = nil
 	}
@@ -173,7 +173,7 @@ func contextSlice(lines []transcriptLine, meta SliceMeta) *Slice {
 	writeContextSection(&b, "Frequent paths:", pathTop)
 	writeContextSection(&b, "Frequent directories:", dirTop)
 	writeContextSection(&b, "Common command heads:", commandTop)
-	return newSlice(Context, Project, []byte(strings.TrimSpace(b.String())), meta)
+	return observedSlice(Context, Project, []byte(strings.TrimSpace(b.String())), meta)
 }
 
 func decodeToolArgs(raw json.RawMessage) any {
@@ -337,22 +337,6 @@ func parseTranscript(data []byte) ([]transcriptLine, error) {
 			}
 		}
 		if tl.Role == "" {
-			if e, err := kernelevent.FromJSON(line); err == nil {
-				switch e.Kind {
-				case kernelevent.SliceHit:
-					tl = transcriptLine{Role: "user", Content: "slice hit " + string(e.Data)}
-				case kernelevent.SliceInject:
-					tl = transcriptLine{Role: "user", Content: "slice inject " + string(e.Data)}
-				case kernelevent.PrefetchHit:
-					tl = transcriptLine{Role: "user", Content: "prefetch hit targets " + string(e.Data)}
-				case kernelevent.PrefetchWaste:
-					tl = transcriptLine{Role: "user", Content: "prefetch waste targets " + string(e.Data)}
-				case kernelevent.EvolutionTick:
-					tl = transcriptLine{Role: "user", Content: "evolution tick params " + string(e.Data)}
-				}
-			}
-		}
-		if tl.Role == "" {
 			continue
 		}
 		out = append(out, tl)
@@ -420,12 +404,7 @@ func verifyBoundary(c toolCall) bool {
 	if !shellToolNames[lower] {
 		return false
 	}
-	head := commandHead(commandValue(c.args))
-	fields := strings.Fields(head)
-	if len(fields) >= 2 && fields[1] == "test" {
-		return true
-	}
-	return head == "pytest"
+	return isTestCommand(commandValue(c.args))
 }
 
 // toolPatternSlicesStepSplit emits one ToolPattern slice per subtask: the
@@ -473,6 +452,9 @@ func finalResultSlice(lines []transcriptLine, meta SliceMeta) *Slice {
 	return nil
 }
 
+// resultVerifiedAfterLatestMutation is shared by Result and outcome Memory.
+// Only host evidence establishes success; an unknown or incomplete later test
+// does not inherit an earlier pass, and mirror duplicates are not fresh evidence.
 func resultVerifiedAfterLatestMutation(lines []transcriptLine) (string, bool) {
 	calls := make(map[string]toolCall)
 	for _, line := range lines {
@@ -480,30 +462,49 @@ func resultVerifiedAfterLatestMutation(lines []transcriptLine) (string, bool) {
 			calls[call.ID] = toolCall{name: call.Name, args: decodeToolArgs(call.Arguments)}
 		}
 	}
+	seenCalls, seenResults := map[string]bool{}, map[string]bool{}
+	pending := map[string]bool{}
 	latestMutation, latestVerification := -1, -1
 	latestPassed := false
 	evidence := ""
 	for i, line := range lines {
+		for _, call := range line.ToolCalls {
+			if call.ID != "" && !seenCalls[call.ID] {
+				seenCalls[call.ID] = true
+				if verifyBoundary(calls[call.ID]) && !seenResults[call.ID] {
+					pending[call.ID] = true
+				}
+			}
+		}
 		if line.Role != "tool" {
 			continue
+		}
+		if line.ToolCall != "" {
+			if seenResults[line.ToolCall] {
+				continue
+			}
+			seenResults[line.ToolCall] = true
+			delete(pending, line.ToolCall)
 		}
 		if line.WorkspaceMutation {
 			latestMutation = i
 		}
-		if line.Verification == "passed" || line.Verification == "failed" {
+		call := calls[line.ToolCall]
+		// Explicit host classification wins over the conservative command-name
+		// fallback (for example, reading pytest.ini is not running pytest).
+		if line.Verification != "not_verification" &&
+			(line.Verification == "passed" || line.Verification == "failed" || verifyBoundary(call)) {
 			latestVerification = i
 			latestPassed = line.Verification == "passed"
 			evidence = line.Name
-			if call, ok := calls[line.ToolCall]; ok {
-				if command := commandValue(call.args); command != "" {
-					evidence = command
-				} else if call.name != "" {
-					evidence = call.name
-				}
+			if command := commandValue(call.args); command != "" {
+				evidence = command
+			} else if call.name != "" {
+				evidence = call.name
 			}
 		}
 	}
-	return evidence, latestPassed && latestVerification > latestMutation
+	return evidence, len(pending) == 0 && latestPassed && latestVerification > latestMutation
 }
 
 func compressionMeta(meta SliceMeta, original string, stored []byte) SliceMeta {
@@ -513,7 +514,17 @@ func compressionMeta(meta SliceMeta, original string, stored []byte) SliceMeta {
 	return meta
 }
 
+// observedSlice is used only for bounded tool-observation templates. Retain
+// source revision/fingerprints; the quote does not assert current applicability.
+func observedSlice(t SliceType, sc Scope, content []byte, meta SliceMeta) *Slice {
+	s := newSlice(t, sc, content, meta)
+	s.Meta.Historical = true
+	return s
+}
+
 func newSlice(t SliceType, sc Scope, content []byte, meta SliceMeta) *Slice {
+	// Caller metadata cannot promote an arbitrary Prompt/Result into history.
+	meta.Historical = false
 	// Write-side sanitization (Issue #278, Security §3.1): every slice
 	// extracted from a session passes the deterministic pipeline — escape
 	// stripping, injection-feature removal, sensitive redaction — before

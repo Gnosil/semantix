@@ -153,6 +153,9 @@ type Options struct {
 	// instead of creating new subprocesses, and the caller manages the host's
 	// lifecycle. When nil, Build creates and owns a new host as before.
 	SharedHost *plugin.Host
+	// closeSemantixBridge is a package-private lifecycle observation seam. A nil
+	// value uses (*semantix.Bridge).Close directly.
+	closeSemantixBridge func(*semantix.Bridge) error
 	// CleanupPendingReconciler retries delayed physical cleanup for session
 	// artifacts left by a previous process. Nil uses the core physical-delete
 	// reconciler; frontends with different deletion semantics can override it.
@@ -308,8 +311,19 @@ func build(ctx context.Context, opts Options) (*BuildResult, error) {
 		CostMissUSD:  cfg.Semantix.CostInputPriceUSD,
 		CostHitUSD:   cfg.Semantix.CostCachePriceUSD,
 	})
+	closeSemantixBridge := opts.closeSemantixBridge
+	if closeSemantixBridge == nil {
+		closeSemantixBridge = (*semantix.Bridge).Close
+	}
 	sink = semantixBridge.Sink(sink)
-	defer semantixBridge.Close()
+	// Failed builds release the bridge until the controller takes ownership.
+	// Returning from a successful build is not session end.
+	pendingSemantixBridge := semantixBridge
+	defer func() {
+		if pendingSemantixBridge != nil {
+			_ = closeSemantixBridge(pendingSemantixBridge)
+		}
+	}()
 	// Extension preflight (stages 5b/7): start the installed, enabled v2 runtime
 	// packages ONCE, here, before model resolution, so plugin-namespaced refs
 	// (plugin/<plugin>/<provider>/<model>) resolve on the very first boot and the
@@ -1804,15 +1818,15 @@ func build(ctx context.Context, opts Options) (*BuildResult, error) {
 	}
 
 	ctrlOpts := control.Options{
-		TaskBudget:                     taskBudgetFromConfig(cfg),
-		GoalTokenBudget:                cfg.Agent.GoalTokenBudget,
-		Runner:                         runner,
-		Executor:                       executor,
-		Sink:                           sink,
-		Policy:                         policy,
-		SubagentGate:                   headlessGate,
-		Label:                          label,
-		ModelRef:                       modelRef,
+		TaskBudget:      taskBudgetFromConfig(cfg),
+		GoalTokenBudget: cfg.Agent.GoalTokenBudget,
+		Runner:          runner,
+		Executor:        executor,
+		Sink:            sink,
+		Policy:          policy,
+		SubagentGate:    headlessGate,
+		Label:           label,
+		ModelRef:        modelRef,
 		// The booted entry's effort vocabulary, so frontends complete and list
 		// /effort from the session's own model instead of re-resolving the ref
 		// against the user config (synthetic extension/plugin entries are not
@@ -1835,7 +1849,10 @@ func build(ctx context.Context, opts Options) (*BuildResult, error) {
 		// Indirection: the cleanup variable gains the extension runtime set at
 		// the end of build (snapshot assembly runs after control.New), and the
 		// controller must observe the final chain at Close time.
-		Cleanup:               func() { cleanup() },
+		Cleanup: func() {
+			defer closeSemantixBridge(semantixBridge)
+			cleanup()
+		},
 		BalanceURL:            entry.BalanceURL,
 		BalanceKey:            entry.APIKey(),
 		BalanceClient:         balanceClient,
@@ -1969,6 +1986,7 @@ func build(ctx context.Context, opts Options) (*BuildResult, error) {
 		}
 	}
 	ctrl := control.New(ctrlOpts)
+	pendingSemantixBridge = nil // later build failures use ctrl.ReleaseResources
 	semantixBridge.SetLabel(ctrl.Label())
 	// Publish the controller to the extension UI hub's indirection: from here
 	// on, host/ui/* publishes ride ctrl.EmitExtensionEvent and blocking prompts

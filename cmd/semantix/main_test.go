@@ -39,6 +39,7 @@ func (f *fakeExtractor) Extract(_ []byte, meta slice.SliceMeta) ([]*slice.Slice,
 type fakeStore struct {
 	items  map[string]*slice.Slice
 	closed bool
+	getErr error // injected read failure; absent IDs match FileStore's (nil, nil)
 }
 
 func newFakeStore(items ...*slice.Slice) *fakeStore {
@@ -58,11 +59,7 @@ func (f *fakeStore) Put(item *slice.Slice) error {
 }
 
 func (f *fakeStore) Get(id string) (*slice.Slice, error) {
-	item := f.items[id]
-	if item == nil {
-		return nil, errors.New("not found")
-	}
-	return item, nil
+	return f.items[id], f.getErr
 }
 
 func (f *fakeStore) List(scope slice.Scope) ([]*slice.Slice, error) {

@@ -51,9 +51,9 @@ var taskRules = []struct {
 
 // ClassifyTask maps a task description (typically the turn's first user
 // message) to one of the closed task-type values above. Deterministic and
-// rule-driven — no model call: the tag gates plan-skeleton / outcome card
-// admission (Injector.TaskType), so it must be reproducible offline. Empty
-// or unmatched input classifies as TaskGeneral.
+// rule-driven — no model call: the tag describes plan-skeleton / outcome
+// cards and supports explicit Injector.TaskType filters. It is not proof
+// of relevance. Empty or unmatched input classifies as TaskGeneral.
 func ClassifyTask(text string) string {
 	t := strings.ToLower(text)
 	if strings.TrimSpace(t) == "" {

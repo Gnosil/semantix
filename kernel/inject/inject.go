@@ -79,7 +79,7 @@ type Injector struct {
 	Store slice.Store // optional; used to re-read full slices when the index
 	// returns them anyway — kept for symmetry with future lazy indexes.
 	Scope slice.Scope
-	K     int // top-k slices to consider (default 5)
+	K     int // Build: search top-k (default 5); BuildHits: cap eligible slices when >0.
 	// Budget caps the assembled block size in bytes (default DefaultBudget).
 	Budget int
 	// MinScore drops slices below this BM25 score (0 disables).
@@ -101,7 +101,8 @@ type Injector struct {
 	// MinCoverage is the cleaned-query token coverage floor.
 	MinCoverage float64
 	// MinTopMargin is the absolute score gap between the two best candidates
-	// that pass AllowedTypes. RequireRunnerUp rejects a singleton eligible set.
+	// eligible by type, status, task, freshness and origin. RequireRunnerUp
+	// rejects a singleton eligible set.
 	MinTopMargin    float64
 	RequireRunnerUp bool
 	// Zones, when non-nil, applies the grey-zone classifier: only clearly
@@ -125,11 +126,10 @@ type Injector struct {
 	AllowGrey bool
 	// TaskType, when non-empty, gates task-tagged Memory slices (the
 	// distilled plan-skeleton / outcome cards, which carry a "task=<type>"
-	// marker) on matching the current turn's classified type. Cross-type
-	// instance locators are exactly the "misleading reference" failure the
-	// two-arm pilot measured — a bugfix outcome card must not steer a
-	// feature task. Untagged Memory slices and every other slice type are
-	// unaffected; empty TaskType keeps the historical behavior.
+	// marker) on matching the caller's requested type. This is an explicit
+	// filter, not a relevance or permission check; Harness leaves it empty.
+	// Untagged Memory slices and every other slice type are unaffected;
+	// empty TaskType keeps the historical behavior.
 	TaskType string
 }
 
@@ -143,11 +143,15 @@ type Injection struct {
 	// mode). Zero in the default drop mode; a persistent non-zero value is
 	// the signal to recalibrate zone thresholds (W3 of the efficiency plan).
 	GreyIncluded int
-	// Decisions preserves the score-order admission trace for every retrieved
-	// candidate. It is observation-only: replaying Admitted from Reason must
-	// yield the same slice set that produced Text.
+	// Decisions preserves the score-order admission trace for the candidates
+	// that entered the assembly window. With K>0, BuildHits may skip hits
+	// outside the window (eligible hits past the K-th, or ineligible ranks
+	// >= K); skipped hits produce no decision — callers join diagnostics by
+	// ID rather than assuming full coverage. It is observation-only:
+	// replaying Admitted from Reason must yield the same slice set that
+	// produced Text.
 	Decisions []CandidateDecision
-	// TopMargin is top1-top2 over type-eligible candidates. Zero means fewer
+	// TopMargin is top1-top2 over eligible candidates. Zero means fewer
 	// than two eligible candidates or equal scores.
 	TopMargin float64
 }
@@ -196,21 +200,31 @@ func (in *Injector) BuildHits(query string, hits []slice.Hit) (*Injection, error
 		budget = DefaultBudget
 	}
 	// Eligibility feeds the relative-confidence denominator (top1) and the
-	// runner-up margin: a candidate the type allowlist or the task gate
+	// runner-up margin: a candidate the type/status, task, freshness or origin gate
 	// rejects must not depress every other candidate's score/top1 ratio —
 	// the exact denominator artifact the W6 ablation measured on cold
 	// libraries (one lexically strong ineligible slice emptying the block).
 	eligibleScores := make([]float64, 0, len(hits))
 	freshnessReasons := make(map[*slice.Slice]string, len(hits))
-	for _, h := range hits {
+	candidates := make([]slice.Hit, 0, len(hits))
+	for rank, h := range hits {
 		if h.Slice != nil {
 			freshnessReasons[h.Slice] = in.freshnessReason(h.Slice)
 		}
-		if h.Slice != nil && in.admissionTypeEligible(h.Slice) && in.taskAdmits(h.Slice) &&
-			freshnessReasons[h.Slice] == "" {
+		eligible := h.Slice != nil && in.admissionTypeEligible(h.Slice) && in.taskAdmits(h.Slice) &&
+			freshnessReasons[h.Slice] == "" && h.Slice.Meta.Origin.Level() >= in.MinOrigin.Level()
+		// A permanently ineligible hit must not consume a candidate slot.
+		// Retain original top-K rejects for diagnostics without enlarging the
+		// eligible window. K=0 preserves the uncapped BuildHits contract.
+		if in.K > 0 && ((eligible && len(eligibleScores) >= in.K) || (!eligible && rank >= in.K)) {
+			continue
+		}
+		candidates = append(candidates, h)
+		if eligible {
 			eligibleScores = append(eligibleScores, h.Score)
 		}
 	}
+	hits = candidates
 	top1 := 0.0
 	topMargin := 0.0
 	if len(eligibleScores) > 0 {
@@ -254,6 +268,14 @@ func (in *Injector) BuildHits(query string, hits []slice.Hit) (*Injection, error
 		}
 		if in.AllowedTypes != nil && h.Slice.Type == slice.Result && h.Slice.Meta.EffectiveResultStatus() != slice.ResultStatusVerified {
 			d.Reason = "result_probation"
+			decisions = append(decisions, d)
+			dropped++
+			continue
+		}
+		// Low-integrity origins neither occupy the eligible window nor
+		// contribute to relative confidence. Keep the rejection observable.
+		if in.MinOrigin.Level() > h.Slice.Meta.Origin.Level() {
+			d.Reason = "origin_below_floor"
 			decisions = append(decisions, d)
 			dropped++
 			continue
@@ -349,16 +371,6 @@ func (in *Injector) BuildHits(query string, hits []slice.Hit) (*Injection, error
 			dropped++
 			continue
 		}
-		// Issue #279: low-integrity origins never enter the injection
-		// block — a trusted floor above the candidate's level excludes it
-		// (import and legacy are level 1; session-auto/prefetch 2;
-		// user-curated 3).
-		if h.Slice != nil && in.MinOrigin.Level() > h.Slice.Meta.Origin.Level() {
-			d.Reason = "origin_below_floor"
-			decisions = append(decisions, d)
-			dropped++
-			continue
-		}
 		content = escapeMarker(content)
 		// Budget is judged on the exact bytes that will be written, including
 		// provenance, escaped content, and the grey audit variant.
@@ -377,7 +389,7 @@ func (in *Injector) BuildHits(query string, hits []slice.Hit) (*Injection, error
 	}
 
 	if len(cands) == 0 {
-		return &Injection{Dropped: dropped, Decisions: decisions}, nil
+		return &Injection{Dropped: dropped, Decisions: decisions, TopMargin: topMargin}, nil
 	}
 
 	// Canonical order: verified candidates first, then audit-mode grey;
@@ -464,6 +476,9 @@ func formatSliceItem(sl *slice.Slice, score float64, content string, grey bool) 
 		"type=%s project=%q source=%q commit=%q origin=%s verified=%s score=%.4f created_at=%d\n",
 		sl.Type.String(), sl.Meta.ProjectSlug, sl.Meta.SourceSession, sl.Meta.BaseCommit, sl.Meta.Origin, verified, score, sl.CreatedAt,
 	)
+	if sl.IsHistoricalObservation() {
+		provenance += "applicability=historical_observation; revalidate_before_use\n"
+	}
 	return header + provenance + content + "\n"
 }
 
@@ -487,6 +502,17 @@ func (in *Injector) freshnessReason(sl *slice.Slice) string {
 	}
 	if sl.Meta.BaseCommit == "" {
 		return "commit_unknown"
+	}
+	// A source-revision observation is not an executable/current snapshot.
+	// Keep source Deps untouched and validate syntax, but never read paths
+	// merely to prove that a historical tool call once happened.
+	if sl.IsHistoricalObservation() {
+		for path := range sl.Meta.Deps {
+			if !filepath.IsLocal(path) {
+				return "dependency_path_invalid"
+			}
+		}
+		return ""
 	}
 	if sl.Meta.BaseCommit != in.CurrentCommit && len(sl.Meta.Deps) == 0 {
 		return "stale_commit"

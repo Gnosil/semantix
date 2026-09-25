@@ -12,26 +12,26 @@ import (
 // Distill turns one session transcript into the four-layer knowledge cards
 // of docs/specs/semantic-four-layer-distill.md:
 //
-//   - repo-ops card (Context): verified test/build commands with their last
+//   - repo-ops card (Context): observed test/build commands with their last
 //     observed outcome, plus recurring environment pitfalls;
 //   - plan-skeleton card (Memory): the session's tool trajectory abstracted
 //     to canonical stages, tagged with the classified task type;
 //   - outcome card (Memory): task summary, edited files and the verifying
-//     command — the instance-level locator, admission-gated by task type.
+//     command — an instance-level locator tagged with its source task type.
 //
 // (The fourth layer — the subsystem overview card — is ConsolidateContext,
 // which merges the Context cards this and the base extractor emit.)
 //
-// Unlike Extract, Distill parses tool RESULT lines and pairs them with their
-// calls: the base transcript parser drops role-less lines, but outcomes
-// (exit statuses, edit receipts, policy blocks) are exactly the signal the
-// cards need. Mirror double-writes are deduplicated by tool-call ID.
+// Distill pairs tool RESULT lines with their calls: exit observations, edit
+// receipts, host verification and policy blocks supply the cards' evidence.
+// Mirror double-writes are deduplicated by tool-call ID.
 // Deterministic: same transcript bytes → same cards, no model calls.
 func Distill(sessionJSONL []byte, meta SliceMeta) ([]*Slice, error) {
 	doc, err := parseDistillDoc(sessionJSONL)
 	if err != nil {
 		return nil, err
 	}
+	doc.userText = TaskBody(doc.userText)
 	if meta.TaskType == "" {
 		meta.TaskType = ClassifyTask(doc.userText)
 	}
@@ -71,28 +71,16 @@ type distillCall struct {
 // distillDoc is the paired view of one transcript: calls in order, results
 // keyed by tool-call ID, and the first real user message.
 type distillDoc struct {
-	userText string
-	calls    []distillCall
-	results  map[string]string
-}
-
-// distillLine decodes the union of the three mirror line shapes: kernel
-// event lines (kind, skipped), role lines (user/assistant with tool calls)
-// and tool result lines (tool_call_id + content, no role).
-type distillLine struct {
-	Role      string `json:"role"`
-	Content   string `json:"content"`
-	ToolCalls []struct {
-		ID        string          `json:"id"`
-		Name      string          `json:"name"`
-		Arguments json.RawMessage `json:"arguments,omitempty"`
-	} `json:"tool_calls,omitempty"`
-	ToolCallID string `json:"tool_call_id,omitempty"`
+	userText   string
+	calls      []distillCall
+	results    map[string]transcriptLine
+	verifiedBy string
 }
 
 func parseDistillDoc(data []byte) (*distillDoc, error) {
-	doc := &distillDoc{results: map[string]string{}}
+	doc := &distillDoc{results: map[string]transcriptLine{}}
 	callIdx := map[string]int{}
+	var verificationLines []transcriptLine
 	sc := bufio.NewScanner(bytes.NewReader(data))
 	sc.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
 	for sc.Scan() {
@@ -100,7 +88,7 @@ func parseDistillDoc(data []byte) (*distillDoc, error) {
 		if len(line) == 0 {
 			continue
 		}
-		var dl distillLine
+		var dl transcriptLine
 		if json.Unmarshal(line, &dl) != nil {
 			continue // tolerant: skip malformed lines
 		}
@@ -110,6 +98,7 @@ func parseDistillDoc(data []byte) (*distillDoc, error) {
 				doc.userText = dl.Content
 			}
 		case dl.Role == "assistant":
+			verificationLines = append(verificationLines, dl)
 			for _, tc := range dl.ToolCalls {
 				if tc.ID == "" || tc.Name == "" {
 					continue
@@ -125,12 +114,18 @@ func parseDistillDoc(data []byte) (*distillDoc, error) {
 				callIdx[tc.ID] = len(doc.calls)
 				doc.calls = append(doc.calls, distillCall{id: tc.ID, name: tc.Name, args: tc.Arguments})
 			}
-		case (dl.Role == "" || dl.Role == "tool") && dl.ToolCallID != "":
+		case (dl.Role == "" || dl.Role == "tool") && dl.ToolCall != "":
 			// Tool result line; mirror double-writes keep the first copy.
-			if _, seen := doc.results[dl.ToolCallID]; !seen {
-				doc.results[dl.ToolCallID] = dl.Content
+			if _, seen := doc.results[dl.ToolCall]; seen {
+				continue
 			}
+			dl.Role = "tool" // accept the sink's type=tool and older role-less lines
+			doc.results[dl.ToolCall] = dl
+			verificationLines = append(verificationLines, dl)
 		}
+	}
+	if evidence, ok := resultVerifiedAfterLatestMutation(verificationLines); ok {
+		doc.verifiedBy = normalizeCommand(evidence)
 	}
 	return doc, sc.Err()
 }
@@ -152,7 +147,7 @@ var pitfallPatterns = []string{
 func repoOpsSlice(doc *distillDoc, meta SliceMeta) *Slice {
 	type observed struct {
 		command string
-		outcome string // "ok" or "exit N"
+		outcome string // host "ok"/"failed", observed "exit N", or "unknown"
 	}
 	var commands []observed
 	seenCmd := map[string]int{}
@@ -161,11 +156,11 @@ func repoOpsSlice(doc *distillDoc, meta SliceMeta) *Slice {
 
 	for _, call := range doc.calls {
 		result, hasResult := doc.results[call.id]
-		head := strings.ToLower(strings.TrimSpace(result))
+		head := strings.ToLower(strings.TrimSpace(result.Content))
 		if hasResult {
 			for _, pat := range pitfallPatterns {
 				if strings.Contains(head[:min(len(head), 200)], pat) {
-					line := firstLine(result, maxPitfallLen)
+					line := firstLine(result.Content, maxPitfallLen)
 					if _, seen := pitfalls[line]; !seen {
 						pitfallOrder = append(pitfallOrder, line)
 					}
@@ -183,7 +178,7 @@ func repoOpsSlice(doc *distillDoc, meta SliceMeta) *Slice {
 		}
 		outcome := commandOutcome(result, hasResult)
 		if outcome == "" {
-			continue // policy-blocked or never ran: not a verified observation
+			continue // no paired result to observe
 		}
 		if i, seen := seenCmd[cmd]; seen {
 			commands[i].outcome = outcome // later run wins: freshest signal
@@ -203,7 +198,7 @@ func repoOpsSlice(doc *distillDoc, meta SliceMeta) *Slice {
 	var b strings.Builder
 	b.WriteString("Repo operations (distilled from session):\n")
 	if len(commands) > 0 {
-		b.WriteString("Verified commands:\n")
+		b.WriteString("Observed commands:\n")
 		for _, c := range commands {
 			fmt.Fprintf(&b, "- %s (%s)\n", c.command, c.outcome)
 		}
@@ -224,7 +219,7 @@ func repoOpsSlice(doc *distillDoc, meta SliceMeta) *Slice {
 			fmt.Fprintf(&b, "- %s (seen %d)\n", p, pitfalls[p])
 		}
 	}
-	return newSlice(Context, Project, []byte(strings.TrimSpace(b.String())), meta)
+	return observedSlice(Context, Project, []byte(strings.TrimSpace(b.String())), meta)
 }
 
 // normalizeCommand strips the leading repo-position noise (`cd <dir> && `)
@@ -269,25 +264,25 @@ func isBuildCommand(cmd string) bool {
 	return strings.HasPrefix(l, "make") || strings.HasPrefix(l, "cargo build") || strings.HasPrefix(l, "go build")
 }
 
-// commandOutcome maps a paired result to "ok" / "exit N"; "" means the
-// command never actually ran (missing result or a policy block).
-func commandOutcome(result string, hasResult bool) string {
+// Only host verification establishes success; transcript text may describe
+// an exit or a failure, but absent metadata is never promoted to "ok".
+func commandOutcome(result transcriptLine, hasResult bool) string {
 	if !hasResult {
 		return ""
 	}
-	head := strings.ToLower(strings.TrimSpace(result))
-	for _, pat := range pitfallPatterns {
-		if strings.HasPrefix(head, pat) {
-			return ""
-		}
+	switch result.Verification {
+	case "passed":
+		return "ok"
+	case "failed":
+		return "failed"
 	}
-	if i := strings.LastIndex(result, "exit status "); i >= 0 {
-		code := strings.TrimSpace(firstLine(result[i+len("exit status "):], 8))
+	if i := strings.LastIndex(result.Content, "exit status "); i >= 0 {
+		code := strings.TrimSpace(firstLine(result.Content[i+len("exit status "):], 8))
 		if code != "" {
 			return "exit " + code
 		}
 	}
-	return "ok"
+	return "unknown"
 }
 
 // --- plan-skeleton card (layer C) ------------------------------------------
@@ -297,13 +292,14 @@ func commandOutcome(result string, hasResult bool) string {
 func stageOf(call distillCall) string {
 	name := strings.ToLower(call.name)
 	args := decodeToolArgs(call.args)
+	if verifyBoundary(toolCall{name: name, args: args}) {
+		return "verify"
+	}
 	if shellToolNames[name] {
 		cmd := strings.ToLower(normalizeCommand(commandValue(args)))
 		switch {
 		case cmd == "":
 			return ""
-		case isTestCommand(cmd):
-			return "verify"
 		case strings.Contains(cmd, "repro"):
 			return "reproduce"
 		default:
@@ -320,8 +316,6 @@ func stageOf(call distillCall) string {
 		}
 	}
 	switch {
-	case strings.Contains(name, "test"):
-		return "verify"
 	case strings.Contains(name, "read") || strings.Contains(name, "grep") ||
 		strings.Contains(name, "search") || strings.Contains(name, "find") ||
 		strings.Contains(name, "list") || strings.Contains(name, "glob"):
@@ -375,7 +369,7 @@ func planSkeletonSlice(doc *distillDoc, meta SliceMeta) *Slice {
 		parts = append(parts, "…")
 	}
 	content := fmt.Sprintf("Plan skeleton (task=%s):\n%s", meta.TaskType, strings.Join(parts, " → "))
-	return newSlice(Memory, Project, []byte(content), meta)
+	return observedSlice(Memory, Project, []byte(content), meta)
 }
 
 // --- outcome card (layer D) ------------------------------------------------
@@ -388,22 +382,15 @@ func outcomeSlice(doc *distillDoc, meta SliceMeta) *Slice {
 	roots := cdRoots(doc)
 	var edited []string
 	seenEdit := map[string]bool{}
-	var verifiedBy string
 	for _, call := range doc.calls {
 		result, hasResult := doc.results[call.id]
 		if hasResult {
-			for _, p := range editReceiptPaths(result) {
+			for _, p := range editReceiptPaths(result.Content) {
 				p = stripRoots(p, roots)
 				if !seenEdit[p] {
 					seenEdit[p] = true
 					edited = append(edited, p)
 				}
-			}
-		}
-		if shellToolNames[strings.ToLower(call.name)] {
-			cmd := normalizeCommand(commandValue(decodeToolArgs(call.args)))
-			if cmd != "" && isTestCommand(cmd) && commandOutcome(result, hasResult) == "ok" {
-				verifiedBy = cmd // last passing test run wins
 			}
 		}
 	}
@@ -419,19 +406,15 @@ func outcomeSlice(doc *distillDoc, meta SliceMeta) *Slice {
 	for _, p := range edited {
 		fmt.Fprintf(&b, "- %s\n", p)
 	}
-	if verifiedBy != "" {
-		fmt.Fprintf(&b, "Verified-by: %s\n", verifiedBy)
+	if doc.verifiedBy != "" {
+		fmt.Fprintf(&b, "Verified-by: %s\n", doc.verifiedBy)
 	}
-	return newSlice(Memory, Project, []byte(strings.TrimSpace(b.String())), meta)
+	return observedSlice(Memory, Project, []byte(strings.TrimSpace(b.String())), meta)
 }
 
-// summarizeTask condenses the first user message to one bounded line. Task
-// templates bury the distinguishing text behind a preamble, so an "Issue:"
-// section wins over the head of the message; leading tag lines are skipped.
+// summarizeTask condenses the projected task (not host framing) to one bounded
+// line. The full task remains intact for classification and lexical retrieval.
 func summarizeTask(text string) string {
-	if i := strings.Index(text, "Issue:"); i >= 0 {
-		text = text[i+len("Issue:"):]
-	}
 	for _, line := range strings.Split(text, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "<") {

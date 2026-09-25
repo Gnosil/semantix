@@ -782,6 +782,7 @@ func (s *fileStore) compactLocked(rescore func([]*Slice) []*Slice) error {
 func entryFromSlice(sl *Slice) *storedEntry {
 	e := &storedEntry{s: *sl}
 	e.s.Content = append([]byte(nil), sl.Content...)
+	e.s.Meta.SourceSessions = append([]string(nil), sl.Meta.SourceSessions...)
 	e.s.Meta.Deps = cloneDeps(sl.Meta.Deps)
 	e.s.Meta.Mtimes = cloneMtimes(sl.Meta.Mtimes)
 	e.s.Embedding = nil
@@ -823,6 +824,7 @@ func dtoFromEntry(e *storedEntry) *sliceDTO {
 func cloneStored(e *storedEntry) *Slice {
 	c := e.s
 	c.Content = append([]byte(nil), e.s.Content...)
+	c.Meta.SourceSessions = append([]string(nil), e.s.Meta.SourceSessions...)
 	c.Meta.Deps = cloneDeps(e.s.Meta.Deps)
 	c.Meta.Mtimes = cloneMtimes(e.s.Meta.Mtimes)
 	c.Embedding = nil

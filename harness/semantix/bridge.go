@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"semantix/harness/event"
+	"semantix/harness/gitcmd"
 	"semantix/kernel/bm25"
 	kernelevent "semantix/kernel/event"
 	"semantix/kernel/evolve"
@@ -83,7 +84,7 @@ type Bridge struct {
 	// attribute the incremental per-turn delta in Reuse.
 	lastSavings float64
 	evolution   *EvolutionLoop
-	statsWG     sync.WaitGroup
+	statsWG     sync.WaitGroup // joins active injection reads and asynchronous stats writes
 	closing     bool
 }
 
@@ -95,12 +96,6 @@ const (
 	RetrievalOff    RetrievalMode = "off"
 	RetrievalShadow RetrievalMode = "shadow"
 	RetrievalStrict RetrievalMode = "strict"
-
-	strictMinLibrarySize    = 5
-	strictMinSourceSessions = 2
-	strictMinScore          = 0.70
-	strictMinCoverage       = 0.25
-	strictMinTopMargin      = 0.15
 )
 
 var strictAllowedTypes = map[slice.SliceType]bool{
@@ -250,6 +245,16 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 	if !b.Enabled() || b.mode == RetrievalOff {
 		return InjectResult{}
 	}
+	// Detached prefetch must finish before Close, or do nothing if it starts
+	// later. Register under the same lock that closes admission to disk work.
+	b.mu.Lock()
+	if b.closing {
+		b.mu.Unlock()
+		return InjectResult{}
+	}
+	b.statsWG.Add(1)
+	b.mu.Unlock()
+	defer b.statsWG.Done()
 	store, idx, err := b.kernelIndex()
 	if err != nil {
 		b.emitKernelCache("miss", "L2", nil, 0, "slice store unavailable")
@@ -270,11 +275,13 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 		b.emitKernelCacheDetailed("miss", "L2", nil, 0, diagnostics.DecisionReason, diagnostics)
 		return InjectResult{Diagnostics: diagnostics}
 	}
-	hits, err := idx.Search(cleanedQuery, 5, slice.Project)
+	hits, err := idx.Search(cleanedQuery, len(projectSlices), slice.Project)
 	if err != nil {
 		b.emitKernelCache("miss", "L2", nil, 0, err.Error())
 		return InjectResult{}
 	}
+	// Keep full-corpus BM25 scores. BuildHits applies the candidate cap only
+	// after its shared type and freshness eligibility checks.
 	z := zone.Default()
 	// This is a pure-BM25 path (kernelIndex), and the absolute floors are
 	// by design cosine-scale guards ("only bind on the bounded cosine
@@ -284,37 +291,26 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 	// silently veto every candidate. Zero them here; per-scale threshold
 	// calibration is the W0–W4 follow-up, not this wiring's job.
 	z.AbsHigh, z.AbsLow = 0, 0
-	// Four-layer distill spec §2.5 wanted tool_pattern/result slices never
-	// injected on the agent path (#268 admission evidence; W0 probe: 93.4%
-	// cross-project pseudo-hits on tool-name slices — the misleading-
-	// reference class the two-arm pilot paid +32% for). strictAllowedTypes
-	// ({Context, Memory}, #454) subsumes that ban at the source, so no
-	// per-type zone override is needed here.
+	// Context, Memory and host-verified Result remain eligible history;
+	// raw Prompt and ToolPattern cards do not become reusable evidence.
+	// Do not stack the #447 library/source-count, runner-up, score, coverage
+	// and margin vetoes on the original BM25/zone selection. A singleton or
+	// two corroborating cards can be useful without satisfying those proxies.
 	workspaceDir := b.workspaceDir()
 	inj, err := (&inject.Injector{
-		Index:                idx,
-		Scope:                slice.Project,
-		K:                    5,
-		Budget:               budget,
-		AllowedTypes:         strictAllowedTypes,
-		RootDir:              workspaceDir,
-		CurrentCommit:        readGitHead(workspaceDir),
-		LibrarySize:          len(projectSlices),
-		MinLibrarySize:       strictMinLibrarySize,
-		SourceSessionsByType: sourceSessionCounts(projectSlices),
-		MinSourceSessions:    strictMinSourceSessions,
-		MinScore:             strictMinScore,
-		MinCoverage:          strictMinCoverage,
-		MinTopMargin:         strictMinTopMargin,
-		RequireRunnerUp:      true,
-		Zones:                &z,
-		AllowGrey:            b.cfg.GreyMode == "audit",
-		// Same-type admission for distilled plan-skeleton / outcome cards
-		// (four-layer distill spec §2.5): the turn's task classification
-		// gates task-tagged Memory slices. Classify the RAW query, not
-		// cleanedQuery — the cleaned form is a BM25 token projection that
-		// splits CJK words, and ClassifyTask matches contiguous substrings.
-		TaskType: slice.ClassifyTask(query),
+		Index:         idx,
+		Scope:         slice.Project,
+		K:             5,
+		Budget:        budget,
+		AllowedTypes:  strictAllowedTypes,
+		MinOrigin:     slice.OriginSessionAuto,
+		RootDir:       workspaceDir,
+		CurrentCommit: readGitHead(workspaceDir),
+		Zones:         &z,
+		AllowGrey:     b.cfg.GreyMode == "audit",
+		// A task tag describes the source action, not relevance to this turn.
+		// Keep it in the history; do not turn the keyword classifier into a
+		// veto on cross-action reference material (e.g. fix -> investigate).
 	}).BuildHits(cleanedQuery, hits)
 	if err != nil {
 		op := "miss"
@@ -348,13 +344,11 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 		}
 	}
 	sort.Strings(targets)
-	b.recordInjection(targets, inj.Bytes)
-	diagnostics.Injected = true
 	diagnostics.Bytes = inj.Bytes
 	diagnostics.MessageRole = "user"
-	diagnostics.Decision = "injected"
+	diagnostics.Decision = "assembled"
 	diagnostics.DecisionReason = "admitted"
-	op := "inject"
+	op := "assembled"
 	if budget < b.cfg.Budget {
 		op = "degraded"
 	}
@@ -378,13 +372,20 @@ func (b *Bridge) retrievalDiagnostics(query string, retrievalQuery RetrievalQuer
 		return d
 	}
 	d.TopMargin = inj.TopMargin
-	for i, decision := range inj.Decisions {
+	byID := make(map[string]*slice.Slice, len(hits))
+	for _, hit := range hits {
+		if hit.Slice != nil {
+			byID[hit.Slice.ID] = hit.Slice
+		}
+	}
+	for _, decision := range inj.Decisions {
 		candidate := event.RetrievalCandidate{
 			ID: decision.ID, Score: decision.Score, Coverage: decision.Coverage,
 			Zone: decision.Zone, Admitted: decision.Admitted, Reason: decision.Reason, Verified: "unknown",
 		}
-		if i < len(hits) && hits[i].Slice != nil {
-			sl := hits[i].Slice
+		// BuildHits can skip ineligible ranks while filling its window.
+		// Slice IDs, not offsets in the original search, join provenance.
+		if sl := byID[decision.ID]; sl != nil {
 			candidate.Type = sl.Type.String()
 			candidate.SourceSession = sl.Meta.SourceSession
 			candidate.Project = sl.Meta.ProjectSlug
@@ -402,24 +403,6 @@ func (b *Bridge) retrievalDiagnostics(query string, retrievalQuery RetrievalQuer
 		}
 	}
 	return d
-}
-
-func sourceSessionCounts(library []*slice.Slice) map[slice.SliceType]int {
-	sets := make(map[slice.SliceType]map[string]struct{})
-	for _, sl := range library {
-		if sl == nil || sl.Meta.SourceSession == "" {
-			continue
-		}
-		if sets[sl.Type] == nil {
-			sets[sl.Type] = make(map[string]struct{})
-		}
-		sets[sl.Type][sl.Meta.SourceSession] = struct{}{}
-	}
-	counts := make(map[slice.SliceType]int, len(sets))
-	for typ, sessions := range sets {
-		counts[typ] = len(sessions)
-	}
-	return counts
 }
 
 func summarizeQuery(query string) event.QuerySummary {
@@ -440,7 +423,7 @@ func readGitHead(root string) string {
 	}
 	head, err := os.ReadFile(filepath.Join(gitDir, "HEAD"))
 	if err != nil {
-		return ""
+		return resolveGitHead(root)
 	}
 	value := strings.TrimSpace(string(head))
 	if !strings.HasPrefix(value, "ref:") {
@@ -452,7 +435,19 @@ func readGitHead(root string) string {
 			return strings.TrimSpace(string(raw))
 		}
 	}
-	return ""
+	return resolveGitHead(root)
+}
+
+// resolveGitHead covers packed refs, common-dir worktrees and nested paths.
+// Failure stays unknown; it never substitutes the memory's recorded revision.
+func resolveGitHead(root string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	out, err := gitcmd.Command(ctx, root, "rev-parse", "--verify", "HEAD").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 // emitKernelCache forwards an observed kernel cache operation to the live
@@ -479,39 +474,52 @@ func (b *Bridge) emitKernelCacheDetailed(op, layer string, ids []string, bytes i
 		KernelCache: &event.KernelCachePayload{Op: op, Layer: layer, SliceIDs: ids, Bytes: bytes, Reason: reason, Retrieval: retrieval}})
 }
 
-func (b *Bridge) recordInjection(ids []string, bytes int) {
+// RecordInjectionDelivery records host-confirmed provider acceptance, never
+// selection or speculative warm-up. Callers deduplicate their logical turn.
+// It is evidence of dispatch, not model use, correctness, or saved cost.
+func (b *Bridge) RecordInjectionDelivery(ids []string, bytes int) {
+	if !b.InjectEnabled() || len(ids) == 0 || bytes <= 0 {
+		return
+	}
+	ids = canonicalPrefetchTargets(ids)
 	if len(ids) == 0 {
 		return
 	}
-	ids = append([]string(nil), ids...)
 	now := time.Now().UTC()
-	projectDB := filepath.Join(b.projectDir(), ".semantix", "project.db")
+	data, _ := json.Marshal(kernelevent.SliceInjectPayload{SliceIDs: ids, Bytes: bytes})
 	b.mu.Lock()
-	if b.closing {
-		b.mu.Unlock()
+	session := b.label
+	closing := b.closing
+	if !closing {
+		b.statsWG.Add(1)
+	}
+	b.mu.Unlock()
+	// The bus event is the durable delivery record. Emit it before the
+	// closing check: a delivery racing Close must still reach the kernel
+	// mirror, while emitKernelCache alone would no-op (the live sink is
+	// already gone) and the acceptance would vanish without a trace.
+	b.events.Emit(kernelevent.Event{Kind: kernelevent.SliceInject, SessionID: session, At: now, Data: data})
+	if closing {
+		b.emitKernelCache("stats_error", "L2", ids, bytes, "bridge_closed")
 		return
 	}
-	b.statsWG.Add(1)
-	session := b.label
-	b.mu.Unlock()
-
-	data, err := json.Marshal(kernelevent.SliceInjectPayload{SliceIDs: ids, Bytes: bytes})
+	defer b.statsWG.Done()
+	b.emitKernelCacheDetailed("inject", "L2", ids, bytes, "provider_accepted", &event.RetrievalDiagnostics{
+		Mode: string(b.mode), Injected: true, Bytes: bytes, MessageRole: "user", FinalOrder: ids,
+		Decision: "delivered", DecisionReason: "provider_accepted",
+	})
+	store, err := slice.NewFileStore(filepath.Join(b.projectDir(), ".semantix", "project.db"))
 	if err == nil {
-		b.events.Emit(kernelevent.Event{Kind: kernelevent.SliceInject, SessionID: session, At: now, Data: data})
-	}
-	go func() {
-		defer b.statsWG.Done()
-		store, err := slice.NewFileStore(projectDB)
-		if err != nil {
-			return
-		}
-		defer closeSliceStore(store)
 		deltas := make(map[string]slice.SliceStats, len(ids))
 		for _, id := range ids {
 			deltas[id] = slice.SliceStats{Injected: 1, LastUsed: now.Unix()}
 		}
-		_ = slice.ApplyStats(store, deltas)
-	}()
+		err = slice.ApplyStats(store, deltas)
+		closeSliceStore(store)
+	}
+	if err != nil {
+		b.emitKernelCache("stats_error", "L2", ids, bytes, "delivery write-back: "+err.Error())
+	}
 }
 
 // RecordInjectionReject attributes a conservative negative-transfer signal to
@@ -532,6 +540,14 @@ func (b *Bridge) recordInjectionOutcome(ids []string, outcome, reason string, le
 	if b == nil || !b.Enabled() || len(ids) == 0 {
 		return
 	}
+	b.mu.Lock()
+	if b.closing {
+		b.mu.Unlock()
+		return
+	}
+	b.statsWG.Add(1)
+	b.mu.Unlock()
+	defer b.statsWG.Done()
 	outcome = strings.ToLower(strings.TrimSpace(outcome))
 	if outcome != "useful" && outcome != "neutral" && outcome != "harmful" {
 		return
@@ -552,7 +568,8 @@ func (b *Bridge) recordInjectionOutcome(ids []string, outcome, reason string, le
 		reason = "negative_transfer"
 	}
 	now := time.Now().UTC()
-	if store, err := slice.NewFileStore(filepath.Join(b.projectDir(), ".semantix", "project.db")); err == nil {
+	store, err := slice.NewFileStore(filepath.Join(b.projectDir(), ".semantix", "project.db"))
+	if err == nil {
 		deltas := make(map[string]slice.SliceStats, len(unique))
 		for _, id := range unique {
 			delta := slice.SliceStats{LastUsed: now.Unix()}
@@ -567,8 +584,11 @@ func (b *Bridge) recordInjectionOutcome(ids []string, outcome, reason string, le
 			}
 			deltas[id] = delta
 		}
-		_ = slice.ApplyStats(store, deltas)
+		err = slice.ApplyStats(store, deltas)
 		closeSliceStore(store)
+	}
+	if err != nil {
+		b.emitKernelCache("stats_error", "L2", unique, 0, "outcome write-back: "+err.Error())
 	}
 	b.mu.Lock()
 	session := b.label
@@ -639,6 +659,18 @@ func (b *Bridge) Reuse(ctx context.Context, query string) ReuseSummary {
 	if !b.Enabled() || query == "" {
 		return ReuseSummary{}
 	}
+	// Same close protocol as injectResult: register the read under the lock
+	// that Close sets closing under, so Close waits for the reuse-panel read
+	// instead of racing it (the read opens the project store and emits a
+	// SliceHit on the kernel bus).
+	b.mu.Lock()
+	if b.closing {
+		b.mu.Unlock()
+		return ReuseSummary{}
+	}
+	b.statsWG.Add(1)
+	b.mu.Unlock()
+	defer b.statsWG.Done()
 	store, idx, err := b.kernelIndex()
 	if err != nil {
 		return ReuseSummary{}
@@ -793,7 +825,10 @@ func (b *Bridge) sessionSink() *HarnessSink {
 	if b.hs != nil {
 		return b.hs
 	}
-	if b.label == "" {
+	// Post-close emitters (a detached prefetch outcome, a late Reuse hit, a
+	// final EndTurn) must not resurrect the mirror: a reopened JSONL handle
+	// would outlive Close and keep appending telemetry after shutdown.
+	if b.closing || b.label == "" {
 		return nil
 	}
 	hs, err := NewHarnessSink(dirOrFallback(b.cfg.SessionsDir), b.label, "")

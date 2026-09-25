@@ -67,3 +67,21 @@ plan-first 规划步（消费端架构）、gateway 侧 distill 接线、hybrid 
 ## 5. 验收
 
 `go build ./... && go test ./kernel/... ./cmd/... ./harness/semantix/` 全绿；`semantix extract --distill --consolidate` 对 pilot 会话镜像产出三类卡且 `semantix search` 可检回。
+
+
+## 6. 当前实现补记（2026-09-18，memory-flow 修复）
+
+> **2026-09-24 更新**：本节描述的是 2026-09-18 时点的行为。此后 S2（`2af62ed6`）撤除了 score/coverage/margin/来源数/runner-up/最小库六项默认准入否决，S6（`a17ba134`）移除了 task 标签默认否决（标签改为 L2 历史元数据）；本节涉及"门槛不变/仍需通过 margin 与来源数准入"的表述仅作历史记录。当前准入以 [issue-447-memory-flow-repair SPEC §9](issue-447-memory-flow-repair.md) 为准：类型/origin/freshness/zone/预算保留，六项代理否决不再默认启用。
+
+上文保留 2026-09-01 的历史设计与当时准入说明；以下记录当前实现，不把修复后的行为追记为原有行为。
+
+- **四层载体不变**：L-A repo-ops / L-B consolidation 使用 `Context`，L-C plan-skeleton / L-D outcome 使用 `Memory`；仍由 `Extract`、`Distill`、`ConsolidateContext`、既有 Store 与 Injector 串接，不新增 SliceType 或模型提炼步骤。
+- **观察不等于成功**：repo-ops 标题现为 `Observed commands`。只有 host `verification=passed` 才记为 `ok`；`failed`、文本中的 `exit N` 和 `unknown` 分别保留各自含义，缺失结果不构成成功证据。工具输出中的成功字样和 assistant 自述不提升验证状态。
+- **Result 与 outcome 共用验证判定**：保留独立 assistant final 和实际工具结果顺序；`type=tool` 与 `role=tool` 都可读取。`Verified-by` / Result verified 依赖最新 mutation 之后的 host 验证；后续 mutation、失败或未知测试、未完成的测试调用撤销此前成功。host 显式 `not_verification` 优先于命令名猜测，普通读取不会冒充新测试。
+- **来源与合并**：新增可选 `Meta.source_sessions`，旧 `SourceSession` 仍为主来源，旧记录缺字段仍可读。Context 只在 scope、origin、revision、dependency、verification 等 metadata 兼容时按原相似度规则合并，并保留实际来源的去重集合。CLI 对相同内容的兼容重复提取先调用 `RetainExtractionHistory` 再 `Put`，保留已观察来源及使用反馈；Store.Put 的替换语义不变。它不把一条来源复制成两份证据，也不按同一 session 折叠不同事实。
+- **自动提取来源**：`semantix extract --origin session-auto` 明确标记自动 runner 产物，自动链路与 `--distill --consolidate` 一并传入；手工提取省略 `--origin` 仍默认 `user-curated`。CLI 只接受这两种取值，来源由调用链如实传递，不以提高信任等级争取准入；新二进制的 `extract --help` 已核实该参数和默认值。
+- **共享候选资格与来源下限**：完整库 BM25 分数保留，由共享 `BuildHits` 在 type/status/task/freshness/origin 资格判断后取至多五个候选；原前五拒绝仍有 reason，诊断用 slice ID 关联来源。score、coverage、margin、来源数和预算门槛不变。Bridge 此次补接原 Issue #279 的 `session-auto` floor；旧版这里曾漏接线，import/legacy 仍存储但不进入 strict/shadow 准入，不能把“库中有卡”或普通检索命中当作已注入。
+- **消费边界**：当前 bridge 的既有 allowlist 含 `Context`、`Memory` 和仅 host-verified 的 `Result`；未验证 Result 仍受拒绝。四层知识不意味着四类 Slice 无条件注入，仍需通过任务型、来源、freshness、相关性、margin 与预算准入，具体见 [L2 准入策略的当前实现补记](semantix-l2-admission-policy.md#10-当前实现补记2026-09-18memory-flow-修复)。
+- **验证含义**：E2E 使用两个历史 session 的真实 HarnessSink 镜像，经生产提取、提炼、合并、存储和后续 Agent.Run 到 provider 请求；历史工具验证与 provider 记录器分别证明证据和传输，不能据此声称真实模型收益。原 orchard Result/outcome 近分轨迹保留为歧义拒绝反例，未通过改词、去重或降低门槛制造通过。
+
+完整的本次实现范围、生命周期/验证修复、兼容性与未达成项见 [Issue #447 memory-flow 修复 SPEC](issue-447-memory-flow-repair.md)，实测结果见[实验报告](../reports/issue-447-memory-flow-repair.md)。

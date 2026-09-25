@@ -40,6 +40,8 @@ type turnRuntime struct {
 	// same slices more than once in one user turn.
 	injectTargets  []string
 	injectionFused bool
+	// injectionDelivered is per-turn provider acceptance, not assembly/use.
+	injectionDelivered bool
 
 	// reuse is this turn's semantix reuse panel data (U33/H4a): hit slices,
 	// incremental cost savings, and top source sessions, gathered on the

@@ -59,7 +59,7 @@ func TestRecoveryExecutionRiskDoesNotPrompt(t *testing.T) {
 	reg.Add(bash)
 
 	prov := &recordingProvider{streams: [][]provider.Chunk{
-		{{Type: provider.ChunkToolCall, ToolCall: &provider.ToolCall{ID: "1", Name: "bash", Arguments: `{"command":"npx vitest run src/lib/foo.test.ts 2>&1 | tail -40"}`}}},
+		{{Type: provider.ChunkToolCall, ToolCall: &provider.ToolCall{ID: "1", Name: "bash", Arguments: `{"command":"npx vitest run src/lib/foo.test.ts"}`}}},
 		{{Type: provider.ChunkToolCall, ToolCall: &provider.ToolCall{ID: "2", Name: "bash", Arguments: `{"command":"svn diff"}`}}},
 		{{Type: provider.ChunkText, Text: "done"}},
 	}}

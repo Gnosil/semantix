@@ -1,7 +1,10 @@
 package slice
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 )
@@ -76,7 +79,7 @@ func ConsolidateContext(store Store, opts ConsolidateOptions) (ConsolidateResult
 	for _, s := range ctx {
 		joined := false
 		for _, c := range clusters {
-			if jaccard(tokens[s.ID], tokens[c.rep.ID]) >= opts.Threshold {
+			if contextMetadataCompatible(s, c.rep) && jaccard(tokens[s.ID], tokens[c.rep.ID]) >= opts.Threshold {
 				c.members = append(c.members, s)
 				joined = true
 				break
@@ -95,6 +98,24 @@ func ConsolidateContext(store Store, opts ConsolidateOptions) (ConsolidateResult
 		merged := mergeContextSlices(c.members)
 		if merged == nil {
 			continue
+		}
+		// Content IDs do not encode provenance. Do not replace an unrelated
+		// existing card merely because the newly merged text has the same ID.
+		// fileStore.Get signals "missing" as (nil, nil), but tolerate a
+		// wrapped errNotFound from other Store implementations instead of
+		// aborting the whole consolidation pass.
+		existing, err := store.Get(merged.ID)
+		if err != nil && !errors.Is(err, errNotFound) {
+			return res, err
+		}
+		if existing != nil {
+			member := false
+			for _, m := range c.members {
+				member = member || m.ID == existing.ID
+			}
+			if !member || !contextMetadataCompatible(merged, existing) {
+				continue
+			}
 		}
 		res.Created = append(res.Created, merged.ID)
 		for _, m := range c.members {
@@ -117,6 +138,50 @@ func ConsolidateContext(store Store, opts ConsolidateOptions) (ConsolidateResult
 		}
 	}
 	return res, nil
+}
+
+// Merge only evidence with the same scope, trust and freshness semantics.
+// Source identities and compression byte counts are the fields a merge changes.
+func contextMetadataCompatible(a, b *Slice) bool {
+	if a.Scope != b.Scope {
+		return false
+	}
+	am, bm := a.Meta, b.Meta
+	am.SourceSession, bm.SourceSession = "", ""
+	am.SourceSessions, bm.SourceSessions = nil, nil
+	am.OriginalBytes, bm.OriginalBytes = 0, 0
+	am.StoredBytes, bm.StoredBytes = 0, 0
+	return reflect.DeepEqual(am, bm)
+}
+
+// RetainExtractionHistory preserves observed sources and usage feedback when
+// extraction re-observes exactly the same evidence. It deliberately does not
+// change Store.Put's replacement contract or carry history across trust,
+// revision, dependency, scope, type or verification changes.
+func RetainExtractionHistory(item, existing *Slice) {
+	if existing == nil || item.ID != existing.ID || item.Type != existing.Type ||
+		!bytes.Equal(item.Content, existing.Content) || !contextMetadataCompatible(item, existing) {
+		return
+	}
+	item.Meta.SourceSessions = contextSourceSessions([]*Slice{item, existing})
+	item.Stats, item.Weight = existing.Stats, existing.Weight
+}
+
+func contextSourceSessions(members []*Slice) []string {
+	sources := map[string]bool{}
+	for _, member := range members {
+		for _, source := range append([]string{member.Meta.SourceSession}, member.Meta.SourceSessions...) {
+			if source != "" {
+				sources[source] = true
+			}
+		}
+	}
+	var result []string
+	for source := range sources {
+		result = append(result, source)
+	}
+	sort.Strings(result)
+	return result
 }
 
 // contextTokens lowercased word tokens of a Context slice, deduped. Counts
@@ -208,9 +273,11 @@ func mergeContextSlices(members []*Slice) *Slice {
 	sections := map[string]*contextSection{}
 	var order []string
 	maxCreated := int64(0)
+	var stats SliceStats
 	var scope Scope = Project
 	allUser := true
 	for _, m := range members {
+		mergeStats(&stats, m.Stats)
 		if m.CreatedAt > maxCreated {
 			maxCreated = m.CreatedAt
 		}
@@ -268,13 +335,18 @@ func mergeContextSlices(members []*Slice) *Slice {
 		}
 	}
 	first := members[0]
+	meta := first.Meta
+	meta.SourceSessions = contextSourceSessions(members)
+	// Compression measurements of the first member do not describe this union.
+	meta.OriginalBytes, meta.StoredBytes = 0, 0
 	return &Slice{
 		ID:        sliceID([]byte(strings.TrimSpace(b.String())), Context, scope),
 		Type:      Context,
 		Scope:     scope,
 		Content:   []byte(strings.TrimSpace(b.String())),
 		Weight:    first.Weight,
-		Meta:      first.Meta,
+		Stats:     stats,
+		Meta:      meta,
 		CreatedAt: maxCreated,
 	}
 }

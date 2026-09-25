@@ -115,23 +115,7 @@ func (g *Gateway) handleChat(w http.ResponseWriter, r *http.Request, body []byte
 	if inj != nil {
 		injectedTokens = int64(inj.Bytes / 4)
 		sliceHits = len(inj.Slices)
-		if len(inj.Slices) > 0 {
-			now := g.now()
-			ids := make([]string, 0, len(inj.Slices))
-			deltas := make(map[string]slice.SliceStats, len(inj.Slices))
-			for _, sl := range inj.Slices {
-				if sl == nil {
-					continue
-				}
-				ids = append(ids, sl.ID)
-				deltas[sl.ID] = slice.SliceStats{Injected: 1, LastUsed: now.Unix()}
-			}
-			if len(ids) > 0 {
-				g.recordSliceStats(deltas)
-				g.recordSliceEvent(sessionID, chash, req.Model, kernelevent.SliceInject,
-					kernelevent.SliceInjectPayload{SliceIDs: ids, Bytes: inj.Bytes}, now)
-			}
-		}
+
 	}
 	if up.Vendor == "anthropic" {
 		// Anthropic hop (design §0.5): translate the OpenAI body to the
@@ -155,6 +139,27 @@ func (g *Gateway) handleChat(w http.ResponseWriter, r *http.Request, body []byte
 		return
 	}
 	defer resp.Body.Close()
+
+	// Assembly/conversion/network/non-2xx failures are not accepted injections.
+	if inj != nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		if len(inj.Slices) > 0 {
+			now := g.now()
+			ids := make([]string, 0, len(inj.Slices))
+			deltas := make(map[string]slice.SliceStats, len(inj.Slices))
+			for _, sl := range inj.Slices {
+				if sl == nil {
+					continue
+				}
+				ids = append(ids, sl.ID)
+				deltas[sl.ID] = slice.SliceStats{Injected: 1, LastUsed: now.Unix()}
+			}
+			if len(ids) > 0 {
+				g.recordSliceStats(deltas)
+				g.recordSliceEvent(sessionID, chash, req.Model, kernelevent.SliceInject,
+					kernelevent.SliceInjectPayload{SliceIDs: ids, Bytes: inj.Bytes}, now)
+			}
+		}
+	}
 
 	if req.Stream {
 		if up.Vendor == "anthropic" {

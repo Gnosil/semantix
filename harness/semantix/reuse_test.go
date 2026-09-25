@@ -125,6 +125,11 @@ func writeKernelDir(t *testing.T, slicesIn []*slice.Slice, usageLines []string) 
 		t.Fatal(err)
 	}
 	for _, s := range slicesIn {
+		// These hand-authored admission fixtures represent trusted curated
+		// records. Origin-negative tests explicitly persist their origin later.
+		if s.Meta.Origin == "" {
+			s.Meta.Origin = slice.OriginUserCurated
+		}
 		if s.Meta.BaseCommit == "" {
 			s.Meta.BaseCommit = fixtureCommit
 		}
@@ -204,7 +209,7 @@ func TestBridgeReuseForwardsKernelCacheObservation(t *testing.T) {
 	}
 }
 
-func TestBridgeInjectRecordsStatsAndEvent(t *testing.T) {
+func TestBridgeDeliveredInjectionRecordsStatsAndEvent(t *testing.T) {
 	dir := writeKernelDir(t, admissionFixtureSlices(), nil)
 	sessionsDir := t.TempDir()
 	b := NewBridge(Config{Enabled: true, Inject: true, ProjectDir: dir, SessionsDir: sessionsDir, Budget: 4096})
@@ -216,6 +221,7 @@ func TestBridgeInjectRecordsStatsAndEvent(t *testing.T) {
 	if result.Diagnostics == nil || result.Diagnostics.MessageRole != "user" {
 		t.Fatalf("injection message role = %+v, want user", result.Diagnostics)
 	}
+	b.RecordInjectionDelivery(result.Targets, len(result.Text))
 	if err := b.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -251,27 +257,29 @@ func TestBridgeInjectRecordsStatsAndEvent(t *testing.T) {
 	}
 }
 
-func TestBridgeStrictAdmissionRejectsWrongTypesAndSmallLibrary(t *testing.T) {
+func TestBridgeStrictAdmissionKeepsTypeChecksInSmallLibrary(t *testing.T) {
 	dir := writeKernelDir(t, reuseFixtureSlices(), nil)
 	b := NewBridge(Config{Enabled: true, Mode: "strict", ProjectDir: dir})
+	defer b.Close()
 	result := b.InjectDetailed(context.Background(), "修复 go 测试")
-	if result.Text != "" || result.Diagnostics == nil {
+	if result.Text == "" || result.Diagnostics == nil || len(result.Targets) != 1 || result.Targets[0] != "c" {
 		t.Fatalf("strict small-library result = %+v", result)
 	}
 	reasons := map[string]bool{}
 	for _, candidate := range result.Diagnostics.Candidates {
 		reasons[candidate.Reason] = true
 	}
-	if !reasons["type_not_allowed"] || !reasons["library_too_small"] {
-		t.Fatalf("candidate reasons = %v, want type and library guards", reasons)
+	if !reasons["type_not_allowed"] || !reasons["result_probation"] || !reasons["admitted"] {
+		t.Fatalf("candidate reasons = %v, want type/status checks and admitted Context", reasons)
 	}
 }
 
 func TestBridgeStrictAdmissionInjectsOnlyContextWithStrongEvidence(t *testing.T) {
 	dir := writeKernelDir(t, admissionFixtureSlices(), nil)
 	b := NewBridge(Config{Enabled: true, Mode: "strict", ProjectDir: dir})
+	defer b.Close()
 	result := b.InjectDetailed(context.Background(), "修复 go 测试")
-	if result.Text == "" || result.Diagnostics == nil || !result.Diagnostics.Injected {
+	if result.Text == "" || result.Diagnostics == nil || result.Diagnostics.Decision != "assembled" {
 		t.Fatalf("strict strong-evidence result = %+v", result)
 	}
 	if len(result.Targets) != 1 || result.Targets[0] != "ctx-strong" {

@@ -119,3 +119,27 @@ func TestE2EL2InjectionRecordsStatsAndEvent(t *testing.T) {
 		t.Fatalf("events=%+v, want SliceInject", events)
 	}
 }
+
+func TestE2EL2FailedForwardDoesNotRecordDelivery(t *testing.T) {
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Error(w, "rejected", http.StatusBadRequest) }))
+	defer up.Close()
+	g := newTestGateway(t, up.URL)
+	srv := httptest.NewServer(g)
+	defer srv.Close()
+	seed(t, g, &slice.Slice{ID: "selected", Type: slice.Prompt, Scope: slice.Project, Content: []byte("prior knowledge about widgets")})
+	for _, s := range []string{"alpha", "bravo", "charlie", "delta"} {
+		seed(t, g, &slice.Slice{ID: s, Type: slice.Prompt, Scope: slice.Project, Content: []byte(s)})
+	}
+	resp, _ := postChatWithHeaders(t, srv, "test-key", map[string]string{"x-semantix-session": "failed-l2"}, chatBody("deepseek-chat", "widgets", false))
+	if resp.StatusCode == http.StatusOK {
+		t.Fatal("fixture did not reject")
+	}
+	g.ingestWG.Wait()
+	got, err := g.store.Get("selected")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Stats.Injected != 0 {
+		t.Fatalf("upstream rejected but credited delivery: %+v", got.Stats)
+	}
+}

@@ -201,6 +201,9 @@ class RepoStoreTests(unittest.TestCase):
                     sessions, "d", kernel_dir, "django/django", workspace, "abc123")
             self.assertEqual(result["mirrors"], 1)
             command = run.call_args.args[0]
+            self.assertIn("--distill", command)
+            self.assertIn("--consolidate", command)
+            self.assertEqual(command[command.index("--origin") + 1], "session-auto")
             self.assertEqual(command[command.index("--project") + 1], "django/django")
             self.assertEqual(Path(command[command.index("--project-db") + 1]),
                              kernel_dir / ".semantix" / "project.db")

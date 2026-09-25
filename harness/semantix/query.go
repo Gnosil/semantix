@@ -6,14 +6,15 @@ import (
 	"strings"
 
 	"semantix/kernel/bm25"
+	"semantix/kernel/slice"
 )
 
 var (
 	repoPattern   = regexp.MustCompile(`(?i)checkout\s+of\s+the\s+([a-z0-9_.-]+/[a-z0-9_.-]+)\s+repository`)
 	pathPattern   = regexp.MustCompile(`(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]+`)
 	symbolPattern = regexp.MustCompile(`\b[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+\b|\b_+[A-Za-z0-9_]+_+\b|\b[A-Za-z][A-Za-z0-9]*_[A-Za-z0-9_]+\b`)
-	errorPattern  = regexp.MustCompile(`(?i)\b[a-z][a-z0-9]*error\b|\b[A-Z]{2,}(?:[_-][A-Z0-9]+)+\b`)
-	testPattern   = regexp.MustCompile(`(?i)\btest[A-Za-z0-9_]*\b`)
+	errorPattern  = regexp.MustCompile(`\b(?i:[a-z][a-z0-9]*error)\b|\b[A-Z]{2,}(?:[_-][A-Z0-9]+)+\b`)
+	testPattern   = regexp.MustCompile(`\b(?:test_[A-Za-z0-9_]+|Test[A-Z][A-Za-z0-9_]*)\b`)
 	importPattern = regexp.MustCompile(`(?i)\bimports?\s+([a-z_][a-z0-9_.]*)|\bfrom\s+([a-z_][a-z0-9_.]*)\s+import\b`)
 	urlPattern    = regexp.MustCompile(`(?i)https?://\S+`)
 )
@@ -46,10 +47,7 @@ var retrievalStopwords = map[string]struct{}{
 // and QueryCoverage consume the same tokenizer, so punctuation loss cannot
 // change the lexical evidence while boilerplate cannot dominate it.
 func cleanRetrievalQuery(raw string) string {
-	query := stripTaggedBlock(raw, "execution-policy")
-	if issue, ok := taggedBody(query, "issue"); ok {
-		query = issue
-	}
+	query := urlPattern.ReplaceAllString(slice.TaskBody(raw), " ")
 	tokens := bm25.Tokenize(query)
 	kept := tokens[:0]
 	for _, token := range tokens {
@@ -64,11 +62,7 @@ func cleanRetrievalQuery(raw string) string {
 // no such field exists it preserves the P0 lexical cleaning behavior rather
 // than pretending a generic sentence is structured evidence.
 func buildRetrievalQuery(raw string) RetrievalQuery {
-	body := stripTaggedBlock(raw, "execution-policy")
-	issue, hasIssue := taggedBody(body, "issue")
-	if hasIssue {
-		body = issue
-	}
+	body := slice.TaskBody(raw)
 	signalBody := urlPattern.ReplaceAllString(body, " ")
 	q := RetrievalQuery{Intent: firstNonEmptyLine(body), Repo: firstCapture(repoPattern, raw)}
 	q.Paths = collectPaths(signalBody, q.Repo)
@@ -94,7 +88,9 @@ func buildRetrievalQuery(raw string) RetrievalQuery {
 		return q
 	}
 
-	values := []string{q.Intent}
+	// A title plus symbols loses requirements expressed only in later prose.
+	// Preserve the task body in every supported representation, not the wrapper.
+	values := []string{signalBody}
 	values = append(values, q.Paths...)
 	values = append(values, q.Symbols...)
 	values = append(values, q.ErrorCodes...)
@@ -202,40 +198,4 @@ func joinRetrievalTokens(values ...string) string {
 		}
 	}
 	return strings.Join(tokens, " ")
-}
-
-func stripTaggedBlock(text, tag string) string {
-	for {
-		lower := strings.ToLower(text)
-		start := strings.Index(lower, "<"+tag)
-		if start < 0 {
-			return text
-		}
-		openEndRel := strings.Index(lower[start:], ">")
-		if openEndRel < 0 {
-			return text[:start]
-		}
-		closeStartRel := strings.Index(lower[start+openEndRel+1:], "</"+tag+">")
-		if closeStartRel < 0 {
-			return text[:start]
-		}
-		end := start + openEndRel + 1 + closeStartRel + len(tag) + 3
-		text = text[:start] + " " + text[end:]
-	}
-}
-
-func taggedBody(text, tag string) (string, bool) {
-	lower := strings.ToLower(text)
-	open := "<" + tag + ">"
-	close := "</" + tag + ">"
-	start := strings.Index(lower, open)
-	if start < 0 {
-		return "", false
-	}
-	start += len(open)
-	endRel := strings.Index(lower[start:], close)
-	if endRel < 0 {
-		return "", false
-	}
-	return text[start : start+endRel], true
 }

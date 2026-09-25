@@ -3100,7 +3100,8 @@ func (a *Agent) startInjectWarm(ctx context.Context) {
 	if !a.prefetchAllowed() {
 		return
 	}
-	input := a.turn.input
+	input := a.turn.turnInput
+	turn := a.semantixTurn.Load()
 	if input == "" {
 		return
 	}
@@ -3118,7 +3119,7 @@ func (a *Agent) startInjectWarm(ctx context.Context) {
 			a.prefetchTaskMS.Store(elapsed)
 		}()
 		if result := a.semantix.InjectDetailed(warmCtx, input); result.Text != "" {
-			a.storePrefetch(&prefetchedInjectResult{Text: result.Text, Targets: result.Targets, Turn: a.semantixTurn.Load(), WarmAt: time.Now(), ProbeTargets: probeTargets})
+			a.storePrefetch(&prefetchedInjectResult{Text: result.Text, Targets: result.Targets, Turn: turn, WarmAt: time.Now(), ProbeTargets: probeTargets})
 		}
 	}()
 }

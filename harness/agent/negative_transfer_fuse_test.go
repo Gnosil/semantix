@@ -39,6 +39,7 @@ func TestLoopGuardFusesInjectedSlicesOnce(t *testing.T) {
 	}))
 	a.turn.injectBlock = "[semantix-reuse]\ncache repair\n[/semantix-reuse]"
 	a.turn.injectTargets = []string{"ctx-a"}
+	a.turn.injectionDelivered = true // this case exercises feedback after confirmed dispatch
 
 	a.armLoopGuardPass(0)
 	a.armLoopGuardPass(0)

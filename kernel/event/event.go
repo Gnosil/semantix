@@ -26,7 +26,7 @@ const (
 	ToolRoundEnd
 	// SliceHit reports a semantic cache hit (L1/L2/L3).
 	SliceHit
-	// SliceInject reports an L2 stable slice injection.
+	// SliceInject reports provider-accepted L2 history, not speculative assembly.
 	SliceInject
 	// SliceReject reports injection pollution (user edited/rolled back a slice).
 	SliceReject
@@ -105,7 +105,9 @@ type SliceHitPayload struct {
 	Scores   []float64 `json:"scores,omitempty"`
 }
 
-// SliceInjectPayload reports an L2 injection; SliceIDs are in canonical order.
+// SliceInjectPayload reports provider acceptance; SliceIDs are canonical.
+// Older producers emitted this at assembly time; do not reinterpret old logs
+// as proof of delivery, model adoption, or causal benefit.
 type SliceInjectPayload struct {
 	SliceIDs []string `json:"slice_ids"`
 	Bytes    int      `json:"bytes"`
