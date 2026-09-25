@@ -55,6 +55,6 @@ jobs:
           # kernel binaries, and both checksum files.
           gh release create "$VERSION" \
             --repo "${{ github.repository }}" \
-            --title "$VERSION" \
+            --title "${VERSION#v}" \
             --generate-notes \
             dist/*

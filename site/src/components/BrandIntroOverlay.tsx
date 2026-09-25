@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Download } from "lucide-react";
 import ParticleCanvas from "@/components/ParticleCanvas";
 import CopyCode from "@/components/CopyCode";
 import {
@@ -211,18 +212,34 @@ export default function BrandIntroOverlay() {
             <div className="relative overflow-hidden rounded-lg border border-border bg-white p-4 transition-colors hover:border-accent">
               <ParticleCanvas className="pointer-events-none absolute inset-0 opacity-45" />
               <div className="relative">
-                <h2 className="font-semibold">GitHub 仓库</h2>
+                <h2 className="font-semibold">下载桌面版</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  开源 · MIT · 设计文档与路线图都在这里
+                  适用于 macOS 和 Windows，下载后即可开始。
                 </p>
-                <a
-                  href="https://github.com/Gnosil/semantix"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-3 inline-block rounded-md border border-border px-3 py-1.5 text-sm transition-colors hover:border-accent"
-                >
-                  GitHub ↗
-                </a>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <a
+                    href="https://github.com/Gnosil/semantix/releases/download/desktop-v0.1.0/Semantix-darwin-universal.dmg"
+                    className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-accent bg-accent px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  >
+                    <Download aria-hidden="true" className="size-3.5" />
+                    macOS
+                  </a>
+                  <a
+                    href="https://github.com/Gnosil/semantix/releases/download/desktop-v0.1.0/Semantix-windows-amd64.zip"
+                    className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#168b6d]"
+                  >
+                    <Download aria-hidden="true" className="size-3.5" />
+                    Windows
+                  </a>
+                  <a
+                    href="https://github.com/Gnosil/semantix/blob/main/desktop/README.md"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-9 items-center px-1 text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  >
+                    安装说明 ↗
+                  </a>
+                </div>
               </div>
             </div>
 

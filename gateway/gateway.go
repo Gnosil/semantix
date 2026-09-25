@@ -73,6 +73,10 @@ type Gateway struct {
 	// lexicalBlocks counts zone-Hit candidates downgraded by the lexical
 	// support gate (Issue #260), for hit-rate-loss accounting.
 	lexicalBlocks atomic.Int64
+
+	// retrievalEvents appends the opt-in L2 retrieval trace ([retrieval]
+	// events_log). Zero value is ready; the file opens lazily on first use.
+	retrievalEvents retrievalEventLog
 }
 
 // l3ReuseEntry records one L3-served request per session (Issue #262).
@@ -127,7 +131,7 @@ func New(cfg *Config) (*Gateway, error) {
 		log.Printf("gateway: store maintenance: rescored=%d evicted=%d archived=%d capacity=%d",
 			gcRes.RescoredWeights, gcRes.Removed, gcRes.Archived, gcRes.Capacity)
 	}
-	idx := newRetriever(cfg.Retrieval.Retriever, cfg.Retrieval.VectorDim, cfg.fusionConfig(), EmbedSettings{
+	var idx slice.Index = newRetriever(cfg.Retrieval.Retriever, cfg.Retrieval.VectorDim, cfg.fusionConfig(), EmbedSettings{
 		Backend: cfg.Retrieval.EmbedBackend,
 		BaseURL: cfg.Retrieval.EmbedBaseURL,
 		Model:   cfg.Retrieval.EmbedModel,
@@ -135,6 +139,15 @@ func New(cfg *Config) (*Gateway, error) {
 	if err := loadIndex(store, idx); err != nil {
 		_ = closeStore(store)
 		return nil, fmt.Errorf("gateway: rebuild index: %w", err)
+	}
+	if cfg.Retrieval.RerankBaseURL != "" {
+		// Local reranker decorator (spec §3 B): wraps after the index is
+		// loaded so InsertBatch during the rebuild keeps its batch path.
+		idx = newRerankIndex(idx, rerankSettings{
+			BaseURL:   cfg.Retrieval.RerankBaseURL,
+			TopN:      cfg.Retrieval.RerankTopN,
+			TimeoutMs: cfg.Retrieval.RerankTimeoutMs,
+		})
 	}
 
 	// Grey-zone LLM judge (Issue #186 / GW6, spec §3.5): when a judge key is
@@ -367,6 +380,9 @@ func (g *Gateway) Close() error {
 	g.closing = true
 	g.shutdownMu.Unlock()
 	g.ingestWG.Wait()
+	if err := g.retrievalEvents.close(); err != nil {
+		log.Printf("gateway: retrieval events close: %v", err)
+	}
 	return closeStore(g.store)
 }
 

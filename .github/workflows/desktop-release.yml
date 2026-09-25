@@ -22,9 +22,8 @@ name: Desktop Release
 #
 # Releases are published with `--latest=false` so the repository-wide "latest"
 # release stays on the CLI stream (`v*`) that the `curl | sh` installer and the
-# website's `releases/latest` link depend on. Each run also refreshes a rolling
-# `desktop-latest` release whose fixed asset URLs the (statically exported)
-# website hard-links, so download buttons stay valid without a GitHub API lookup.
+# website's `releases/latest` link depend on. Update the static website's
+# versioned desktop download links when cutting a new desktop release.
 
 on:
   push:
@@ -216,35 +215,18 @@ jobs:
         run: |
           set -euo pipefail
           REPO="${{ github.repository }}"
+          # Versioned title, matching main's "<ver> — Semantix Desktop" format.
+          TITLE="${TAG#desktop-v} — Semantix Desktop"
+          # Idempotent: a workflow_dispatch (or a re-run) may target a tag that
+          # already has a release — e.g. desktop-v0.1.0 is already published — so
+          # refresh its metadata and re-upload the assets in that case; otherwise
+          # create the release, pinning the new tag to exactly the built commit.
           if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
-            # A release for this tag already exists (e.g. the tag was pushed
-            # separately) — refresh its metadata and (re)upload the assets.
             gh release edit "$TAG" --repo "$REPO" \
-              --title "Semantix Desktop $TAG" --latest=false --notes "$NOTES"
+              --title "$TITLE" --latest=false --notes "$NOTES"
             gh release upload "$TAG" --repo "$REPO" --clobber dist/*
           else
             gh release create "$TAG" --repo "$REPO" \
-              --title "Semantix Desktop $TAG" --latest=false \
+              --title "$TITLE" --latest=false \
               --target "$GITHUB_SHA" --notes "$NOTES" dist/*
           fi
-
-      - name: Update the rolling desktop-latest release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.event.inputs.tag || github.ref_name }}
-        run: |
-          set -euo pipefail
-          # `desktop-latest` is a fixed tag whose assets are replaced on every
-          # desktop release, so the website can hard-link stable download URLs
-          # (releases/download/desktop-latest/Semantix-*) without a GitHub API
-          # lookup — the site is a static export. It is published with
-          # --latest=false so it never steals the repo-wide "latest" badge from
-          # the CLI `v*` stream that `curl | sh` and the site's install link use.
-          gh release delete desktop-latest --repo "${{ github.repository }}" --yes --cleanup-tag || true
-          gh release create desktop-latest \
-            --repo "${{ github.repository }}" \
-            --title "Semantix Desktop (latest)" \
-            --latest=false \
-            --target "$GITHUB_SHA" \
-            --notes "指向最新桌面构建（$TAG）的滚动发布，供官网下载按钮使用稳定链接。历史版本见带 desktop-v 号的发布。" \
-            dist/*
