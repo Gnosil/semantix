@@ -807,7 +807,10 @@ func (b *Bridge) sessionSink() *HarnessSink {
 	if b.hs != nil {
 		return b.hs
 	}
-	if b.label == "" {
+	// Post-close emitters (a detached prefetch outcome, a late Reuse hit, a
+	// final EndTurn) must not resurrect the mirror: a reopened JSONL handle
+	// would outlive Close and keep appending telemetry after shutdown.
+	if b.closing || b.label == "" {
 		return nil
 	}
 	hs, err := NewHarnessSink(dirOrFallback(b.cfg.SessionsDir), b.label, "")
