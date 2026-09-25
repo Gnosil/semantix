@@ -340,5 +340,5 @@ freshness 的运行条件与三种版本拒因见 §6.2，后续范围见 §7 / 
 - [x] 投影共享：`kernel/slice.TaskBody`（`47987b66`）+ Bridge 检索与 Distill 共用；task_body 三份测试入库。
 - [x] 独立副本 RED/GREEN/ROLLBACK-RED 三态一致；closure 四产物（DIFF_FILE.patch / MODIFIED_FILE.tar.gz / ROLLBACK.sh / VERIFICATION.txt）已生成并重开核验，均在 `lab/issue-447-admission-repair-20260924/closure/`。
 - [x] 批次受影响五包（kernel/slice、kernel/inject、harness/semantix、gateway、cmd/semantix）Windows 串行全绿；vet 通过。
-- [ ] Linux 原生 race 未执行（本机 WSL 无 Go、Windows 无 C 工具链），如实记为待办；全量 `go test ./...` 中批次外包失败已用 pristine BASE 对照归因为存量 Windows 环境问题（symlink 权限/终端类，BASE 同样失败），invoice exit 49 为登录 shell python3 Store 存根（见 docs/reports/2026-09-24-zcode-review 第 0 节）。
+- [x] Linux 原生 race 已补（2026-09-25，用户授权后在 WSL Ubuntu 24.04 安装 go1.26.5）：`go test -race ./harness/semantix ./kernel/... ./harness/agent -count=1` 于 e7baff6f 全绿（含 invoice e2e 在 Linux 真实 python3 下通过），零数据竞争；输出存 `lab/issue-447-admission-repair-20260924/closure/LINUX-RACE.txt`。同日已移除 Windows python3/python Store 存根并在 D:\python 落位真实 python3.exe，Windows 侧 invoice e2e 亦通过。全量 `go test ./...` 中其余批次外包失败仍维持 pristine BASE 归因结论（symlink 权限/终端类，BASE 同样失败）。
 - [x] 协作遗留同步落盘：round-2 测试清理 `204e8d9a`、文档 `5c8f4b7f`（F1/F2/F4 合并提交，S6–S9 提交交错所致，偏离四分步原计划的说明见 VERIFICATION.txt 第六节）。
