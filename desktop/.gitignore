@@ -9,6 +9,10 @@
 # (Each `!` un-ignore needs its parent dir un-ignored first.)
 !/build/windows
 /build/windows/*
+# Commit the app icon (embedded by tray_icon_windows.go and used for the .exe
+# resource) so a clean CI checkout can build Windows; regenerated from
+# build/appicon.png. Mirrors the committed build/darwin/icon.icns.
+!/build/windows/icon.ico
 !/build/windows/installer
 /build/windows/installer/*
 !/build/windows/installer/project.nsi

@@ -32,7 +32,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Existing desktop tag to build and publish (e.g. desktop-v1.0.0).'
+        description: 'Desktop tag to cut, e.g. desktop-v0.1.0. Created at main HEAD if it does not exist.'
         required: true
 
 permissions:
@@ -57,10 +57,13 @@ jobs:
             platform: windows/amd64
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Check out the tagged commit
+      - name: Check out the source to build
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          # Build the ref that triggered us: a pushed desktop-v* tag's commit, or
+          # the branch a workflow_dispatch ran on. The publish step then creates
+          # the tag (if absent) at exactly that built commit.
+          ref: ${{ github.ref }}
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -143,13 +146,17 @@ jobs:
           fi
           shasum -a 256 "$OUT"
 
-      - name: Build Windows app + NSIS installer
+      - name: Build Windows app (portable)
         if: runner.os == 'Windows'
         working-directory: desktop
         shell: bash
         run: |
           set -euo pipefail
-          wails build -clean -platform windows/amd64 -nsis \
+          # Portable .exe only for this unsigned beta. The NSIS installer
+          # (project.nsi) bundles a signed layout activator (semantix-guard.exe)
+          # plus the update-helper/cli binaries — a separate signed-distribution
+          # effort — so `-nsis` is intentionally omitted here.
+          wails build -clean -platform windows/amd64 \
             -ldflags "-X main.version=${{ steps.ver.outputs.tag }} -X main.channel=stable"
           ls -R build/bin
 
@@ -159,15 +166,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # NSIS output is <outputfilename>-<arch>-installer.exe; rename to the
-          # updater's contract name. Glob so a wails naming tweak doesn't break us.
-          installer="$(ls build/bin/*installer.exe | head -1)"
-          cp "$installer" "Semantix-windows-amd64-installer.exe"
           # Portable download: zip the raw app exe (the updater's downloads-group
           # Semantix-windows-amd64.zip).
-          portable="$(ls build/bin/*.exe | grep -v installer | head -1)"
+          portable="$(ls build/bin/*.exe 2>/dev/null | head -1 || true)"
+          test -n "$portable" || { echo "::error::app exe missing in build/bin"; ls -R build/bin; exit 1; }
           7z a "Semantix-windows-amd64.zip" "$portable"
-          certutil -hashfile "Semantix-windows-amd64-installer.exe" SHA256 || true
+          certutil -hashfile "Semantix-windows-amd64.zip" SHA256 || true
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -176,7 +180,6 @@ jobs:
           if-no-files-found: ignore
           path: |
             desktop/Semantix-darwin-universal.dmg
-            desktop/Semantix-windows-amd64-installer.exe
             desktop/Semantix-windows-amd64.zip
 
   publish:
@@ -202,18 +205,28 @@ jobs:
 
             ## 下载
             - **macOS**（Intel + Apple Silicon 通用）：`Semantix-darwin-universal.dmg`
-            - **Windows 10/11**（x64）：`Semantix-windows-amd64-installer.exe`（安装器）或 `Semantix-windows-amd64.zip`（免安装）
+            - **Windows 10/11**（x64）：`Semantix-windows-amd64.zip`（免安装，解压双击即用）
 
             ## 首次打开
             - **macOS**：未签名/未公证，首次打开被 Gatekeeper 拦时右键 App →「打开」，或终端 `xattr -cr /Applications/Semantix.app`。
-            - **Windows**：SmartScreen 提示时点「更多信息 → 仍要运行」。
+            - **Windows**：解压后双击 `semantix-desktop.exe`；SmartScreen 提示时点「更多信息 → 仍要运行」。（带安装器的版本随后补。）
 
             配置 API key：桌面端读取全局 `.env`，可用 `semantix-agent setup` 向导配置。
         run: |
           set -euo pipefail
-          gh release create "$TAG" \
-            --repo "${{ github.repository }}" \
-            --title "${TAG#desktop-v} — Semantix Desktop" \
-            --latest=false \
-            --notes "$NOTES" \
-            dist/*
+          REPO="${{ github.repository }}"
+          # Versioned title, matching main's "<ver> — Semantix Desktop" format.
+          TITLE="${TAG#desktop-v} — Semantix Desktop"
+          # Idempotent: a workflow_dispatch (or a re-run) may target a tag that
+          # already has a release — e.g. desktop-v0.1.0 is already published — so
+          # refresh its metadata and re-upload the assets in that case; otherwise
+          # create the release, pinning the new tag to exactly the built commit.
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            gh release edit "$TAG" --repo "$REPO" \
+              --title "$TITLE" --latest=false --notes "$NOTES"
+            gh release upload "$TAG" --repo "$REPO" --clobber dist/*
+          else
+            gh release create "$TAG" --repo "$REPO" \
+              --title "$TITLE" --latest=false \
+              --target "$GITHUB_SHA" --notes "$NOTES" dist/*
+          fi
