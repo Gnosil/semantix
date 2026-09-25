@@ -50,6 +50,10 @@ func newJudgingGateway(t *testing.T, upURL, judgeBase string) *Gateway {
 		c.Cache.JudgeBaseURL = judgeBase
 		c.Cache.JudgeModel = "judge-model"
 	})
+	// S8 moved recordSliceStats after the 2xx forward, so the async stats
+	// write can outlive the assertions; join it before TempDir cleanup or
+	// Windows RemoveAll flakes on the still-held project.db handle.
+	t.Cleanup(func() { g.ingestWG.Wait() })
 	z := zone.Zones{TauHigh: 1.5, TauLow: 0.5, AbsHigh: 0.7, AbsLow: 0.45}
 	g.decider.Zones = &z
 	return g
