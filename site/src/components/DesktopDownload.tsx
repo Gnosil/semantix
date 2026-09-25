@@ -8,19 +8,16 @@ import { cn } from "@/lib/utils";
 /**
  * DesktopDownload — the "下载桌面版" section.
  *
- * Links point at the rolling `desktop-latest` GitHub release, whose assets are
- * replaced on every desktop release (see .github/workflows/desktop-release.yml).
- * That keeps the URLs stable for this statically exported site — no GitHub API
- * lookup at build time. Asset names match the in-app updater contract
- * (desktop/updater.go). macOS builds are unsigned, hence the first-open note.
+ * Keep these static download links on the published, versioned desktop release.
+ * Update the tag when publishing a new desktop version. macOS builds are
+ * unsigned, hence the first-open note.
  */
 
 const REPO = "https://github.com/Gnosil/semantix";
-const LATEST = `${REPO}/releases/download/desktop-latest`;
+const DESKTOP_RELEASE = `${REPO}/releases/download/desktop-v0.1.0`;
 
-const MAC_DMG = `${LATEST}/Semantix-darwin-universal.dmg`;
-const WIN_EXE = `${LATEST}/Semantix-windows-amd64-installer.exe`;
-const WIN_ZIP = `${LATEST}/Semantix-windows-amd64.zip`;
+const MAC_DMG = `${DESKTOP_RELEASE}/Semantix-darwin-universal.dmg`;
+const WIN_ZIP = `${DESKTOP_RELEASE}/Semantix-windows-amd64.zip`;
 const SOURCE = `${REPO}/blob/main/desktop/README.md`;
 const ALL_RELEASES = `${REPO}/releases`;
 
@@ -79,10 +76,8 @@ export default function DesktopDownload() {
             <DownloadCard
               primary={os === "win"}
               platform="Windows"
-              note="Windows 10/11 · 安装器 .exe"
-              href={WIN_EXE}
-              secondaryHref={WIN_ZIP}
-              secondaryLabel="或下载免安装 .zip"
+              note="Windows 10/11 · 免安装 .zip"
+              href={WIN_ZIP}
             />
           </div>
         </Reveal>
