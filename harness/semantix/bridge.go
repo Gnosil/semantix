@@ -659,6 +659,18 @@ func (b *Bridge) Reuse(ctx context.Context, query string) ReuseSummary {
 	if !b.Enabled() || query == "" {
 		return ReuseSummary{}
 	}
+	// Same close protocol as injectResult: register the read under the lock
+	// that Close sets closing under, so Close waits for the reuse-panel read
+	// instead of racing it (the read opens the project store and emits a
+	// SliceHit on the kernel bus).
+	b.mu.Lock()
+	if b.closing {
+		b.mu.Unlock()
+		return ReuseSummary{}
+	}
+	b.statsWG.Add(1)
+	b.mu.Unlock()
+	defer b.statsWG.Done()
 	store, idx, err := b.kernelIndex()
 	if err != nil {
 		return ReuseSummary{}

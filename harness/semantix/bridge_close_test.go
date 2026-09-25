@@ -62,3 +62,20 @@ func TestBridgeDeliveryAtCloseStillEmitsBusEvent(t *testing.T) {
 		t.Fatalf("SliceInject bus events after delivery-at-close = %v, want exactly one", seen)
 	}
 }
+
+// The reuse-panel read is part of the close protocol: after Close it must
+// degrade to a zero summary without reopening the project store.
+func TestBridgeReuseAfterCloseReturnsZero(t *testing.T) {
+	b := NewBridge(Config{Enabled: true, ProjectDir: writeKernelDir(t, []*slice.Slice{
+		{ID: "ctx", Type: slice.Context, Scope: slice.Project, Content: []byte("repair parser regression")},
+	}, nil), Budget: 4096})
+	if sum := b.Reuse(context.Background(), "repair parser regression"); sum.Hits != 1 {
+		t.Fatalf("pre-close Reuse hits = %d, want 1 (fixture sanity)", sum.Hits)
+	}
+	if err := b.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if sum := b.Reuse(context.Background(), "repair parser regression"); sum != (ReuseSummary{}) {
+		t.Fatalf("post-close Reuse = %+v, want zero summary", sum)
+	}
+}
