@@ -48,13 +48,40 @@ func stripTaggedBlock(text, tag string) string {
 		if openEndRel < 0 {
 			return text[:start]
 		}
-		closeStartRel := strings.Index(lower[start+openEndRel+1:], "</"+tag+">")
-		if closeStartRel < 0 {
+		end, ok := matchTaggedClose(lower, start+openEndRel+1, tag)
+		if !ok {
 			return text[:start]
 		}
-		end := start + openEndRel + 1 + closeStartRel + len(tag) + 3
 		text = text[:start] + " " + text[end:]
 	}
+}
+
+// matchTaggedClose finds the offset just past the </tag> that balances the
+// tag already opened before `from`, counting nested same-tag opens (a nested
+// close must not end the outer block and leave a stray </tag> in the body).
+func matchTaggedClose(lower string, from int, tag string) (int, bool) {
+	open, closeTag := "<"+tag, "</"+tag+">"
+	depth := 1
+	for i := from; i < len(lower); i++ {
+		if lower[i] != '<' {
+			continue
+		}
+		if strings.HasPrefix(lower[i:], closeTag) {
+			depth--
+			if depth == 0 {
+				return i + len(closeTag), true
+			}
+			i += len(closeTag) - 1
+			continue
+		}
+		if strings.HasPrefix(lower[i:], open) {
+			if next := i + len(open); next == len(lower) || strings.ContainsRune("> \t\r\n\f", rune(lower[next])) {
+				depth++
+				i = next - 1
+			}
+		}
+	}
+	return 0, false
 }
 
 func taggedBody(text, tag string) (string, bool) {
