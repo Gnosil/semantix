@@ -232,12 +232,10 @@ export default function BrandIntroOverlay() {
                     Windows
                   </a>
                   <a
-                    href="https://github.com/Gnosil/semantix/blob/main/desktop/README.md"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href="#start"
                     className="inline-flex min-h-9 items-center px-1 text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   >
-                    安装说明 ↗
+                    安装说明 ↓
                   </a>
                 </div>
               </div>
