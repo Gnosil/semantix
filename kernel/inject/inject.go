@@ -143,9 +143,13 @@ type Injection struct {
 	// mode). Zero in the default drop mode; a persistent non-zero value is
 	// the signal to recalibrate zone thresholds (W3 of the efficiency plan).
 	GreyIncluded int
-	// Decisions preserves the score-order admission trace for every retrieved
-	// candidate. It is observation-only: replaying Admitted from Reason must
-	// yield the same slice set that produced Text.
+	// Decisions preserves the score-order admission trace for the candidates
+	// that entered the assembly window. With K>0, BuildHits may skip hits
+	// outside the window (eligible hits past the K-th, or ineligible ranks
+	// >= K); skipped hits produce no decision — callers join diagnostics by
+	// ID rather than assuming full coverage. It is observation-only:
+	// replaying Admitted from Reason must yield the same slice set that
+	// produced Text.
 	Decisions []CandidateDecision
 	// TopMargin is top1-top2 over eligible candidates. Zero means fewer
 	// than two eligible candidates or equal scores.

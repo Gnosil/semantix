@@ -2,6 +2,7 @@ package slice
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -100,8 +101,11 @@ func ConsolidateContext(store Store, opts ConsolidateOptions) (ConsolidateResult
 		}
 		// Content IDs do not encode provenance. Do not replace an unrelated
 		// existing card merely because the newly merged text has the same ID.
+		// fileStore.Get signals "missing" as (nil, nil), but tolerate a
+		// wrapped errNotFound from other Store implementations instead of
+		// aborting the whole consolidation pass.
 		existing, err := store.Get(merged.ID)
-		if err != nil && err != errNotFound {
+		if err != nil && !errors.Is(err, errNotFound) {
 			return res, err
 		}
 		if existing != nil {
