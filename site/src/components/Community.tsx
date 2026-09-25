@@ -1,12 +1,20 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 
 import Reveal from "@/components/Reveal";
 import { siteIdentity } from "@/lib/site-identity";
 
-const contributors = ["Gnosil", "radianceded", "jh10724-dotcom", "Allenllii"];
-const marqueeContributors = Array.from({ length: 3 }, () => contributors).flat();
+const initialContributors = [
+  "radianceded",
+  "Allenllii",
+  "Gnosil",
+  "jh10724-dotcom",
+  "claude",
+  "Allenli1233",
+  "sjwauto123",
+];
 const repo = siteIdentity.repositoryUrl;
 
 const communityLinks = [
@@ -20,39 +28,54 @@ const communityLinks = [
 ];
 
 export default function Community() {
+  const [contributors, setContributors] = useState(initialContributors);
+  const [syncStatus, setSyncStatus] = useState<"loading" | "synced" | "unavailable">("loading");
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadContributors() {
+      const logins: string[] = [];
+      let page = 1;
+
+      try {
+        while (true) {
+          const response = await fetch(
+            `https://api.github.com/repos/Gnosil/semantix/contributors?per_page=100&page=${page}`,
+            { signal: controller.signal },
+          );
+          if (!response.ok) throw new Error("GitHub contributors unavailable");
+
+          const entries: unknown = await response.json();
+          if (!Array.isArray(entries)) throw new Error("Invalid GitHub contributors response");
+
+          for (const entry of entries) {
+            if (entry && typeof entry.login === "string") logins.push(entry.login);
+          }
+          if (entries.length < 100) break;
+          page += 1;
+        }
+
+        if (!controller.signal.aborted && logins.length > 0) {
+          setContributors([...new Set(logins)]);
+          setSyncStatus("synced");
+        } else if (!controller.signal.aborted) {
+          setSyncStatus("unavailable");
+        }
+      } catch {
+        if (!controller.signal.aborted) setSyncStatus("unavailable");
+      }
+    }
+
+    void loadContributors();
+    return () => controller.abort();
+  }, []);
+
   return (
     <section
       id="community"
       className="scroll-mt-16 overflow-hidden bg-white text-[#111411]"
     >
-      <style>{`
-        @keyframes community-crew-slide {
-          from { transform: translateX(0); }
-          to { transform: translateX(-50%); }
-        }
-        @keyframes community-crew-slide-reverse {
-          from { transform: translateX(-50%); }
-          to { transform: translateX(0); }
-        }
-        .community-crew-row {
-          display: flex;
-          width: max-content;
-          animation: community-crew-slide 38s linear infinite;
-          will-change: transform;
-        }
-        .community-crew-row--reverse {
-          animation-name: community-crew-slide-reverse;
-        }
-        .community-crew-track:is(:hover, :focus-within) .community-crew-row {
-          animation-play-state: paused;
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .community-crew-row {
-            animation: none;
-            transform: none;
-          }
-        }
-      `}</style>
       <div className="mx-auto w-full max-w-[1600px] px-5 pb-14 pt-10 md:px-10 md:pb-16 md:pt-10 lg:px-12 lg:pb-20 lg:pt-12">
         <div>
           <div className="flex items-center justify-between gap-6 pb-4">
@@ -101,91 +124,38 @@ export default function Community() {
           </div>
 
           <div
-            aria-label="Semantix 贡献者"
-            className="community-crew-track -mx-5 mt-5 overflow-hidden py-3 [mask-image:linear-gradient(to_right,transparent,black_5%,black_95%,transparent)] [-webkit-mask-image:linear-gradient(to_right,transparent,black_5%,black_95%,transparent)] md:-mx-10 md:mt-6 lg:-mx-12"
+            aria-label="Semantix 历史提交贡献者"
+            className="mx-auto mt-8 flex max-w-[70rem] flex-wrap justify-center gap-5 md:gap-7"
           >
-            <div className="community-crew-row">
-              {[0, 1].map((copyIndex) => (
-                <div
-                  key={copyIndex}
-                  aria-hidden={copyIndex === 1}
-                  className="flex shrink-0 items-center gap-4 pr-4"
-                >
-                  {marqueeContributors.map((login, contributorIndex) => {
-                    const isAccessible =
-                      copyIndex === 0 && contributorIndex < contributors.length;
-
-                    return (
-                      <a
-                        key={`${copyIndex}-${contributorIndex}-${login}`}
-                        href={`https://github.com/${login}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        tabIndex={isAccessible ? undefined : -1}
-                        aria-hidden={!isAccessible}
-                        aria-label={
-                          isAccessible ? `查看 ${login} 的 GitHub 主页` : undefined
-                        }
-                        className="group flex shrink-0 items-center gap-3 pr-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#168b6d]"
-                      >
-                        <Image
-                          src={`https://github.com/${login}.png?size=240`}
-                          alt={isAccessible ? `${login} 的 GitHub 头像` : ""}
-                          width={112}
-                          height={112}
-                          sizes="3.5rem"
-                          className="size-14 rounded-full object-cover saturate-[0.75] ring-1 ring-[#111411]/18 transition-[transform,filter] duration-300 group-hover:scale-105 group-hover:saturate-100 motion-reduce:transition-none"
-                        />
-                        <span className="font-mono text-[10px] tracking-[0.06em] text-[#111411]/58 transition-colors group-hover:text-[#168b6d]">
-                          @{login}
-                        </span>
-                      </a>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div
-            aria-hidden="true"
-            className="community-crew-track -mx-5 mt-1 overflow-hidden py-3 [mask-image:linear-gradient(to_right,transparent,black_5%,black_95%,transparent)] [-webkit-mask-image:linear-gradient(to_right,transparent,black_5%,black_95%,transparent)] md:-mx-10 lg:-mx-12"
-          >
-            <div className="community-crew-row community-crew-row--reverse">
-              {[0, 1].map((copyIndex) => (
-                <div
-                  key={copyIndex}
-                  className="flex shrink-0 items-center gap-4 pr-4"
-                >
-                  {[...marqueeContributors].reverse().map((login, contributorIndex) => (
-                    <a
-                      key={`${copyIndex}-${contributorIndex}-${login}`}
-                      href={`https://github.com/${login}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      tabIndex={-1}
-                      className="group flex shrink-0 items-center gap-3 pr-5"
-                    >
-                      <Image
-                        src={`https://github.com/${login}.png?size=240`}
-                        alt=""
-                        width={112}
-                        height={112}
-                        sizes="3.5rem"
-                        className="size-14 rounded-full object-cover saturate-[0.75] ring-1 ring-[#111411]/18 transition-[transform,filter] duration-300 group-hover:scale-105 group-hover:saturate-100 motion-reduce:transition-none"
-                      />
-                      <span className="font-mono text-[10px] tracking-[0.06em] text-[#111411]/58 transition-colors group-hover:text-[#168b6d]">
-                        @{login}
-                      </span>
-                    </a>
-                  ))}
-                </div>
-              ))}
-            </div>
+            {contributors.map((login) => (
+              <a
+                key={login}
+                href={`https://github.com/${login}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex w-28 flex-col items-center gap-2 text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#168b6d]"
+              >
+                <Image
+                  src={`https://github.com/${login}.png?size=240`}
+                  alt=""
+                  width={112}
+                  height={112}
+                  sizes="3.5rem"
+                  className="size-14 rounded-full object-cover saturate-[0.75] ring-1 ring-[#111411]/18 transition-[transform,filter] duration-300 group-hover:scale-105 group-hover:saturate-100 motion-reduce:transition-none"
+                />
+                <span className="max-w-full break-all font-mono text-xs text-[#111411]/70 transition-colors group-hover:text-[#168b6d]">
+                  @{login}
+                </span>
+              </a>
+            ))}
           </div>
 
           <p className="mt-5 text-center text-xs leading-5 text-[#111411]/55">
-            以 GitHub commit、PR 审阅和 Contributors 记录为准。
+            {syncStatus === "synced"
+              ? `已同步 GitHub 历史提交贡献者，共 ${contributors.length} 人；打开页面时自动更新。`
+              : syncStatus === "loading"
+                ? "正在从 GitHub 同步历史提交贡献者。"
+                : "GitHub 暂时不可用，当前展示预置名单。"}
           </p>
 
           <div className="mt-4 flex flex-wrap items-center justify-center gap-5 md:mt-5">
