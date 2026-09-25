@@ -54,7 +54,7 @@ Agent 原始任务 → Bridge query → Project BM25 → Injector 资格/准入
 
 ## 4. 准入与信任保持
 
-- 当前类型资格为 Context、Memory、host-verified Result；Prompt、ToolPattern、probation Result 仍拒绝。
+- 当前类型资格为 Context、Memory、host-verified Result；Prompt、ToolPattern、probation Result 仍拒绝。**边界**：该资格保证是 Harness strict/shadow 路径的；gateway 的 L2 注入器未配置同一 allowlist（`AllowedTypes==nil`，见 §9.2"路径之间契约不一致"行），Prompt/ToolPattern 在 gateway 侧仍可进入 system 块——本批不改动 gateway，两路径的对齐是后续独立工作。
 - Bridge 撤除 Project 最小库 5、类型至少 2 个独立来源 session、BM25 0.70、coverage 0.25、top margin 0.15 和必须有 runner-up 六项默认阻断。不新增六个配置开关；Kernel Injector 的既有可选字段及显式启用测试保持兼容。
 - type/status/task/freshness/origin 资格先于 eligible 候选窗口和相对分母；不重新训练或缩放 BM25，不合并卡片来制造高分差。来源集合及反馈仍持久化，移除来源数量门槛不等于删除来源证据。
 - 既有 BM25/zone 选择、最多五条与精确字节预算保留。单一候选或同分候选不再整体否决；这也意味着词汇相似但语义不适用的历史仍可能通过，不声称已具备语义裁判。当前实验预算仍为 4096B。
@@ -340,5 +340,5 @@ freshness 的运行条件与三种版本拒因见 §6.2，后续范围见 §7 / 
 - [x] 投影共享：`kernel/slice.TaskBody`（`47987b66`）+ Bridge 检索与 Distill 共用；task_body 三份测试入库。
 - [x] 独立副本 RED/GREEN/ROLLBACK-RED 三态一致；closure 四产物（DIFF_FILE.patch / MODIFIED_FILE.tar.gz / ROLLBACK.sh / VERIFICATION.txt）已生成并重开核验，均在 `lab/issue-447-admission-repair-20260924/closure/`。
 - [x] 批次受影响五包（kernel/slice、kernel/inject、harness/semantix、gateway、cmd/semantix）Windows 串行全绿；vet 通过。
-- [x] Linux 原生 race 已补（2026-09-25，用户授权后在 WSL Ubuntu 24.04 安装 go1.26.5）：`go test -race ./harness/semantix ./kernel/... ./harness/agent -count=1` 于 e7baff6f 全绿（含 invoice e2e 在 Linux 真实 python3 下通过），零数据竞争；输出存 `lab/issue-447-admission-repair-20260924/closure/LINUX-RACE.txt`。同日已移除 Windows python3/python Store 存根并在 D:\python 落位真实 python3.exe，Windows 侧 invoice e2e 亦通过。全量 `go test ./...` 中其余批次外包失败仍维持 pristine BASE 归因结论（symlink 权限/终端类，BASE 同样失败）。
+- [x] Linux 原生 race 已补（当地时间 2026-09-24 晚、UTC 已跨入 09-25；用户授权后在 WSL Ubuntu 24.04 安装 go1.26.5）：`go test -race ./harness/semantix ./kernel/... ./harness/agent -count=1` 于 e7baff6f 全绿（含 invoice e2e 在 Linux 真实 python3 下通过），零数据竞争；输出存 `lab/issue-447-admission-repair-20260924/closure/LINUX-RACE.txt`。同日已移除 Windows python3/python Store 存根并在 D:\python 落位真实 python3.exe，Windows 侧 invoice e2e 亦通过。全量 `go test ./...` 中其余批次外包失败仍维持 pristine BASE 归因结论（symlink 权限/终端类，BASE 同样失败）；gateway e2e 在 Windows 整包模式下另有一类"Close 后文件重建"的 TempDir 清理竞态（断言全过、受害者轮换、复跑即绿、Linux race 下未见），judge 助手侧的 ingestWG join 已补（`04445ce1`），其余记录为存量待查。
 - [x] 协作遗留同步落盘：round-2 测试清理 `204e8d9a`、文档 `5c8f4b7f`（F1/F2/F4 合并提交，S6–S9 提交交错所致，偏离四分步原计划的说明见 VERIFICATION.txt 第六节）。

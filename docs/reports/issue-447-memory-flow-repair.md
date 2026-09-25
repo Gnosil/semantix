@@ -4,6 +4,7 @@
 
 ## 2026-09-24 本地 PR 文案补充（待同步远端）
 
+- **Injected 计数的语义版本边界**：`79cd80dd` 之前持久化的 `Injected`/`LastUsed` 计数含义是"组装进候选块"（含 CLI inject、gateway 转发前与预取路径），此后才表示"经 finalized request 送达 provider 并被接受"。跨版本比较注入率或演化权重时必须以该提交为界，旧计数不得按新语义解读。
 - 旧库不自动迁移；Prompt/ToolPattern 或缺来源/版本的旧记录不会因为撤除六项默认门槛就取得注入资格。重收割的完整命令统一见 [SPEC §6.1](../specs/issue-447-memory-flow-repair.md#61-旧库重收割配方逐个真实会话执行)，不覆盖原库。
 - SWE 与交互式 Harness 历史均建议逐会话使用 `--distill --consolidate --origin session-auto --base-commit "$SOURCE_REVISION" --embedder hash`；输入路径、会话 ID、项目与版本必须来自真实会话。ObservedCommit 是当时版本，不是当前 HEAD；不通过改标签、补造来源或改写历史版本制造合格卡。
 - 本地文案更新不代表远端 PR 已更新，也不代表已经执行真实库重收割或新一轮模型收益实验。
