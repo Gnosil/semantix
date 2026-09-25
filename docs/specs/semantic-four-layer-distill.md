@@ -71,6 +71,8 @@ plan-first 规划步（消费端架构）、gateway 侧 distill 接线、hybrid 
 
 ## 6. 当前实现补记（2026-09-18，memory-flow 修复）
 
+> **2026-09-24 更新**：本节描述的是 2026-09-18 时点的行为。此后 S2（`2af62ed6`）撤除了 score/coverage/margin/来源数/runner-up/最小库六项默认准入否决，S6（`a17ba134`）移除了 task 标签默认否决（标签改为 L2 历史元数据）；本节涉及"门槛不变/仍需通过 margin 与来源数准入"的表述仅作历史记录。当前准入以 [issue-447-memory-flow-repair SPEC §9](issue-447-memory-flow-repair.md) 为准：类型/origin/freshness/zone/预算保留，六项代理否决不再默认启用。
+
 上文保留 2026-09-01 的历史设计与当时准入说明；以下记录当前实现，不把修复后的行为追记为原有行为。
 
 - **四层载体不变**：L-A repo-ops / L-B consolidation 使用 `Context`，L-C plan-skeleton / L-D outcome 使用 `Memory`；仍由 `Extract`、`Distill`、`ConsolidateContext`、既有 Store 与 Injector 串接，不新增 SliceType 或模型提炼步骤。

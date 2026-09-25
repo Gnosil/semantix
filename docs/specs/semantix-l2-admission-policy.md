@@ -131,6 +131,8 @@ git diff --check upstream/main...HEAD
 
 ## 10. 当前实现补记（2026-09-18，memory-flow 修复）
 
+> **2026-09-24 更新**：本节的"阈值不变"与"不重新标定、不降低"两处描述的是 2026-09-18 时点状态。S2（`2af62ed6`）已撤除最小库 5、来源 session 2、score 0.70、coverage 0.25、top margin 0.15 与必须 runner-up 六项默认否决，S6（`a17ba134`）移除 task 标签默认否决；类型/origin/freshness/zone/预算门禁保留。当前准入以 [issue-447-memory-flow-repair SPEC §9](issue-447-memory-flow-repair.md) 与其 §6.2 freshness 运行后果为准。
+
 上文保留 P0/P1.1 的历史说明；本节澄清当前代码与此次修复边界，尤其不将旧表格的“Result 仅诊断”当作当前 allowlist。
 
 - **类型与信任**：当前 allowlist 为 `Context`、`Memory`、`Result`，后者还必须满足既有 `EffectiveResultStatus()==verified`；host 验证缺失、失败、未知或被后续 mutation 撤销的 Result 不获此资格。Prompt / ToolPattern 仍不准入。`Observed commands` 不是 host verified 的同义词，`Verified-by` 也不替代其他门禁。
