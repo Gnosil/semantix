@@ -218,14 +218,14 @@ export default function BrandIntroOverlay() {
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <a
-                    href="https://github.com/Gnosil/semantix/releases/download/desktop-latest/Semantix-darwin-universal.dmg"
+                    href="https://github.com/Gnosil/semantix/releases/download/desktop-v0.1.0/Semantix-darwin-universal.dmg"
                     className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-accent bg-accent px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   >
                     <Download aria-hidden="true" className="size-3.5" />
                     macOS
                   </a>
                   <a
-                    href="https://github.com/Gnosil/semantix/releases/download/desktop-latest/Semantix-windows-amd64-installer.exe"
+                    href="https://github.com/Gnosil/semantix/releases/download/desktop-v0.1.0/Semantix-windows-amd64.zip"
                     className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#168b6d]"
                   >
                     <Download aria-hidden="true" className="size-3.5" />
