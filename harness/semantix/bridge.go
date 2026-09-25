@@ -485,19 +485,25 @@ func (b *Bridge) RecordInjectionDelivery(ids []string, bytes int) {
 	if len(ids) == 0 {
 		return
 	}
+	now := time.Now().UTC()
+	data, _ := json.Marshal(kernelevent.SliceInjectPayload{SliceIDs: ids, Bytes: bytes})
 	b.mu.Lock()
-	if b.closing {
-		b.mu.Unlock()
+	session := b.label
+	closing := b.closing
+	if !closing {
+		b.statsWG.Add(1)
+	}
+	b.mu.Unlock()
+	// The bus event is the durable delivery record. Emit it before the
+	// closing check: a delivery racing Close must still reach the kernel
+	// mirror, while emitKernelCache alone would no-op (the live sink is
+	// already gone) and the acceptance would vanish without a trace.
+	b.events.Emit(kernelevent.Event{Kind: kernelevent.SliceInject, SessionID: session, At: now, Data: data})
+	if closing {
 		b.emitKernelCache("stats_error", "L2", ids, bytes, "bridge_closed")
 		return
 	}
-	b.statsWG.Add(1)
-	session := b.label
-	b.mu.Unlock()
 	defer b.statsWG.Done()
-	now := time.Now().UTC()
-	data, _ := json.Marshal(kernelevent.SliceInjectPayload{SliceIDs: ids, Bytes: bytes})
-	b.events.Emit(kernelevent.Event{Kind: kernelevent.SliceInject, SessionID: session, At: now, Data: data})
 	b.emitKernelCacheDetailed("inject", "L2", ids, bytes, "provider_accepted", &event.RetrievalDiagnostics{
 		Mode: string(b.mode), Injected: true, Bytes: bytes, MessageRole: "user", FinalOrder: ids,
 		Decision: "delivered", DecisionReason: "provider_accepted",
