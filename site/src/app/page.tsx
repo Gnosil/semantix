@@ -3,7 +3,6 @@ import Hero from "@/components/Hero";
 import Features from "@/components/Features";
 import Components from "@/components/Components";
 import Community from "@/components/Community";
-import DesktopDownload from "@/components/DesktopDownload";
 import Install from "@/components/Install";
 import BloomCurtain from "@/components/BloomCurtain";
 import FinaleInfo from "@/components/FinaleInfo";
@@ -35,7 +34,6 @@ export default function Home() {
         <Features />
         <Components />
         <Community />
-        <DesktopDownload />
         <Install />
         <BloomCurtain />
       </main>

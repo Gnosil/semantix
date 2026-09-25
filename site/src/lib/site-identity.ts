@@ -3,7 +3,7 @@ export const siteIdentity = {
   productUrl: "https://semantix.ensureok.ai",
   repositoryUrl: "https://github.com/Gnosil/semantix",
   licenseName: "MIT",
-  lastUpdated: "2026-08-12",
+  lastUpdated: "2026-09-24",
   operator: {
     legalName: "确石人工智能科技（上海）有限公司",
     brandName: "确石智能",

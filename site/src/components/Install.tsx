@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Reveal from "@/components/Reveal";
 import CopyCode from "@/components/CopyCode";
+import DesktopDownload from "@/components/DesktopDownload";
 
 const steps = [
   {
@@ -39,44 +40,53 @@ export default function Install() {
   return (
     <section
       id="start"
-      className="install-scroll-handoff border-x-[10px] border-t-[10px] border-[#168b6d] bg-[var(--finale-paper)] md:border-x-[18px] md:border-t-[18px]"
+      className="scroll-mt-16 border-x-[10px] border-t-[10px] border-accent bg-white text-[#111411] md:border-x-[18px] md:border-t-[18px]"
     >
-      <div className="install-scroll-content mx-auto max-w-[1600px] px-5 py-16 md:px-10 md:py-20 lg:px-12 lg:py-24">
+      <div className="mx-auto max-w-[1100px] px-5 py-16 md:px-10 md:py-20">
         <Reveal>
           <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.24em] text-[#168b6d]">
             Install 安装
           </p>
-          <h2 className="font-brand-display mt-4 text-5xl font-black tracking-[-0.055em] text-[#101313] md:text-6xl lg:text-[4.5rem]">
-            从源码跑起来。
+          <h2 className="font-brand-display mt-4 text-[clamp(2rem,3.4vw,2.75rem)] font-black leading-[1.08] tracking-[-0.045em]">
+            选择你的使用方式。
           </h2>
-          <p className="mt-3 max-w-2xl text-base leading-7 text-[#596269] md:text-lg">
-            Clone, build, extract. Then verify the results yourself.
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-muted-foreground md:text-base">
+            下载桌面版，或在终端安装 Semantix。
           </p>
         </Reveal>
 
-        <div className="mt-12 border-y border-[#101313]/18 md:grid md:grid-cols-3 md:divide-x md:divide-[#101313]/18 lg:mt-16">
+        <DesktopDownload />
+
+        <div id="terminal-install" className="mt-10 scroll-mt-24 border-t border-border pt-10">
+          <Reveal>
+            <h3 className="font-brand-display text-xl font-bold tracking-[-0.025em]">
+              终端安装
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              偏好命令行？按下面三步开始。
+            </p>
+          </Reveal>
+        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
           {steps.map((step, i) => (
-            <Reveal key={step.number} delay={i * 80}>
-              <article className="group flex min-h-[24rem] h-full flex-col border-b border-[#101313]/18 py-8 last:border-b-0 md:border-b-0 md:px-7 md:py-9 lg:min-h-[26rem] lg:px-10 lg:py-11">
+            <Reveal key={step.number} delay={i * 80} className="min-w-0">
+              <article className="group flex h-full min-w-0 flex-col rounded-lg border border-border bg-white p-5">
                 <div className="flex items-center justify-between font-mono text-[10px] font-semibold uppercase tracking-[0.18em]">
                   <span className="text-[#168b6d]">{step.number}</span>
-                  <span className="text-[#101313]/38">Step / {step.number}</span>
                 </div>
-                <h3 className="font-brand-display mt-10 text-[2rem] font-black tracking-[-0.045em] text-[#101313] lg:text-4xl">
+                <h4 className="font-brand-display mt-4 text-xl font-bold tracking-[-0.025em] text-[#101313]">
                   {step.title}
-                </h3>
+                </h4>
                 <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[#168b6d]">
                   {step.titleEn}
                 </p>
-                <p className="mt-6 max-w-sm text-sm leading-6 text-[#596269]">{step.desc}</p>
+                <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">{step.desc}</p>
                 <CopyCode
-                  className="mt-7 !rounded-none border-[#101313]/12"
+                  className="mt-5 border-border"
                   code={step.code}
                   prompt
                   singleLine
-                  tone="dark"
                 />
-                <div className="mt-auto pt-8 text-sm font-semibold text-[#101313]">
+                <div className="mt-auto pt-5 text-xs font-semibold text-[#101313]">
                   {step.external ? (
                     <a
                       href={step.href}
@@ -98,6 +108,7 @@ export default function Install() {
               </article>
             </Reveal>
           ))}
+        </div>
         </div>
 
         <Reveal delay={240}>

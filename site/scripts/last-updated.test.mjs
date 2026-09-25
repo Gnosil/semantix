@@ -6,7 +6,7 @@ const homepageHtml = await readFile(new URL("../out/index.html", import.meta.url
 const crawlerVisibleHtml = homepageHtml.replaceAll("<!-- -->", "");
 
 // Single source for the expected date so a site update touches exactly one literal.
-const expectedLastUpdated = "2026-08-12";
+const expectedLastUpdated = "2026-09-24";
 
 test("static homepage exposes the visible content update date", () => {
   assert.match(
