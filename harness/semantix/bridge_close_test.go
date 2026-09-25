@@ -75,7 +75,7 @@ func TestBridgeReuseAfterCloseReturnsZero(t *testing.T) {
 	if err := b.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if sum := b.Reuse(context.Background(), "repair parser regression"); sum != (ReuseSummary{}) {
+	if sum := b.Reuse(context.Background(), "repair parser regression"); sum.Hits != 0 || sum.SavingsUSD != 0 || len(sum.Sources) != 0 {
 		t.Fatalf("post-close Reuse = %+v, want zero summary", sum)
 	}
 }
