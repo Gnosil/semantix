@@ -310,6 +310,10 @@ func build(ctx context.Context, opts Options) (*BuildResult, error) {
 		WorkspaceDir: cfg.Semantix.WorkspaceDir,
 		CostMissUSD:  cfg.Semantix.CostInputPriceUSD,
 		CostHitUSD:   cfg.Semantix.CostCachePriceUSD,
+
+		Compression:               cfg.Semantix.Compression,
+		CompressionMinSimilarity:  cfg.Semantix.CompressionMinSimilarity,
+		CompressionDedupThreshold: cfg.Semantix.CompressionDedupThreshold,
 	})
 	closeSemantixBridge := opts.closeSemantixBridge
 	if closeSemantixBridge == nil {

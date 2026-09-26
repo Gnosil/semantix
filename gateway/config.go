@@ -20,6 +20,7 @@ import (
 
 	"semantix/kernel/evolve"
 	"semantix/kernel/fuse"
+	"semantix/kernel/inject"
 	"semantix/kernel/slice"
 	"semantix/kernel/zone"
 
@@ -197,6 +198,16 @@ type RetrievalConfig struct {
 	RerankTopN int `toml:"rerank_top_n"`
 	// RerankTimeoutMs bounds one rerank call (0 → 300).
 	RerankTimeoutMs int `toml:"rerank_timeout_ms"`
+	// Compression enables the optional delete-only injection compression
+	// stage (Issue #509): "" / "off" (default) or "dedup". Compressed
+	// slices are gated by a semantic-equivalence check; gated-out slices
+	// keep their original text.
+	Compression string `toml:"compression"`
+	// CompressionMinSimilarity is the equivalence-gate floor (default 0.85).
+	CompressionMinSimilarity float64 `toml:"compression_min_similarity"`
+	// CompressionDedupThreshold is the unit near-duplicate Jaccard threshold
+	// (default 0.6).
+	CompressionDedupThreshold float64 `toml:"compression_dedup_threshold"`
 }
 
 // zoneOverride is the partial per-type override syntax for [retrieval]
@@ -313,6 +324,21 @@ func (c *Config) minInjectOrigin() slice.Origin {
 		return slice.Origin("") // kernel default: level-1 floor, no filtering
 	default:
 		return slice.Origin("") // validate() rejects unknown values
+	}
+}
+
+// compressionOptions translates [retrieval] compression config into injector
+// options. Nil unless explicitly enabled — compression is opt-in (Issue #509).
+func compressionOptions(r *RetrievalConfig) *inject.CompressionOptions {
+	switch strings.ToLower(strings.TrimSpace(r.Compression)) {
+	case inject.CompressionDedup:
+		return &inject.CompressionOptions{
+			Mode:           inject.CompressionDedup,
+			MinSimilarity:  r.CompressionMinSimilarity,
+			DedupThreshold: r.CompressionDedupThreshold,
+		}
+	default:
+		return nil
 	}
 }
 

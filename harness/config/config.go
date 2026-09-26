@@ -986,6 +986,17 @@ type SemantixConfig struct {
 	LimitUSD float64 `toml:"limit_usd"`
 	// Window is the reset window for LimitUSD: "session" | "day". Empty = "session".
 	Window string `toml:"window"`
+	// Compression enables the optional delete-only injection compression
+	// stage (Issue #509): "off" (default) or "dedup". When enabled, admitted
+	// slices are deduplicated against units already present in the block and
+	// each compression is gated by a semantic-equivalence check — slices
+	// whose compressed form drifts too far keep their original text.
+	Compression string `toml:"compression"`
+	// CompressionMinSimilarity is the equivalence-gate floor (default 0.85).
+	CompressionMinSimilarity float64 `toml:"compression_min_similarity"`
+	// CompressionDedupThreshold is the unit near-duplicate Jaccard threshold
+	// (default 0.6).
+	CompressionDedupThreshold float64 `toml:"compression_dedup_threshold"`
 }
 
 // NetworkConfig controls ordinary outbound HTTP traffic such as model providers,

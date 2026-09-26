@@ -229,6 +229,9 @@ func New(cfg *Config) (*Gateway, error) {
 			// 8/10 repeated tasks landed in grey under the default drop
 			// policy).
 			AllowGrey: cfg.Retrieval.GreyMode == "audit",
+			// Issue #509: opt-in delete-only compression with a
+			// semantic-equivalence gate; nil keeps the pass-through path.
+			Compress: compressionOptions(&cfg.Retrieval),
 		},
 		usageLog: rec,
 		client:   &http.Client{Timeout: 120 * time.Second},
