@@ -7,7 +7,7 @@ not remove original context. `kernel/inject.Injector.BuildHits` supplies the
 actual L2 block for comparison. An explicitly managed context block can be
 replaced in the provider request copy without changing the saved transcript.
 
-Three comparisons on the same GLM-4.7 task and endpoint:
+Three comparisons on the same GLM-5.3-Flash task and endpoint:
 
 - A: original project context.
 - B: original context plus the actual Semantix L2 block.
@@ -25,8 +25,10 @@ cost need current official tariff confirmation. A few synthetic tasks can reveal
 whether this route is promising but cannot establish production-wide quality or
 savings. Only expand to real Semantix workloads if the direct comparison works.
 
-One authorized official GLM-4.7 preflight returned `OK` and usage of 10 prompt,
-0 cached, 2 completion tokens. This established connectivity, not savings.
-The credential was read via a no-echo prompt and was not saved.
+The earlier GLM-4.7 preflight established connectivity only; its model differs
+from the requested GLM-5.3-Flash. The GLM-5.3-Flash attempt returned HTTP 429,
+code 1113 (insufficient balance or no available resource pack). Its comparison
+is pending account resources. The credential was read via a no-echo prompt
+and was not saved.
 
 Official endpoint: https://docs.bigmodel.cn/cn/guide/develop/http/introduction

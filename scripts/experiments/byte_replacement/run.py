@@ -1,4 +1,4 @@
-"""Four-arm, official-GLM experiment on explicitly managed project context.
+"""Three-arm, official-GLM experiment on explicitly managed project context.
 
 Synthetic fact extraction probes the mechanism; it is not a production-quality claim.
 The key is read from a no-echo prompt and never written into the report.
@@ -16,6 +16,14 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[3]
 API = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+MODEL = "glm-5.3-flash"
+REQUEST_OPTIONS = {
+    "model": MODEL,
+    "thinking": {"type": "enabled", "clear_thinking": False},
+    "temperature": 1,
+    "top_p": 0.95,
+    "max_tokens": 2048,
+}
 FIELDS = (
     "deployment_region", "repository_revision", "runtime_language",
     "runtime_version", "test_command", "build_command", "package_directory",
@@ -114,10 +122,7 @@ def render_injections(contents):
 
 
 def request(messages, key):
-    body = json.dumps({
-        "model": "glm-4.7", "messages": messages,
-        "thinking": {"type": "disabled"}, "temperature": 0, "max_tokens": 100,
-    }).encode()
+    body = json.dumps({**REQUEST_OPTIONS, "messages": messages}).encode()
     req = urllib.request.Request(
         API, data=body,
         headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
@@ -128,7 +133,11 @@ def request(messages, key):
             payload = json.load(response)
         status = 200
     except urllib.error.HTTPError as error:
-        payload = {"error_status": error.code}
+        try:
+            failure = json.load(error)
+        except (ValueError, OSError):
+            failure = {}
+        payload = {"error": failure.get("error", {}), "error_status": error.code}
         status = error.code
     return status, payload, round(time.monotonic() - started, 3)
 
@@ -168,15 +177,17 @@ def main():
                 messages[0]["content"] = f"Experiment {args.seed}:{arm}. " + POLICY
                 row = {
                     "case": i, "arm": arm, "order": order, "expected": expected,
-                    "request": {"model": "glm-4.7", "messages": messages},
+                    "request": {**REQUEST_OPTIONS, "messages": messages},
                 }
                 if args.live:
                     status, payload, duration = request(messages, key)
                     row.update({"http_status": status, "elapsed_seconds": duration,
                                 "usage": payload.get("usage"),
-                                "answer": payload.get("choices", [{}])[0].get("message", {}).get("content")})
+                                "answer": payload.get("choices", [{}])[0].get("message", {}).get("content"),
+                                "finish_reason": payload.get("choices", [{}])[0].get("finish_reason"),
+                                "error": payload.get("error")})
                     try:
-                        answer = row["answer"].strip()
+                        answer = (row["answer"] or "").strip()
                         if answer.startswith("```"):
                             answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
                         row["correct"] = json.loads(answer) == expected

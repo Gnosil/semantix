@@ -1,4 +1,11 @@
-# Official GLM-4.7 direct comparison — 2026-09-28
+# Superseded GLM-4.7 pilot — 2026-09-28
+
+The requested model is **GLM-5.3-Flash**. The numbers below came from
+GLM-4.7 and must not be presented as GLM-5.3-Flash results. A rerun using
+`glm-5.3-flash` reached the official endpoint, but the provider returned
+HTTP 429, code 1113 (insufficient balance or no available resource pack).
+No valid GLM-5.3-Flash token or quality comparison is available yet. The
+failed request is recorded in `comparison-5.3-flash.jsonl`.
 
 Three synthetic, explicitly managed project-context questions were sent through
 the official `open.bigmodel.cn` chat endpoint. Each task used identical model,
