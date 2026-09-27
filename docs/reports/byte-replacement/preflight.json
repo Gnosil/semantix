@@ -1,0 +1,23 @@
+{
+  "observed_date": "2026-09-27",
+  "endpoint": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+  "request": {
+    "model": "glm-4.7",
+    "messages": [{"role": "user", "content": "Reply with exactly OK."}],
+    "thinking": {"type": "disabled"},
+    "max_tokens": 32,
+    "temperature": 0
+  },
+  "observed_response_fields": {
+    "model": "glm-4.7",
+    "usage": {
+      "completion_tokens": 2,
+      "completion_tokens_details": {"reasoning_tokens": 0},
+      "prompt_tokens": 10,
+      "prompt_tokens_details": {"cached_tokens": 0},
+      "total_tokens": 12
+    },
+    "choices": [{"finish_reason": "stop", "index": 0, "message": {"content": "OK", "role": "assistant"}}]
+  },
+  "scope": "Connectivity and usage-field preflight only, not a savings experiment"
+}
