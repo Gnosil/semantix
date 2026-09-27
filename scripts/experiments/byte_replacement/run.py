@@ -146,7 +146,7 @@ def main():
     injections = render_injections([sample[0] for sample in samples])
     key = getpass.getpass("GLM API key: ") if args.live else ""
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    with args.output.open("w", encoding="utf-8") as report:
+    with args.output.open("w", encoding="utf-8", newline="\n") as report:
         for i, ((source, question, expected), injection) in enumerate(zip(samples, injections)):
             original = [
                 {"role": "system", "content": POLICY},
