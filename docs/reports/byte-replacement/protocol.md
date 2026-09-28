@@ -20,9 +20,16 @@ system instructions or the current user question. This is a small structured
 context experiment; it does not prove arbitrary prose equivalence.
 
 The provenance-aligned report is `comparison-5.3-flash-plan-aligned.jsonl`.
-The earlier Plan report has a mismatched project tag and cannot validate the
-runtime provenance gate. The report records each request, answer and
-provider-reported usage. Compare actual prompt tokens and answer facts first;
+The earlier Plan report has a mismatched project tag. Both live reports render
+the L2 block through Go but construct the D request in Python, so neither
+executes the Go runtime replacement gate; its focused check is separate. The
+report records each request, answer and provider-reported usage. The aligned
+run also used an arm-specific experiment
+prefix in its system message, so it is not a perfectly same-prompt comparison.
+The runner now uses one system message per case across all arms, but its first
+rerun call returned HTTP 429 / code 1302; the one-row attempt is recorded in
+`comparison-5.3-flash-plan-same-prompt-attempt.jsonl`. Compare actual prompt
+tokens and answer facts first;
 Coding Plan point or monetary cost cannot be inferred from tokens alone. Three
 synthetic tasks show the structured replacement route is promising but cannot
 establish production-wide quality or savings. The next step is real Semantix

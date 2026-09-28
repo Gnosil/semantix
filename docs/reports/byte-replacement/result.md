@@ -6,12 +6,14 @@ Each question used the same model, output limit and sampling settings in all
 arms. The policy text was the same, but its experiment prefix included the arm
 name; this small prompt difference means the earlier A/B/D comparison was not
 perfectly controlled. Arm B adds the actual Semantix L2 block rendered by
-`kernel/inject.Injector.BuildHits`; arm D replaces the bounded source context
-with compact JSON retaining every field and value. The nine requests, answers
+`kernel/inject.Injector.BuildHits`; arm D is constructed by the Python runner,
+which compacts the bounded source JSON and omits L2. It does not call the Go
+`buildSamplingRequest` replacement branch. The nine requests, answers
 and provider usage records are in `comparison-5.3-flash-plan-aligned.jsonl`.
 The earlier `comparison-5.3-flash-plan.jsonl` used `project="demo"` in the
-managed message but `project="replacement-experiment"` in L2 provenance, so
-it did not exercise the opt-in runtime replacement gate.
+managed message but `project="replacement-experiment"` in L2 provenance. The
+aligned report fixes that prerequisite, but neither live report exercises the
+Go runtime gate; a separate focused Go check covers that branch.
 
 The runner now uses the same system message for all arms of a case. Its first
 rerun request returned HTTP 429 / code 1302, before any comparable results
