@@ -43,9 +43,6 @@ type Config struct {
 	Mode string
 	// Budget caps the L2 injection block size in bytes (default 4096).
 	Budget int
-	// Placement is "ephemeral" (default) or "persist"; see
-	// config.SemantixConfig.Placement.
-	Placement string
 	// GreyMode controls the grey-zone injection policy: "" / "drop" keeps
 	// the fail-closed default (only zone.Hit slices injected); "audit"
 	// admits grey slices under a separate unverified marker so grey-zone
@@ -171,15 +168,6 @@ func (b *Bridge) Events() kernelevent.Bus {
 
 // Enabled reports whether the kernel is wired in.
 func (b *Bridge) Enabled() bool { return b != nil && b.cfg.Enabled }
-
-// PersistsHistory reports whether strict-mode L2 blocks are embedded in the
-// canonical transcript (placement = "persist") instead of being inserted
-// into each provider request. Shadow and off never persist: they inject
-// nothing, so their requests stay byte-identical to a no-L2 run.
-func (b *Bridge) PersistsHistory() bool {
-	return b.Enabled() && b.mode == RetrievalStrict &&
-		strings.EqualFold(strings.TrimSpace(b.cfg.Placement), "persist")
-}
 
 // RetrievalMode reports the fail-closed effective L2 mode.
 func (b *Bridge) RetrievalMode() RetrievalMode {

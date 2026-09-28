@@ -30,7 +30,7 @@ user:   当前任务（严格交替 provider 会将这两个连续 user 消息�
 
 只有这段固定政策具有 system role。切片正文使用 user role。Bridge 的 `RetrievalDiagnostics.MessageRole` 同步记录为 `user`，避免遥测继续误报旧协议。
 
-消息变换只作用于 provider request 副本（例外：strict 模式下 `placement = "persist"` 把块嵌入本轮 user 消息并写入 canonical transcript，policy 句变为会话常量，熔断改为追加撤回；见 [`harness-l2-persist-placement.md`](harness-l2-persist-placement.md)）：
+消息变换只作用于 provider request 副本：
 
 - 不写回 canonical session；
 - 不把本轮历史伪装成旧对话的用户请求；它只插在当前 user turn 前；

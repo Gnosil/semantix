@@ -239,12 +239,6 @@ func (a *Agent) beginRunTurn(ctx context.Context, input string) (rawInput string
 	if !strings.Contains(input, "<execution-policy") {
 		input = strings.TrimSpace(input) + "\n\n" + policyBlock
 	}
-	// Persist placement: assemble the block before the user message is
-	// stored and embed it at the head of Content, so the canonical
-	// transcript carries it and every later request replays the same bytes
-	// (append-only prefix). RawContent keeps the user's text for titles,
-	// previews and rewind.
-	input = a.persistTurnInjection(ctx, input)
 	userCreatedAt := time.Now().UnixMilli()
 	a.activeTurnCreatedAt.Store(userCreatedAt)
 	rawContent := rawInput
@@ -270,13 +264,37 @@ func (a *Agent) beginRunTurn(ctx context.Context, input string) (rawInput string
 			state.seenTodoProgress[sig] = struct{}{}
 		}
 	}
-	// L2 semantic injection (U8). In ephemeral placement the block is
-	// assembled here, after the user message is stored, and inserted into
-	// each provider request copy; in persist placement it was assembled
-	// before the message was stored and already sits at the head of its
-	// Content (see persistTurnInjection).
-	if !a.turn.injectPersisted {
-		a.assembleTurnInjection(ctx)
+	// L2 semantic injection (U8): assemble the [semantix-reuse] block for
+	// this turn's task on the first user message and lock it for the whole
+	// turn so the injected prefix stays byte-stable across tool rounds
+	// (DeepSeek prefix-cache friendly). Kernel unavailability degrades to
+	// an empty block — the harness never blocks on the kernel.
+	if a.semantix != nil && a.semantix.Enabled() {
+		// Issue #270 step 2: the degrade_inject tier shrinks the injection
+		// (halved block budget) instead of dropping it, so tight budgets still
+		// get some reuse context. Any other action keeps the full injection.
+		var result semantix.InjectResult
+		if a.budgetCtrl != nil && a.budgetCtrl.Action() == sched.BudgetActionDegradeInject {
+			result = a.semantix.InjectDegradedDetailed(ctx, a.turn.turnInput)
+		} else {
+			result = a.semantix.InjectDetailed(ctx, a.turn.turnInput)
+		}
+		state.injectBlock = result.Text
+		state.injectTargets = append([]string(nil), result.Targets...)
+		// U33/H4a reuse panel: capture the kernel's per-turn reuse summary
+		// (hit slices + incremental cost savings + top source sessions)
+		// alongside the injection block. Same soft-degrade contract: a zero
+		// summary hides the panel, never blocks the turn.
+		state.reuse = a.semantix.Reuse(ctx, a.turn.turnInput)
+		if blk := state.injectBlock; blk != "" {
+			detail, _ := json.Marshal(map[string]int{"bytes": len(blk)})
+			a.svc.sink.Emit(event.Event{
+				Kind: event.Notice, Level: event.LevelInfo,
+				Code:   event.NoticeCodeSemantixInject,
+				Text:   fmt.Sprintf("semantix inject: %d bytes", len(blk)),
+				Detail: string(detail),
+			})
+		}
 	}
 	return rawInput, state
 }
@@ -796,56 +814,4 @@ func (a *Agent) unavailableContextualToolCalls(ctx context.Context, calls []prov
 		names = append(names, canonical)
 	}
 	return names
-}
-
-// assembleTurnInjection retrieves this turn's L2 block into a.turn.
-func (a *Agent) assembleTurnInjection(ctx context.Context) {
-	// L2 semantic injection (U8): assemble the [semantix-reuse] block for
-	// this turn's task on the first user message and lock it for the whole
-	// turn so the injected prefix stays byte-stable across tool rounds
-	// (DeepSeek prefix-cache friendly). Kernel unavailability degrades to
-	// an empty block — the harness never blocks on the kernel.
-	if a.semantix != nil && a.semantix.Enabled() {
-		// Issue #270 step 2: the degrade_inject tier shrinks the injection
-		// (halved block budget) instead of dropping it, so tight budgets still
-		// get some reuse context. Any other action keeps the full injection.
-		var result semantix.InjectResult
-		if a.budgetCtrl != nil && a.budgetCtrl.Action() == sched.BudgetActionDegradeInject {
-			result = a.semantix.InjectDegradedDetailed(ctx, a.turn.turnInput)
-		} else {
-			result = a.semantix.InjectDetailed(ctx, a.turn.turnInput)
-		}
-		a.turn.injectBlock = result.Text
-		a.turn.injectTargets = append([]string(nil), result.Targets...)
-		// U33/H4a reuse panel: capture the kernel's per-turn reuse summary
-		// (hit slices + incremental cost savings + top source sessions)
-		// alongside the injection block. Same soft-degrade contract: a zero
-		// summary hides the panel, never blocks the turn.
-		a.turn.reuse = a.semantix.Reuse(ctx, a.turn.turnInput)
-		if blk := a.turn.injectBlock; blk != "" {
-			detail, _ := json.Marshal(map[string]int{"bytes": len(blk)})
-			a.svc.sink.Emit(event.Event{
-				Kind: event.Notice, Level: event.LevelInfo,
-				Code:   event.NoticeCodeSemantixInject,
-				Text:   fmt.Sprintf("semantix inject: %d bytes", len(blk)),
-				Detail: string(detail),
-			})
-		}
-	}
-}
-
-// persistTurnInjection implements placement = "persist": it assembles the
-// turn's block before the user message is stored and returns input with the
-// block at its head. With any other placement, or an empty block, input is
-// returned unchanged.
-func (a *Agent) persistTurnInjection(ctx context.Context, input string) string {
-	if a.semantix == nil || !a.semantix.PersistsHistory() {
-		return input
-	}
-	a.assembleTurnInjection(ctx)
-	a.turn.injectPersisted = true
-	if a.turn.injectBlock == "" {
-		return input
-	}
-	return a.turn.injectBlock + "\n\n" + input
 }
