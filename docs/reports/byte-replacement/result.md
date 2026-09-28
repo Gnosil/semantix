@@ -27,7 +27,13 @@ A separate `run_runtime.py` now captures A/B/D requests through actual
 three-case dry run confirmed all nine request shapes, including strict L2 and
 the Go replacement branch, with the same system message and current question
 within each case. No live model result has been collected from these captured
-requests yet.
+requests yet. The current Go branch preserves the slice provenance in a short
+reference while omitting the duplicate body; the earlier 56.8% token figure
+was measured on the Python arm that removed the entire L2 block, so it is not
+an estimate for this revised runtime behavior. Across the three dry-run cases,
+the captured message content totals 6,081 bytes in strict mode and 4,154
+bytes in replace mode (**31.7% fewer bytes**); off mode totals 3,476 bytes.
+These are UTF-8 request-content bytes, not provider token counts or charges.
 
 | Arm | Correct | Prompt | Cached prompt | Noncached prompt | Completion | Total |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |

@@ -39,8 +39,9 @@ The opt-in runtime mode `semantix.mode = "replace"` handles only a single
 admitted Context slice whose content exactly matches one earlier, uniquely
 bounded `<semantix-managed-context project="..." revision="...">` user
 message. Its project and revision must match the slice provenance. It removes
-insignificant whitespace from the JSON object and omits the duplicate L2
-block in the provider request copy; the saved message is untouched. All
+insignificant whitespace from the JSON object and replaces the duplicate L2
+body with a short reference that retains the original slice provenance in the
+provider request copy; the saved message is untouched. All
 other cases retain the existing injection behavior.
 
 `scripts/experiments/byte_replacement/run_runtime.py` is the next live
@@ -49,7 +50,7 @@ admitted L2 slice per case, runs the real agent with a recording provider in
 `off`, `strict`, and `replace` modes, and passes those captured provider
 messages to GLM. A three-case dry run produced all nine requests and checked
 identical system/current messages across arms, unchanged source in A/B, and
-the expected strict L2 versus replacement difference. No model quality or
+the expected full L2 versus provenance-only reference difference. No model quality or
 cost result exists yet for this runtime-captured comparison.
 
 The earlier GLM-4.7 preflight established connectivity only; its model differs

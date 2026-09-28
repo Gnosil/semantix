@@ -103,9 +103,12 @@ func TestManagedContextReplacementKeepsTranscriptAndFallsBack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(prepared.req.Messages) != 3 ||
+	if len(prepared.req.Messages) != 4 ||
 		prepared.req.Messages[1].Content != `<semantix-managed-context project="demo" revision="v1">{"release_channel":"stable"}</semantix-managed-context>` ||
-		prepared.req.Messages[2].Content != "Which release channel?" ||
+		!strings.Contains(prepared.req.Messages[2].Content, `source="session"`) ||
+		!strings.Contains(prepared.req.Messages[2].Content, "content=earlier managed context user message") ||
+		strings.Contains(prepared.req.Messages[2].Content, "release_channel") ||
+		prepared.req.Messages[3].Content != "Which release channel?" ||
 		strings.Contains(prepared.req.Messages[0].Content, "semantix-reuse") ||
 		!strings.Contains(prepared.req.Messages[0].Content, semantixHistoryPolicy) ||
 		sess.Messages[1].Content != source {
