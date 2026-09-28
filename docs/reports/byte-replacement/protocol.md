@@ -25,6 +25,14 @@ cost cannot be inferred from tokens alone. Three synthetic tasks show the
 structured replacement route is promising but cannot establish production-wide
 quality or savings. The next step is real Semantix workloads.
 
+The opt-in runtime mode `semantix.mode = "replace"` handles only a single
+admitted Context slice whose content exactly matches one earlier, uniquely
+bounded `<semantix-managed-context project="..." revision="...">` user
+message. Its project and revision must match the slice provenance. It removes
+insignificant whitespace from the JSON object and omits the duplicate L2
+block in the provider request copy; the saved message is untouched. All
+other cases retain the existing injection behavior.
+
 The earlier GLM-4.7 preflight established connectivity only; its model differs
 from the requested GLM-5.3-Flash. The GLM-5.3-Flash attempt on the ordinary
 API returned HTTP 429, code 1113. The user's remaining quota is for GLM Coding

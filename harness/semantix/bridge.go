@@ -38,7 +38,7 @@ type Config struct {
 	Binary string
 	// Inject adds the [semantix-reuse] block as untrusted user-role history.
 	Inject bool
-	// Mode controls L2 retrieval: off | shadow | strict. Empty preserves the
+	// Mode controls L2 retrieval: off | shadow | strict | replace. Empty preserves the
 	// legacy Inject boolean; an explicit value takes precedence.
 	Mode string
 	// Budget caps the L2 injection block size in bytes (default 4096).
@@ -93,9 +93,10 @@ type Bridge struct {
 type RetrievalMode string
 
 const (
-	RetrievalOff    RetrievalMode = "off"
-	RetrievalShadow RetrievalMode = "shadow"
-	RetrievalStrict RetrievalMode = "strict"
+	RetrievalOff     RetrievalMode = "off"
+	RetrievalShadow  RetrievalMode = "shadow"
+	RetrievalStrict  RetrievalMode = "strict"
+	RetrievalReplace RetrievalMode = "replace"
 )
 
 var strictAllowedTypes = map[slice.SliceType]bool{
@@ -132,6 +133,8 @@ func resolveRetrievalMode(cfg Config) RetrievalMode {
 		return RetrievalShadow
 	case string(RetrievalStrict):
 		return RetrievalStrict
+	case string(RetrievalReplace):
+		return RetrievalReplace
 	default:
 		return RetrievalOff
 	}
@@ -180,7 +183,7 @@ func (b *Bridge) RetrievalMode() RetrievalMode {
 // InjectEnabled reports whether L2 injection is wired on (used to decide
 // whether speculative prefetch warm-up is worth starting).
 func (b *Bridge) InjectEnabled() bool {
-	return b != nil && b.Enabled() && b.mode == RetrievalStrict
+	return b != nil && b.Enabled() && (b.mode == RetrievalStrict || b.mode == RetrievalReplace)
 }
 
 // Sink wraps inner so every event is also mirrored into the kernel session

@@ -523,7 +523,7 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	fmt.Fprintf(&b, "enabled = %v\n", c.Semantix.Enabled)
 	fmt.Fprintf(&b, "inject  = %v\n", c.Semantix.Inject)
 	if c.Semantix.Mode != "" {
-		fmt.Fprintf(&b, "mode    = %q   # off | shadow | strict\n", c.Semantix.Mode)
+		fmt.Fprintf(&b, "mode    = %q   # off | shadow | strict | replace\n", c.Semantix.Mode)
 	} else {
 		b.WriteString("# mode    = \"shadow\"   # observe retrieval without provider injection\n")
 	}
