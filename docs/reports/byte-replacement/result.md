@@ -61,6 +61,16 @@ that corpus. A broader replacement must first locate an admitted slice that
 duplicates provider-visible content and preserve its untrusted provenance;
 otherwise the existing injection should remain.
 
+The repository's `harness/agent/memory_flow_e2e_test.go` exercises the real
+agent request path with verified history from earlier sessions. Its new session
+does not contain the historical command in the `off` or `shadow` provider
+request; `strict` adds that knowledge through L2. Thus a blanket removal of
+L2 would lose information in this concrete workflow. Replacement can preserve
+the available facts only when the provider request already holds the same
+source content, or when a shorter host-owned representation demonstrably
+retains what the task needs. The controlled JSON case establishes only the
+first, explicitly constructed condition.
+
 ## Earlier GLM-4.7 pilot
 
 The numbers below came from GLM-4.7 and must not be presented as
