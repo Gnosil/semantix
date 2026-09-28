@@ -138,7 +138,7 @@ func (a *Agent) buildSamplingRequest(ctx context.Context, trigger string) (sampl
 	if block != "" {
 		if a.semantix != nil && a.semantix.RetrievalMode() == semantix.RetrievalReplace {
 			if replaced, ok := replaceManagedSemantixContext(requestMessages, block); ok {
-				requestMessages = replaced
+				requestMessages = prependSemantixHistory(replaced, "")
 			} else {
 				requestMessages = prependSemantixHistory(requestMessages, block)
 			}
@@ -319,6 +319,9 @@ func prependSemantixHistory(msgs []provider.Message, block string) []provider.Me
 		}
 	} else if !strings.Contains(out[systemIndex].Content, semantixHistoryPolicy) {
 		out[systemIndex].Content = strings.TrimRight(out[systemIndex].Content, "\n") + "\n\n" + semantixHistoryPolicy
+	}
+	if block == "" {
+		return out
 	}
 
 	history := provider.Message{Role: provider.RoleUser, Content: block}

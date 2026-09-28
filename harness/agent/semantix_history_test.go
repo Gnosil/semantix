@@ -107,6 +107,7 @@ func TestManagedContextReplacementKeepsTranscriptAndFallsBack(t *testing.T) {
 		prepared.req.Messages[1].Content != `<semantix-managed-context project="demo" revision="v1">{"release_channel":"stable"}</semantix-managed-context>` ||
 		prepared.req.Messages[2].Content != "Which release channel?" ||
 		strings.Contains(prepared.req.Messages[0].Content, "semantix-reuse") ||
+		!strings.Contains(prepared.req.Messages[0].Content, semantixHistoryPolicy) ||
 		sess.Messages[1].Content != source {
 		t.Fatalf("replacement changed the wrong context: %+v", prepared.req.Messages)
 	}
