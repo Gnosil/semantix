@@ -583,8 +583,8 @@ func anthropicToOpenAIResponse(body []byte, model string) ([]byte, error) {
 		"completion_tokens": a.Usage.OutputTokens,
 		"total_tokens":      prompt + a.Usage.OutputTokens,
 	}
-	if a.Usage.CacheReadInputTokens > 0 {
-		usage["prompt_tokens_details"] = map[string]any{"cached_tokens": a.Usage.CacheReadInputTokens}
+	if details := cacheDetails(int64(a.Usage.CacheReadInputTokens), int64(a.Usage.CacheCreationInputTokens)); details != nil {
+		usage["prompt_tokens_details"] = details
 	}
 	out := map[string]any{
 		"id":      a.ID,
@@ -603,6 +603,21 @@ func anthropicToOpenAIResponse(body []byte, model string) ([]byte, error) {
 		return nil, fmt.Errorf("marshal openai response: %w", err)
 	}
 	return raw, nil
+}
+
+// cacheDetails renders the OpenAI-shape prompt_tokens_details for translated
+// Anthropic usage: cached_tokens (reads) plus the semantix extension
+// cache_creation_tokens (writes). nil when both are zero, so responses
+// without cache activity keep their pre-existing shape.
+func cacheDetails(read, write int64) map[string]any {
+	if read == 0 && write == 0 {
+		return nil
+	}
+	d := map[string]any{"cached_tokens": read}
+	if write > 0 {
+		d["cache_creation_tokens"] = write
+	}
+	return d
 }
 
 // anthropicStopReason maps Anthropic stop_reason to OpenAI finish_reason
@@ -806,8 +821,8 @@ func (c *anthropicSSEConverter) writeUsageChunk() {
 		"completion_tokens": nu.Completion,
 		"total_tokens":      nu.Prompt + nu.Completion,
 	}
-	if nu.CacheHit > 0 {
-		usage["prompt_tokens_details"] = map[string]any{"cached_tokens": nu.CacheHit}
+	if details := cacheDetails(nu.CacheHit, nu.CacheWrite); details != nil {
+		usage["prompt_tokens_details"] = details
 	}
 	evt := map[string]any{
 		"id":      c.id,
@@ -988,6 +1003,7 @@ func (g *Gateway) streamThroughAnthropic(w http.ResponseWriter, resp *http.Respo
 		ev.TokensIn = nu.Prompt
 		ev.TokensOut = nu.Completion
 		ev.CacheHitToken = nu.CacheHit
+		ev.CacheWriteToken = nu.CacheWrite
 		ev.Exact = true
 	}
 	g.recordUsage(ev)

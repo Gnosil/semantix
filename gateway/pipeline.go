@@ -400,6 +400,7 @@ func (g *Gateway) passthrough(w http.ResponseWriter, resp *http.Response, sessio
 		ev.TokensIn = nu.Prompt
 		ev.TokensOut = nu.Completion
 		ev.CacheHitToken = nu.CacheHit
+		ev.CacheWriteToken = nu.CacheWrite
 		ev.Exact = true
 	}
 	g.recordUsage(ev)
@@ -499,6 +500,7 @@ func (g *Gateway) streamThrough(w http.ResponseWriter, resp *http.Response, sess
 		ev.TokensIn = nu.Prompt
 		ev.TokensOut = nu.Completion
 		ev.CacheHitToken = nu.CacheHit
+		ev.CacheWriteToken = nu.CacheWrite
 		ev.Exact = true
 	}
 	g.recordUsage(ev)
