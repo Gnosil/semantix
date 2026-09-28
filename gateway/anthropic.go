@@ -211,7 +211,9 @@ func splitSystem(messages []chatMessage) (system string, out []anthropicMessage)
 	var sys []string
 	for _, m := range messages {
 		if m.Role == "system" {
-			if t := textParts(m.Content); t != "" {
+			// Whitespace-only system text is dropped: the API rejects blank
+			// text blocks, and BP1 must not land on one.
+			if t := textParts(m.Content); strings.TrimSpace(t) != "" {
 				sys = append(sys, t)
 			}
 			continue
@@ -230,7 +232,12 @@ func splitSystem(messages []chatMessage) (system string, out []anthropicMessage)
 				blocks = append([]anthropicBlock{{Type: "thinking", Thinking: m.ReasoningContent}}, blocks...)
 			}
 		case "tool":
-			tr := anthropicBlock{Type: "tool_result", ToolUseID: m.ToolCallID, Content: textParts(m.Content)}
+			tr := anthropicBlock{Type: "tool_result", ToolUseID: m.ToolCallID}
+			// An empty output omits content (a non-nil "" interface would
+			// survive omitempty and ship an empty text body).
+			if out := textParts(m.Content); out != "" {
+				tr.Content = out
+			}
 			// tool results must ride on a user message that follows the
 			// tool_use; merge consecutive results into one user message.
 			if len(out) > 0 && out[len(out)-1].Role == "user" {
@@ -361,22 +368,24 @@ func mapTools(tools []openAITool) []anthropicTool {
 	return out
 }
 
-// mapToolChoice converts the OpenAI tool_choice value to Anthropic's:
-// auto/auto, none/none, required/any, {function:{name}} -> {type:"tool"}.
+// mapToolChoice converts the OpenAI tool_choice value to Anthropic's
+// object form: auto -> {type:"auto"}, none -> {type:"none"}, required ->
+// {type:"any"}, {function:{name}} -> {type:"tool",name}. The Messages API
+// only accepts objects here; a bare string ("auto") is a 400.
 func mapToolChoice(tc any, nTools int) any {
 	if tc == nil {
 		if nTools == 0 {
 			return nil
 		}
-		return "auto"
+		return map[string]any{"type": "auto"}
 	}
 	switch v := tc.(type) {
 	case string:
 		switch v {
 		case "auto", "none":
-			return v
+			return map[string]any{"type": v}
 		case "required":
-			return "any"
+			return map[string]any{"type": "any"}
 		}
 	case map[string]any:
 		if fn, ok := v["function"].(map[string]any); ok {

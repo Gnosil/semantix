@@ -81,8 +81,8 @@ func TestToAnthropicRequestToolCalls(t *testing.T) {
 	if len(req.Tools) != 1 || req.Tools[0].Name != "read_file" {
 		t.Fatalf("tools = %#v", req.Tools)
 	}
-	if req.ToolChoice != "auto" {
-		t.Errorf("tool_choice = %v, want auto", req.ToolChoice)
+	if tc, _ := req.ToolChoice.(map[string]any); tc["type"] != "auto" {
+		t.Errorf("tool_choice = %#v, want object {type:auto} (bare strings are a 400)", req.ToolChoice)
 	}
 	// user, assistant(tool_use), user(tool_result) — tool result rides on a
 	// user message, adjacent user messages merged

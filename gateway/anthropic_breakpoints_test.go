@@ -138,6 +138,13 @@ func TestP0ABreakpointPlacementTable(t *testing.T) {
 			system: "blocks:1",
 		},
 		{
+			name:   "whitespace-only system is dropped, never marked",
+			body:   `{"model":"c","messages":[{"role":"system","content":"  \n "},{"role":"user","content":"hi"}]}`,
+			up:     anthropicUp,
+			want:   []string{"messages[0].content[0]:text"},
+			system: "",
+		},
+		{
 			name: "strip_cache_control: zero markers, plain string system",
 			body: `{"model":"c","messages":[{"role":"system","content":"sys"},{"role":"user","content":"hi"}]}`,
 			inj:  p0aInjection(),
@@ -210,18 +217,34 @@ func TestP0AStaticPrefixStableAcrossBlocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Everything up to the end of the BP1 block must be byte-identical.
-	marker := []byte(`"cache_control":{"type":"ephemeral"}}`)
-	ia := bytes.Index(rawA, marker)
-	ib := bytes.Index(rawB, marker)
-	if ia < 0 || ib < 0 {
-		t.Fatalf("BP1 marker missing: %s\n%s", rawA, rawB)
+	// The provider renders tools -> system -> messages, so the cache-relevant
+	// static prefix is tools + system[0]; Go's marshal order (messages
+	// first) is irrelevant. Compare those fields directly.
+	type wire struct {
+		Tools  json.RawMessage   `json:"tools"`
+		System []json.RawMessage `json:"system"`
 	}
-	if !bytes.Equal(rawA[:ia+len(marker)], rawB[:ib+len(marker)]) {
-		t.Errorf("static prefix differs between requests with different L2 blocks:\n%s\n%s", rawA[:ia+len(marker)], rawB[:ib+len(marker)])
+	var wa, wb wire
+	if err := json.Unmarshal(rawA, &wa); err != nil {
+		t.Fatal(err)
 	}
-	if bytes.Equal(rawA, rawB) {
-		t.Fatal("test is vacuous: the two requests are identical")
+	if err := json.Unmarshal(rawB, &wb); err != nil {
+		t.Fatal(err)
+	}
+	if len(wa.System) != 2 || len(wb.System) != 2 {
+		t.Fatalf("system must be [static, l2]: %s\n%s", rawA, rawB)
+	}
+	if !bytes.Equal(wa.Tools, wb.Tools) {
+		t.Errorf("tools differ between requests with different L2 blocks")
+	}
+	if !bytes.Equal(wa.System[0], wb.System[0]) || !bytes.Contains(wa.System[0], []byte(`"cache_control"`)) {
+		t.Errorf("system[0] (BP1) must be byte-identical and marked:\n%s\n%s", wa.System[0], wb.System[0])
+	}
+	if bytes.Equal(wa.System[1], wb.System[1]) {
+		t.Fatal("test is vacuous: the two L2 blocks are identical")
+	}
+	if bytes.Contains(wa.System[1], []byte(`"cache_control"`)) {
+		t.Errorf("L2 block must not carry a marker: %s", wa.System[1])
 	}
 }
 
@@ -295,5 +318,52 @@ func TestP0ACacheBreakpointsConfigValidation(t *testing.T) {
 	}}
 	if err := c.validate(); err == nil || !strings.Contains(err.Error(), "cache_breakpoints") {
 		t.Errorf("invalid cache_breakpoints must be rejected, got %v", err)
+	}
+}
+
+// TestP0AEmptyToolResultOmitsContent: an empty tool output omits content
+// rather than shipping "content":"".
+func TestP0AEmptyToolResultOmitsContent(t *testing.T) {
+	body := `{"model":"c","messages":[
+		{"role":"user","content":"go"},
+		{"role":"assistant","content":"","tool_calls":[{"id":"c1","type":"function","function":{"name":"f","arguments":"{}"}}]},
+		{"role":"tool","tool_call_id":"c1","content":""}]}`
+	raw, err := toAnthropicRequest([]byte(body), anthropicUp(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var w struct {
+		Messages []struct {
+			Content []map[string]any `json:"content"`
+		} `json:"messages"`
+	}
+	if err := json.Unmarshal(raw, &w); err != nil {
+		t.Fatal(err)
+	}
+	tr := w.Messages[2].Content[0]
+	if tr["type"] != "tool_result" {
+		t.Fatalf("want tool_result, got %#v", tr)
+	}
+	if _, has := tr["content"]; has {
+		t.Errorf("empty tool output must omit content: %#v", tr)
+	}
+}
+
+// TestP0AToolChoiceObjectForm: tool_choice is always an object on the wire.
+func TestP0AToolChoiceObjectForm(t *testing.T) {
+	for in, want := range map[string]string{`"auto"`: "auto", `"none"`: "none", `"required"`: "any", `null`: "auto"} {
+		body := `{"model":"c",` + p0aTools + `,"tool_choice":` + in + `,"messages":[{"role":"user","content":"hi"}]}`
+		raw, err := toAnthropicRequest([]byte(body), anthropicUp(), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var w struct {
+			ToolChoice json.RawMessage `json:"tool_choice"`
+		}
+		_ = json.Unmarshal(raw, &w)
+		var obj map[string]any
+		if err := json.Unmarshal(w.ToolChoice, &obj); err != nil || obj["type"] != want {
+			t.Errorf("tool_choice %s -> %s, want object {type:%q}", in, w.ToolChoice, want)
+		}
 	}
 }
