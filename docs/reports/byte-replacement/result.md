@@ -6,28 +6,32 @@ Each question used the same model, system policy, output limit and sampling
 settings in all arms. Arm B adds the actual Semantix L2 block rendered by
 `kernel/inject.Injector.BuildHits`; arm D replaces the bounded source context
 with compact JSON retaining every field and value. The nine requests, answers
-and provider usage records are in `comparison-5.3-flash-plan.jsonl`.
+and provider usage records are in `comparison-5.3-flash-plan-aligned.jsonl`.
+The earlier `comparison-5.3-flash-plan.jsonl` used `project="demo"` in the
+managed message but `project="replacement-experiment"` in L2 provenance, so
+it did not exercise the opt-in runtime replacement gate.
 
 | Arm | Correct | Prompt | Cached prompt | Noncached prompt | Completion | Total |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| A original context | 3/3 | 640 | 256 | 384 | 357 | 997 |
-| B original + L2 injection | 3/3 | 1241 | 448 | 793 | 480 | 1721 |
-| D replacement | 3/3 | 533 | 128 | 405 | 409 | 942 |
+| A original context | 3/3 | 646 | 64 | 582 | 304 | 950 |
+| B original + L2 injection | 3/3 | 1253 | 64 | 1189 | 354 | 1607 |
+| D replacement | 3/3 | 541 | 64 | 477 | 326 | 867 |
 
-D used **57.1% fewer provider-reported input tokens than B** and **16.7%
-fewer than A**. Total input plus output tokens fell 45.3% versus B. The
-cached and noncached input counts and completion count also each fell versus
-B. The provider did not report a monetary charge or Coding Plan point cost,
+D used **56.8% fewer provider-reported input tokens than B** and **16.3%
+fewer than A**. Total input plus output tokens fell 46.0% versus B. The
+noncached input and completion counts also fell versus B; cached input was
+equal. The provider did not report a monetary charge or Coding Plan point cost,
 so this report does not claim a measured currency or plan-quota saving. Under
 the same nonnegative per-token rates by category, D's aggregate charge would
 be lower than B's; no such conclusion follows versus A because D used more
-noncached input and completion tokens than A.
+completion tokens than A.
 
 This is one small structured-context run, not proof that arbitrary prose,
 tool outputs, conflicting facts or multi-turn tasks retain their behavior.
-The runner does not change Semantix production request assembly. A real
-replacement path still needs a managed source block and fail-open handling at
-`context.prepare`, with the saved transcript unchanged.
+The runner does not execute an ordinary Semantix agent session. PR #518 adds a
+provider-request replacement path for a matching managed source block, but
+no production source currently emits that block automatically. The saved
+transcript remains unchanged.
 
 The earlier attempt on the ordinary API endpoint returned HTTP 429 / code
 1113; its failed request remains in `comparison-5.3-flash.jsonl`. GLM Coding

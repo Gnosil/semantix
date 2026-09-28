@@ -1,6 +1,6 @@
 # Byte replacement experiment
 
-Status: research in progress, based on Semantix main `f527fd7`.
+Status: research in progress; runtime prototype in PR #518.
 
 The existing agent appends L2 content before the latest user message; it does
 not remove original context. `kernel/inject.Injector.BuildHits` supplies the
@@ -19,11 +19,14 @@ unknown fields. Invalid or ambiguous blocks are left unchanged. It never edits
 system instructions or the current user question. This is a small structured
 context experiment; it does not prove arbitrary prose equivalence.
 
-The report records each request, answer and provider-reported usage. Compare
-actual prompt tokens and answer facts first; Coding Plan point or monetary
-cost cannot be inferred from tokens alone. Three synthetic tasks show the
-structured replacement route is promising but cannot establish production-wide
-quality or savings. The next step is real Semantix workloads.
+The provenance-aligned report is `comparison-5.3-flash-plan-aligned.jsonl`.
+The earlier Plan report has a mismatched project tag and cannot validate the
+runtime provenance gate. The report records each request, answer and
+provider-reported usage. Compare actual prompt tokens and answer facts first;
+Coding Plan point or monetary cost cannot be inferred from tokens alone. Three
+synthetic tasks show the structured replacement route is promising but cannot
+establish production-wide quality or savings. The next step is real Semantix
+workloads.
 
 The opt-in runtime mode `semantix.mode = "replace"` handles only a single
 admitted Context slice whose content exactly matches one earlier, uniquely
