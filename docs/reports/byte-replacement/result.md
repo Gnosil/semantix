@@ -22,6 +22,13 @@ were collected; the one-row attempt is in
 still reports the earlier arm-labeled run and should not be treated as a
 same-prompt result.
 
+A separate `run_runtime.py` now captures A/B/D requests through actual
+`Agent.Run` calls with a recording provider before sending them to GLM. Its
+three-case dry run confirmed all nine request shapes, including strict L2 and
+the Go replacement branch, with the same system message and current question
+within each case. No live model result has been collected from these captured
+requests yet.
+
 | Arm | Correct | Prompt | Cached prompt | Noncached prompt | Completion | Total |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | A original context | 3/3 | 646 | 64 | 582 | 304 | 950 |

@@ -43,6 +43,15 @@ insignificant whitespace from the JSON object and omits the duplicate L2
 block in the provider request copy; the saved message is untouched. All
 other cases retain the existing injection behavior.
 
+`scripts/experiments/byte_replacement/run_runtime.py` is the next live
+comparison entry point. Its Go helper creates an isolated Git project and one
+admitted L2 slice per case, runs the real agent with a recording provider in
+`off`, `strict`, and `replace` modes, and passes those captured provider
+messages to GLM. A three-case dry run produced all nine requests and checked
+identical system/current messages across arms, unchanged source in A/B, and
+the expected strict L2 versus replacement difference. No model quality or
+cost result exists yet for this runtime-captured comparison.
+
 The earlier GLM-4.7 preflight established connectivity only; its model differs
 from the requested GLM-5.3-Flash. The GLM-5.3-Flash attempt on the ordinary
 API returned HTTP 429, code 1113. The user's remaining quota is for GLM Coding
