@@ -138,6 +138,16 @@ source content, or when a shorter host-owned representation demonstrably
 retains what the task needs. The controlled JSON case establishes only the
 first, explicitly constructed condition.
 
+The agent already has a separate checkpoint replacement path:
+`compactToProjection` folds older assistant/tool messages into a structured
+summary while keeping selected user turns and the recent tail, then accepts
+the projection only if it reduces estimated tokens. Its summary prompt asks
+for standing constraints, decisions, edits, errors and pending work.
+`slice.Distill` cards capture narrower repo operations, plan stages and task
+outcomes, so substituting one card for an arbitrary compaction fold would not
+preserve those fields by construction. Reusing the existing checkpoint
+machinery would require a completeness check on real continuation tasks.
+
 ## Earlier GLM-4.7 pilot
 
 The numbers below came from GLM-4.7 and must not be presented as
