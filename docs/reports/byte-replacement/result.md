@@ -108,6 +108,10 @@ were marked verified by the current extraction rule, so none would pass the
 current L2 Result admission gate. None of the 42,491 rows contained the
 `verification` or `workspace_mutation` host fields; the zero verified count
 reflects missing host evidence, not proof that no task ran a successful test.
+Broadening the comparison from whole-message equality to an exact substring
+anywhere in a non-system message did not add hits: Context remained 0/537 and
+Result remained 394/404. This is still only an offline opportunity count,
+not a provider-request or admitted-L2 hit rate.
 No managed-context marker occurred in any message. The corpus uses an older
 model and session format, not GLM-5.3-Flash, and does not establish answer
 quality or cost.

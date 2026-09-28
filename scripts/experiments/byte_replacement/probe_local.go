@@ -20,6 +20,7 @@ func main() {
 		panic("usage: go run probe_local.go <session-root>")
 	}
 	total, skipped, contextCount, contextMatch, resultCount, resultMatch := 0, 0, 0, 0, 0, 0
+	contextContained, resultContained, verifiedContained := 0, 0, 0
 	verifiedResult, verifiedExact := 0, 0
 	verificationFields, mutationFields := 0, 0
 	err := filepath.WalkDir(os.Args[1], func(path string, entry fs.DirEntry, err error) error {
@@ -67,15 +68,25 @@ func main() {
 				if slices.Contains(messages, string(item.Content)) {
 					contextMatch++
 				}
+				if containsMessage(messages, string(item.Content)) {
+					contextContained++
+				}
 			case slice.Result:
 				resultCount++
 				if slices.Contains(messages, string(item.Content)) {
 					resultMatch++
 				}
+				contained := containsMessage(messages, string(item.Content))
+				if contained {
+					resultContained++
+				}
 				if item.Meta.EffectiveResultStatus() == slice.ResultStatusVerified {
 					verifiedResult++
 					if slices.Contains(messages, string(item.Content)) {
 						verifiedExact++
+					}
+					if contained {
+						verifiedContained++
 					}
 				}
 			}
@@ -85,5 +96,17 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("sessions=%d skipped=%d context=%d context_exact=%d result=%d result_exact=%d verified_result=%d verified_exact=%d verification_fields=%d mutation_fields=%d\n", total, skipped, contextCount, contextMatch, resultCount, resultMatch, verifiedResult, verifiedExact, verificationFields, mutationFields)
+	fmt.Printf("sessions=%d skipped=%d context=%d context_exact=%d context_contained=%d result=%d result_exact=%d result_contained=%d verified_result=%d verified_exact=%d verified_contained=%d verification_fields=%d mutation_fields=%d\n", total, skipped, contextCount, contextMatch, contextContained, resultCount, resultMatch, resultContained, verifiedResult, verifiedExact, verifiedContained, verificationFields, mutationFields)
+}
+
+func containsMessage(messages []string, content string) bool {
+	if content == "" {
+		return false
+	}
+	for _, message := range messages {
+		if strings.Contains(message, content) {
+			return true
+		}
+	}
+	return false
 }
