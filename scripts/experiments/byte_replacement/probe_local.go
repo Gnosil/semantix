@@ -96,6 +96,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	if total == 0 {
+		panic("no matching session mirrors")
+	}
 	fmt.Printf("sessions=%d skipped=%d context=%d context_exact=%d context_contained=%d result=%d result_exact=%d result_contained=%d verified_result=%d verified_exact=%d verified_contained=%d verification_fields=%d mutation_fields=%d\n", total, skipped, contextCount, contextMatch, contextContained, resultCount, resultMatch, resultContained, verifiedResult, verifiedExact, verifiedContained, verificationFields, mutationFields)
 }
 
