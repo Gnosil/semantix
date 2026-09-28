@@ -173,7 +173,7 @@ def main():
             random.Random(args.seed + i).shuffle(order)
             for arm in order:
                 messages = copy.deepcopy(arms[arm])
-                messages[0]["content"] = f"Experiment {args.seed}:{arm}. " + POLICY
+                messages[0]["content"] = f"Experiment {args.seed}:{i}. " + POLICY
                 row = {
                     "case": i, "arm": arm, "order": order, "expected": expected,
                     "endpoint": API,
