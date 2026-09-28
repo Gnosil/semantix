@@ -26,9 +26,11 @@ whether this route is promising but cannot establish production-wide quality or
 savings. Only expand to real Semantix workloads if the direct comparison works.
 
 The earlier GLM-4.7 preflight established connectivity only; its model differs
-from the requested GLM-5.3-Flash. The GLM-5.3-Flash attempt returned HTTP 429,
-code 1113 (insufficient balance or no available resource pack). Its comparison
-is pending account resources. The credential was read via a no-echo prompt
+from the requested GLM-5.3-Flash. The GLM-5.3-Flash attempt on the ordinary
+API returned HTTP 429, code 1113. The user's remaining quota is for GLM Coding
+Plan, whose endpoint and supported-tool scope are separate. Its comparison is
+pending ordinary API resources. The credential was read via a no-echo prompt
 and was not saved.
 
 Official endpoint: https://docs.bigmodel.cn/cn/guide/develop/http/introduction
+Coding Plan endpoint and scope: https://docs.bigmodel.cn/cn/coding-plan/quick-start

@@ -2,10 +2,12 @@
 
 The requested model is **GLM-5.3-Flash**. The numbers below came from
 GLM-4.7 and must not be presented as GLM-5.3-Flash results. A rerun using
-`glm-5.3-flash` reached the official endpoint, but the provider returned
-HTTP 429, code 1113 (insufficient balance or no available resource pack).
-No valid GLM-5.3-Flash token or quality comparison is available yet. The
-failed request is recorded in `comparison-5.3-flash.jsonl`.
+`glm-5.3-flash` reached the ordinary API endpoint, but the provider returned
+HTTP 429, code 1113. The available balance the user confirmed is for GLM
+Coding Plan, which has a separate endpoint and is limited to supported tools;
+it does not establish ordinary API credit for this experiment. No valid
+GLM-5.3-Flash token or quality comparison is available yet. The failed
+request is recorded in `comparison-5.3-flash.jsonl`.
 
 Three synthetic, explicitly managed project-context questions were sent through
 the official `open.bigmodel.cn` chat endpoint. Each task used identical model,
@@ -39,3 +41,5 @@ and a fail-open path at `context.prepare`, with the original transcript kept.
 
 Pricing snapshot: `docs/reports/glm-spike-week.md` (section 4). Official API
 reference: https://docs.bigmodel.cn/cn/guide/develop/http/introduction.
+Coding Plan endpoint and tool scope:
+https://docs.bigmodel.cn/cn/coding-plan/quick-start.
