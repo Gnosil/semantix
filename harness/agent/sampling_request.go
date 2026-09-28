@@ -27,10 +27,14 @@ func (a *Agent) streamProviderRequest(ctx context.Context, req provider.Request)
 	if err == nil && ch != nil && a.semantix != nil && !a.turn.injectionDelivered && a.turn.injectBlock != "" {
 		// Interceptors/budget/projection can discard or replace an assembled
 		// block. Attribute only the host-owned block still in final user input.
+		delivered := a.turn.injectBlock
+		if a.turn.injectReference != "" {
+			delivered = a.turn.injectReference
+		}
 		for _, msg := range provider.ModelMessages(req.Messages) {
-			if msg.Role == provider.RoleUser && strings.Contains(msg.Content, a.turn.injectBlock) {
+			if msg.Role == provider.RoleUser && strings.Contains(msg.Content, delivered) {
 				a.turn.injectionDelivered = true
-				a.semantix.RecordInjectionDelivery(a.turn.injectTargets, len(a.turn.injectBlock))
+				a.semantix.RecordInjectionDelivery(a.turn.injectTargets, len(delivered))
 				break
 			}
 		}
@@ -124,6 +128,7 @@ func (a *Agent) buildSamplingRequest(ctx context.Context, trigger string) (sampl
 	// When the synchronous injection missed (kernel timeout on turn start),
 	// fall back to the block warmed during LLM wait time (N12 prefetch).
 	block := a.turn.injectBlock
+	a.turn.injectReference = ""
 	if block != "" {
 		a.wastePrefetch()
 	} else if !a.turn.injectionFused {
@@ -139,6 +144,7 @@ func (a *Agent) buildSamplingRequest(ctx context.Context, trigger string) (sampl
 		if a.semantix != nil && a.semantix.RetrievalMode() == semantix.RetrievalReplace {
 			if replaced, reference, ok := replaceManagedSemantixContext(requestMessages, block); ok {
 				requestMessages = prependSemantixHistory(replaced, reference)
+				a.turn.injectReference = reference
 			} else {
 				requestMessages = prependSemantixHistory(requestMessages, block)
 			}

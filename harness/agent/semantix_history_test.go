@@ -97,8 +97,10 @@ func TestManagedContextReplacementKeepsTranscriptAndFallsBack(t *testing.T) {
 		{Role: provider.RoleUser, Content: "Which release channel?"},
 	}}
 	a := New(&fakeProvider{reply: "ok"}, tool.NewRegistry(), sess, Options{}, event.Discard)
-	a.semantix = semantix.NewBridge(semantix.Config{Enabled: true, Mode: "replace"})
+	a.semantix = semantix.NewBridge(semantix.Config{Enabled: true, Mode: "replace", ProjectDir: t.TempDir()})
+	defer a.semantix.Close()
 	a.turn.injectBlock = block
+	a.turn.injectTargets = []string{"s1"}
 	prepared, err := a.prepareSamplingRequest(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -113,6 +115,9 @@ func TestManagedContextReplacementKeepsTranscriptAndFallsBack(t *testing.T) {
 		!strings.Contains(prepared.req.Messages[0].Content, semantixHistoryPolicy) ||
 		sess.Messages[1].Content != source {
 		t.Fatalf("replacement changed the wrong context: %+v", prepared.req.Messages)
+	}
+	if _, err := a.streamProviderRequest(context.Background(), prepared.req); err != nil || !a.turn.injectionDelivered {
+		t.Fatalf("replacement reference was not attributed to provider delivery: %v", err)
 	}
 	a.turn.injectBlock = strings.Replace(block, `commit="v1"`, `commit="stale"`, 1)
 	fallback, err := a.prepareSamplingRequest(context.Background())
