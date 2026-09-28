@@ -39,6 +39,25 @@ Plan uses a separate endpoint. Official model and endpoint references:
 https://docs.bigmodel.cn/cn/guide/models/vlm/glm-5.3-flash and
 https://docs.bigmodel.cn/cn/coding-plan/quick-start.
 
+## Existing session mirror census
+
+The read-only `probe_local.go` tool inspected 544 local Semantix SWE coding
+session mirrors from 85 DeepSeek-v4-Flash experiment variants. One session
+could not be extracted because its record exceeded the extractor's line limit;
+the remaining sessions yielded 537 Context and 404 Result slices. The probe
+compared each slice body with every non-system message in its own session, an
+upper bound on exact duplicate opportunities rather than a runtime hit rate.
+Context matched **0/537** messages. Result matched **394/404**, but **0/404**
+were marked verified by the current extraction rule, so none would pass the
+current L2 Result admission gate. No managed-context marker occurred in any
+of the 42,491 messages scanned. The corpus uses an older model and session
+format, not GLM-5.3-Flash, and does not establish answer quality or cost.
+
+This rules out treating the controlled JSON saving as an observed benefit on
+that corpus. A broader replacement must first locate an admitted slice that
+duplicates provider-visible content and preserve its untrusted provenance;
+otherwise the existing injection should remain.
+
 ## Earlier GLM-4.7 pilot
 
 The numbers below came from GLM-4.7 and must not be presented as
