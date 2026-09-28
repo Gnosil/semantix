@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"semantix/harness/event"
 	"semantix/harness/evidence"
@@ -182,8 +183,17 @@ func (a *Agent) armLoopGuardPass(receiptMark int) {
 		return
 	}
 	targets := append([]string(nil), a.turn.injectTargets...)
-	a.turn.injectBlock = ""
 	a.turn.injectionFused = true
+	if a.turn.injectPersisted {
+		// The block is part of the canonical transcript and cannot be
+		// removed without rewriting the cached prefix; withdraw it with an
+		// appended retraction instead (append-only remedy).
+		a.sess.conversation.Add(provider.Message{
+			Role: provider.RoleUser, Content: semantixRetractionText(targets),
+		})
+	} else {
+		a.turn.injectBlock = ""
+	}
 	if a.semantix != nil && a.turn.injectionDelivered {
 		a.semantix.RecordInjectionReject(targets, "loop_guard")
 	}
@@ -192,6 +202,17 @@ func (a *Agent) armLoopGuardPass(receiptMark int) {
 		Kind: event.Notice, Level: event.LevelWarn, Code: event.NoticeCodeSemantixFuse,
 		Text: "Semantix history was removed after a loop guard detected no progress.", Detail: string(detail),
 	})
+}
+
+// semantixRetractionPrefix opens the appended message that withdraws a
+// persisted L2 block. It is listed in SyntheticUserPrefixes.
+const semantixRetractionPrefix = "[semantix-retraction]"
+
+// semantixRetractionText renders the append-only withdrawal of the named
+// slices. Deterministic for a given target list.
+func semantixRetractionText(targets []string) string {
+	return semantixRetractionPrefix + " The Semantix history slices " + strings.Join(targets, ", ") +
+		" injected earlier in this turn are withdrawn: the task shows no progress while using them. Disregard them and re-derive what you need from the code and tool results."
 }
 
 // loopGuardAllowsFinal reports whether final readiness should stand down: a

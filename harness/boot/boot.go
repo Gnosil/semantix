@@ -305,6 +305,7 @@ func build(ctx context.Context, opts Options) (*BuildResult, error) {
 		Inject:       cfg.Semantix.Inject,
 		Mode:         cfg.Semantix.Mode,
 		Budget:       cfg.Semantix.Budget,
+		Placement:    cfg.Semantix.Placement,
 		SessionsDir:  cfg.Semantix.SessionsDir,
 		ProjectDir:   cfg.Semantix.ProjectDir,
 		WorkspaceDir: cfg.Semantix.WorkspaceDir,

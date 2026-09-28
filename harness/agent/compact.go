@@ -629,7 +629,7 @@ func renderTranscript(msgs []provider.Message) string {
 		}
 		switch m.Role {
 		case provider.RoleUser:
-			fmt.Fprintf(&b, "[user]\n%s\n\n", m.Content)
+			fmt.Fprintf(&b, "[user]\n%s\n\n", stripSemantixReuse(m.Content))
 		case provider.RoleAssistant:
 			if m.Content != "" {
 				fmt.Fprintf(&b, "[assistant]\n%s\n", m.Content)
@@ -649,6 +649,27 @@ func renderTranscript(msgs []provider.Message) string {
 		}
 	}
 	return b.String()
+}
+
+// stripSemantixReuse removes persisted [semantix-reuse] blocks from a user
+// message before it is summarized: injected history is untrusted evidence
+// with provenance, and folding it into a summary would launder it into
+// user-authored text. Slice bodies escape both markers (kernel/inject), so
+// the first closing marker after an opening one ends the block.
+func stripSemantixReuse(content string) string {
+	const open, closing = "[semantix-reuse]", "[/semantix-reuse]"
+	for {
+		i := strings.Index(content, open)
+		if i < 0 {
+			return content
+		}
+		j := strings.Index(content[i:], closing)
+		if j < 0 {
+			return content
+		}
+		end := i + j + len(closing)
+		content = content[:i] + strings.TrimLeft(content[end:], "\n")
+	}
 }
 
 // summarizeToolArgs returns a short summary of tool-call arguments instead of

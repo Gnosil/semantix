@@ -273,6 +273,7 @@ var SyntheticUserPrefixes = []string{
 	"The agent signaled goal completion and all tasks are marked done.",
 	"Goal signaled complete but issues remain:",
 	"No tool calls in recent turns.",
+	semantixRetractionPrefix,
 }
 
 // IsSyntheticUserText reports whether a persisted user-role message is a

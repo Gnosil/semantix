@@ -40,6 +40,11 @@ type turnRuntime struct {
 	// same slices more than once in one user turn.
 	injectTargets  []string
 	injectionFused bool
+	// injectPersisted marks a block embedded in the turn's user message in
+	// the canonical transcript (placement = "persist"). Such a block is
+	// replayed from history; sampling never re-inserts it and the fuse
+	// appends a retraction instead of removing it.
+	injectPersisted bool
 	// injectionDelivered is per-turn provider acceptance, not assembly/use.
 	injectionDelivered bool
 

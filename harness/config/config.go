@@ -964,6 +964,13 @@ type SemantixConfig struct {
 	Mode string `toml:"mode"`
 	// Budget caps the L2 injection block size in bytes (default 4096).
 	Budget int `toml:"budget"`
+	// Placement controls where a strict-mode L2 block lives: "ephemeral"
+	// (default, empty) inserts it into each provider request before the
+	// current user message and never stores it; "persist" embeds it once at
+	// the head of the turn's user message in the canonical transcript, so
+	// later requests replay it byte-for-byte (append-only prefix; spec
+	// docs/specs/harness-l2-persist-placement.md).
+	Placement string `toml:"placement"`
 	// SessionsDir is where the session JSONL mirror is written; empty uses
 	// <controller session dir>/sessions.
 	SessionsDir string `toml:"sessions_dir"`
