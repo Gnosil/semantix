@@ -112,6 +112,13 @@ Broadening the comparison from whole-message equality to an exact substring
 anywhere in a non-system message did not add hits: Context remained 0/537 and
 Result remained 394/404. This is still only an offline opportunity count,
 not a provider-request or admitted-L2 hit rate.
+
+The separate `slice.Distill` path produced 495 additional Context cards and
+1,054 Memory cards from the analyzable mirrors. **None** of those 1,549 card
+bodies occurred as an exact substring of a non-system message in its source
+session. This rules out the simplest exact-text substitution for the natural
+distilled cards in this older corpus; it does not measure semantic overlap or
+prove that current-format sessions have no opportunities.
 No managed-context marker occurred in any message. The corpus uses an older
 model and session format, not GLM-5.3-Flash, and does not establish answer
 quality or cost.

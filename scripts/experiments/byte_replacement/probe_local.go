@@ -21,6 +21,8 @@ func main() {
 	}
 	total, skipped, contextCount, contextMatch, resultCount, resultMatch := 0, 0, 0, 0, 0, 0
 	contextContained, resultContained, verifiedContained := 0, 0, 0
+	memoryCount, memoryExact, memoryContained := 0, 0, 0
+	distillSkipped, distilledContext, distilledContextContained, distilledMemory, distilledMemoryContained := 0, 0, 0, 0, 0
 	verifiedResult, verifiedExact := 0, 0
 	verificationFields, mutationFields := 0, 0
 	err := filepath.WalkDir(os.Args[1], func(path string, entry fs.DirEntry, err error) error {
@@ -63,6 +65,14 @@ func main() {
 		}
 		for _, item := range items {
 			switch item.Type {
+			case slice.Memory:
+				memoryCount++
+				if slices.Contains(messages, string(item.Content)) {
+					memoryExact++
+				}
+				if containsMessage(messages, string(item.Content)) {
+					memoryContained++
+				}
 			case slice.Context:
 				contextCount++
 				if slices.Contains(messages, string(item.Content)) {
@@ -91,6 +101,25 @@ func main() {
 				}
 			}
 		}
+		cards, err := slice.Distill(data, slice.SliceMeta{})
+		if err != nil {
+			distillSkipped++
+			return nil
+		}
+		for _, card := range cards {
+			switch card.Type {
+			case slice.Context:
+				distilledContext++
+				if containsMessage(messages, string(card.Content)) {
+					distilledContextContained++
+				}
+			case slice.Memory:
+				distilledMemory++
+				if containsMessage(messages, string(card.Content)) {
+					distilledMemoryContained++
+				}
+			}
+		}
 		return nil
 	})
 	if err != nil {
@@ -99,7 +128,7 @@ func main() {
 	if total == 0 {
 		panic("no matching session mirrors")
 	}
-	fmt.Printf("sessions=%d skipped=%d context=%d context_exact=%d context_contained=%d result=%d result_exact=%d result_contained=%d verified_result=%d verified_exact=%d verified_contained=%d verification_fields=%d mutation_fields=%d\n", total, skipped, contextCount, contextMatch, contextContained, resultCount, resultMatch, resultContained, verifiedResult, verifiedExact, verifiedContained, verificationFields, mutationFields)
+	fmt.Printf("sessions=%d skipped=%d context=%d context_exact=%d context_contained=%d base_memory=%d base_memory_exact=%d base_memory_contained=%d result=%d result_exact=%d result_contained=%d verified_result=%d verified_exact=%d verified_contained=%d distill_skipped=%d distilled_context=%d distilled_context_contained=%d distilled_memory=%d distilled_memory_contained=%d verification_fields=%d mutation_fields=%d\n", total, skipped, contextCount, contextMatch, contextContained, memoryCount, memoryExact, memoryContained, resultCount, resultMatch, resultContained, verifiedResult, verifiedExact, verifiedContained, distillSkipped, distilledContext, distilledContextContained, distilledMemory, distilledMemoryContained, verificationFields, mutationFields)
 }
 
 func containsMessage(messages []string, content string) bool {
