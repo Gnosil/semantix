@@ -21,6 +21,7 @@ func main() {
 	}
 	total, skipped, contextCount, contextMatch, resultCount, resultMatch := 0, 0, 0, 0, 0, 0
 	verifiedResult, verifiedExact := 0, 0
+	verificationFields, mutationFields := 0, 0
 	err := filepath.WalkDir(os.Args[1], func(path string, entry fs.DirEntry, err error) error {
 		if err != nil || entry.IsDir() || !strings.HasSuffix(entry.Name(), "-deepseek-v4-flash.jsonl") {
 			return err
@@ -35,6 +36,8 @@ func main() {
 		for {
 			var row struct {
 				Role, Content string
+				Verification  *string `json:"verification"`
+				Mutation      *bool   `json:"workspace_mutation"`
 			}
 			if err := dec.Decode(&row); err != nil {
 				if err == io.EOF {
@@ -44,6 +47,12 @@ func main() {
 			}
 			if row.Role != "system" {
 				messages = append(messages, row.Content)
+			}
+			if row.Verification != nil {
+				verificationFields++
+			}
+			if row.Mutation != nil {
+				mutationFields++
 			}
 		}
 		items, err := slice.NewExtractor().Extract(data, slice.SliceMeta{})
@@ -76,5 +85,5 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("sessions=%d skipped=%d context=%d context_exact=%d result=%d result_exact=%d verified_result=%d verified_exact=%d\n", total, skipped, contextCount, contextMatch, resultCount, resultMatch, verifiedResult, verifiedExact)
+	fmt.Printf("sessions=%d skipped=%d context=%d context_exact=%d result=%d result_exact=%d verified_result=%d verified_exact=%d verification_fields=%d mutation_fields=%d\n", total, skipped, contextCount, contextMatch, resultCount, resultMatch, verifiedResult, verifiedExact, verificationFields, mutationFields)
 }

@@ -49,9 +49,12 @@ compared each slice body with every non-system message in its own session, an
 upper bound on exact duplicate opportunities rather than a runtime hit rate.
 Context matched **0/537** messages. Result matched **394/404**, but **0/404**
 were marked verified by the current extraction rule, so none would pass the
-current L2 Result admission gate. No managed-context marker occurred in any
-of the 42,491 messages scanned. The corpus uses an older model and session
-format, not GLM-5.3-Flash, and does not establish answer quality or cost.
+current L2 Result admission gate. None of the 42,491 rows contained the
+`verification` or `workspace_mutation` host fields; the zero verified count
+reflects missing host evidence, not proof that no task ran a successful test.
+No managed-context marker occurred in any message. The corpus uses an older
+model and session format, not GLM-5.3-Flash, and does not establish answer
+quality or cost.
 
 This rules out treating the controlled JSON saving as an observed benefit on
 that corpus. A broader replacement must first locate an admitted slice that
