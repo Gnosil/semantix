@@ -1,7 +1,6 @@
-import type { Metadata } from "next";
+import type { Locale } from "@/lib/i18n";
 import {
   organizationJsonLd,
-  siteIdentity,
   softwareApplicationJsonLd,
   websiteJsonLd,
 } from "@/lib/site-identity";
@@ -9,24 +8,18 @@ import { maintainersJsonLd } from "@/lib/content-authors";
 import "@fontsource-variable/inter/wght.css";
 import "@fontsource-variable/jetbrains-mono/wght.css";
 import "@fontsource-variable/noto-sans-sc/wght.css";
-import "./globals.css";
+import "@/app/globals.css";
 
-export const metadata: Metadata = {
-  metadataBase: new URL(siteIdentity.productUrl),
-  title: "Semantix - a verifiable memory kernel for agents",
-  description:
-    "An open-source Go memory kernel with semantic slice extraction, BM25 retrieval, stable injection, and explicit experimental boundaries.",
-  alternates: { canonical: "/" },
-  icons: [{ rel: "icon", url: "/seo/favicon.svg", type: "image/svg+xml" }],
-};
 
-export default function RootLayout({
+export default function SiteDocument({
   children,
+  locale,
 }: Readonly<{
   children: React.ReactNode;
+  locale: Locale;
 }>) {
   return (
-    <html lang="zh-CN" className="h-full antialiased">
+    <html lang={locale} className="h-full antialiased">
       <body className="min-h-full flex flex-col">
         <script
           type="application/ld+json"

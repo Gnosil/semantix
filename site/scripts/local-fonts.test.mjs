@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const layout = await readFile(new URL("../src/app/layout.tsx", import.meta.url), "utf8");
+const layout = await readFile(new URL("../src/components/SiteDocument.tsx", import.meta.url), "utf8");
 const globals = await readFile(new URL("../src/app/globals.css", import.meta.url), "utf8");
 const packageJson = JSON.parse(
   await readFile(new URL("../package.json", import.meta.url), "utf8"),

@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as t, type LocaleProps, type Locale } from "@/lib/i18n";
+
 import { useState } from "react";
 import Image from "next/image";
 import Reveal from "@/components/Reveal";
@@ -20,80 +22,81 @@ type KernelComponent = {
   linkLabel: string;
 };
 
-const components: KernelComponent[] = [
+const getComponents = (locale: Locale): KernelComponent[] => [
   {
     num: "01",
     titleEn: "Ingest & Slice",
-    title: "会话摄取与切片",
-    status: "已实现",
+    title: t(locale, "会话摄取与切片"),
+    status: t(locale, "已实现"),
     responsibility:
-      "把 Harness 事件与会话记录规范化，提取为带类型、作用域、来源和价值信息的语义切片，并持久化到本地库。",
-    io: "输入事件流或会话 JSONL，输出可追溯、可检索、可维护的 Slice。",
+      t(locale, "把 Harness 事件与会话记录规范化，提取为带类型、作用域、来源和价值信息的语义切片，并持久化到本地库。"),
+    io: t(locale, "输入事件流或会话 JSONL，输出可追溯、可检索、可维护的 Slice。"),
     limits:
-      "提取遵守大小、类型和作用域约束。畸形输入会跳过，抽象结果保留到原始会话的来源链接。",
+      t(locale, "提取遵守大小、类型和作用域约束。畸形输入会跳过，抽象结果保留到原始会话的来源链接。"),
     art: "/flower-ink/horizontal-01-plum-blossom.png",
-    artAlt: "梅花枝条水墨插画",
+    artAlt: t(locale, "梅花枝条水墨插画"),
     artClassName: "translate-x-[12%] rotate-[7deg] scale-[1.08]",
     branchClassName:
       "left-[70%] top-[77%] w-[14%] rotate-[25deg]",
     href: "https://github.com/Gnosil/semantix/tree/main/kernel/ingest",
-    linkLabel: "查看摄取与切片",
+    linkLabel: t(locale, "查看摄取与切片"),
   },
   {
     num: "02",
     titleEn: "Retrieve, Inject & Reuse",
-    title: "检索注入与复用",
-    status: "已实现",
+    title: t(locale, "检索注入与复用"),
+    status: t(locale, "已实现"),
     responsibility:
-      "按作用域检索相关切片，把命中项组装成字节稳定的注入块，并对满足安全条件的只读结果执行 L3 复用。",
-    io: "输入查询、作用域和当前依赖状态，输出检索命中、稳定注入块或经过验证的复用结果。",
+      t(locale, "按作用域检索相关切片，把命中项组装成字节稳定的注入块，并对满足安全条件的只读结果执行 L3 复用。"),
+    io: t(locale, "输入查询、作用域和当前依赖状态，输出检索命中、稳定注入块或经过验证的复用结果。"),
     limits:
-      "L2 无法确定时返回空注入，L3 无法证明依赖有效时拒绝复用。真实用户会话上的整体收益仍需继续验证。",
+      t(locale, "L2 无法确定时返回空注入，L3 无法证明依赖有效时拒绝复用。真实用户会话上的整体收益仍需继续验证。"),
     art: "/flower-ink/horizontal-02-iris.png",
-    artAlt: "鸢尾花水墨插画",
+    artAlt: t(locale, "鸢尾花水墨插画"),
     artClassName: "translate-x-[15%] rotate-[3deg] scale-[0.98]",
     branchClassName:
       "left-[67%] top-[77%] w-[15%] rotate-[22deg]",
     href: "https://github.com/Gnosil/semantix/tree/main/kernel/inject",
-    linkLabel: "查看检索与复用",
+    linkLabel: t(locale, "查看检索与复用"),
   },
   {
     num: "03",
     titleEn: "Schedule & Prefetch",
-    title: "调度与投机预取",
-    status: "MVP 已接线",
+    title: t(locale, "调度与投机预取"),
+    status: t(locale, "MVP 已接线"),
     responsibility:
-      "根据任务意图、切片命中、资源状态和历史工具模式生成 RoundPlan，并在等待期保守预取可能需要的只读资源。",
-    io: "输入当前轮次与历史转移信号，输出并发分组、模型层级提示、注入计划和只读预取任务。",
+      t(locale, "根据任务意图、切片命中、资源状态和历史工具模式生成 RoundPlan，并在等待期保守预取可能需要的只读资源。"),
+    io: t(locale, "输入当前轮次与历史转移信号，输出并发分组、模型层级提示、注入计划和只读预取任务。"),
     limits:
-      "正确性优先于并发和预取。runner 只允许白名单内的只读动作，证据不足、负载过高或浪费过多时停止预测。",
+      t(locale, "正确性优先于并发和预取。runner 只允许白名单内的只读动作，证据不足、负载过高或浪费过多时停止预测。"),
     art: "/flower-ink/horizontal-03-spider-lily.png",
-    artAlt: "彼岸花水墨插画",
+    artAlt: t(locale, "彼岸花水墨插画"),
     artClassName: "translate-x-[12%] rotate-[7deg] scale-[1.08]",
     href: "https://github.com/Gnosil/semantix/tree/main/kernel/prefetch",
-    linkLabel: "查看调度与预取",
+    linkLabel: t(locale, "查看调度与预取"),
   },
   {
     num: "04",
     titleEn: "Trust & Evolution",
-    title: "验证安全与演化",
-    status: "持续验证",
+    title: t(locale, "验证安全与演化"),
+    status: t(locale, "持续验证"),
     responsibility:
-      "把依赖指纹、复用判定、内容净化、命中反馈和用量事件连接起来，在可审计的边界内更新评分与参数。",
-    io: "输入命中、修正、依赖变化、预取浪费和成本事件，输出复用判定、审计记录与有界参数更新。",
+      t(locale, "把依赖指纹、复用判定、内容净化、命中反馈和用量事件连接起来，在可审计的边界内更新评分与参数。"),
+    io: t(locale, "输入命中、修正、依赖变化、预取浪费和成本事件，输出复用判定、审计记录与有界参数更新。"),
     limits:
-      "优化层失败时回退正常执行，安全验证失败时拒绝复用。更新设有上下界、冻结期、来源记录和回滚路径。",
+      t(locale, "优化层失败时回退正常执行，安全验证失败时拒绝复用。更新设有上下界、冻结期、来源记录和回滚路径。"),
     art: "/flower-ink/horizontal-04-hydrangea.png",
-    artAlt: "绣球花水墨插画",
+    artAlt: t(locale, "绣球花水墨插画"),
     artClassName: "translate-x-[16%] rotate-[-3deg] scale-x-[-0.94] scale-y-[0.94]",
     branchClassName:
       "left-[54%] top-[77%] w-[15%] rotate-[23deg]",
     href: "https://github.com/Gnosil/semantix/tree/main/kernel/evolve",
-    linkLabel: "查看验证与演化",
+    linkLabel: t(locale, "查看验证与演化"),
   },
 ];
 
-function ComponentList() {
+function ComponentList({ locale = "zh-CN" }: LocaleProps) {
+  const components = getComponents(locale);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [renderedIndex, setRenderedIndex] = useState(0);
   const active = components[renderedIndex];
@@ -114,7 +117,7 @@ function ComponentList() {
       <div className="mt-12">
         <div
           role="group"
-          aria-label="Semantix 内核组件"
+          aria-label={t(locale, "Semantix 内核组件")}
           className="flex snap-x gap-3 overflow-x-auto pb-3 md:grid md:grid-cols-4 md:overflow-visible md:pb-0"
         >
           {components.map((component, index) => {
@@ -168,7 +171,7 @@ function ComponentList() {
                     isActive ? "text-white/65" : "text-[#101313]/38 group-hover:text-[#168b6d]/70"
                   }`}
                 >
-                  {component.titleEn}
+                  {locale !== "en" && component.titleEn}
                 </span>
               </button>
             );
@@ -194,7 +197,7 @@ function ComponentList() {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#168b6d]">
-                  {active.titleEn}
+                  {locale !== "en" && active.titleEn}
                 </p>
                 <h3 className="font-brand-display mt-3 text-4xl font-black tracking-[-0.05em] md:text-5xl">
                   {active.title}
@@ -212,14 +215,12 @@ function ComponentList() {
             <dl className="mt-7 grid gap-6 border-t border-[#101313]/14 pt-6 text-sm leading-6 text-[#101313]/60 sm:grid-cols-2">
               <div>
                 <dt className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-[#168b6d]">
-                  输入与输出
-                </dt>
+                  {t(locale, "输入与输出")}</dt>
                 <dd className="mt-2">{active.io}</dd>
               </div>
               <div>
                 <dt className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-[#168b6d]">
-                  当前边界
-                </dt>
+                  {t(locale, "当前边界")}</dt>
                 <dd className="mt-2">{active.limits}</dd>
               </div>
             </dl>
@@ -248,7 +249,7 @@ function ComponentList() {
   );
 }
 
-export default function Components() {
+export default function Components({ locale = "zh-CN" }: LocaleProps) {
   return (
     <section
       id="components"
@@ -258,19 +259,16 @@ export default function Components() {
         <Reveal>
           <header className="max-w-4xl">
             <p className="font-mono text-[10px] font-semibold tracking-[0.24em]">
-              Components 内核组件
-            </p>
+              {t(locale, "Components 内核组件")}</p>
             <h2 className="font-brand-display mt-4 text-[clamp(2.5rem,3.6vw,4.25rem)] font-black leading-[0.92] tracking-[-0.06em] text-[#101313]">
-              一个内核，
-              <span className="text-[#168b6d]">四个组件。</span>
+              {t(locale, "一个内核，")}<span className="text-[#168b6d]">{t(locale, "四个组件。")}</span>
             </h2>
             <p className="mt-6 max-w-3xl text-sm leading-7 text-[#101313]/60 md:text-base">
-              四个组件组把一次会话变成下一次可以复用的经验：先摄取与切片，再检索与复用，同时完成资源编排，最后用验证和反馈守住边界。
-            </p>
+              {t(locale, "四个组件组把一次会话变成下一次可以复用的经验：先摄取与切片，再检索与复用，同时完成资源编排，最后用验证和反馈守住边界。")}</p>
           </header>
         </Reveal>
 
-        <ComponentList />
+        <ComponentList locale={locale} />
       </div>
     </section>
   );

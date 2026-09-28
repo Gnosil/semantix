@@ -87,3 +87,15 @@ site/
 - `public/.well-known/security.txt`：RFC 9116 漏洞报告渠道（Contact/Expires/Canonical，Contact 指向 GitHub Security Advisory）；
 - `src/app/sitemap.ts`：`/` 与 `/docs/` 索引入口（具体文档 URL 由文档站路由负责，见 PR #23）；
 - `next.config.ts` 的 `trailingSlash: true` 保证 `/docs/` 目录式 URL 在 Cloudflare Pages 可直接服务。
+
+## Homepage languages
+
+The homepage uses a small, typed i18n dictionary in `src/lib/i18n/`. Chinese source strings are the message keys; English translations live in `en.json`. Components share a `locale` prop and default to Chinese. A missing translation is a TypeScript error.
+
+- `/`: existing Chinese homepage
+- `/en/`: English homepage
+- Docs, blog, and other pages retain their existing URLs and content.
+
+The `(zh)` route group and `en` route have separate root layouts using the same `SiteDocument`, so static HTML has the correct `lang` before hydration. No middleware or runtime translation service is needed. Homepage canonical URLs, reciprocal language alternates, and sitemap entries are emitted at build time.
+
+Language switches preserve the current section anchor; explicit URLs determine the language, with no automatic redirects. Run `npm run check` to build both versions and verify the exported language, links, and metadata.

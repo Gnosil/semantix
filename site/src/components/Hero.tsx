@@ -1,6 +1,8 @@
+import { translate as t, type LocaleProps } from "@/lib/i18n";
+
 import Reveal from "@/components/Reveal";
 
-export default function Hero() {
+export default function Hero({ locale = "zh-CN" }: LocaleProps) {
   return (
     <section className="relative overflow-hidden pt-12 pb-20 md:-mt-28 md:pt-16">
       {/* 两侧装饰：光晕 + 淡色 mono 文字 */}
@@ -48,8 +50,7 @@ export default function Hero() {
                 <div>
                   <span className="text-accent">$ semantix search</span>{" "}
                   <span className="text-slate-400">
-                    &quot;如何缓存跨会话前缀&quot; -topk 3
-                  </span>
+                    {t(locale, "\"如何缓存跨会话前缀\" -topk 3")}</span>
                 </div>
                 <div>
                   #1 [P] id=9f2a score=7.42 &quot;stable slice injection → vendor byte
@@ -63,8 +64,7 @@ export default function Hero() {
                 </div>
                 <div>&nbsp;</div>
                 <div className="text-slate-500">
-                  命中 3 slices · 0.4ms · 下次会话注入前缀，直接命中字节缓存
-                </div>
+                  {t(locale, "命中 3 slices · 0.4ms · 下次会话注入前缀，直接命中字节缓存")}</div>
                 <div>
                   <span className="blink inline-block h-4 w-2 bg-emerald-400 align-middle">
                     ▍
@@ -74,10 +74,8 @@ export default function Hero() {
             </div>
 
             <p className="mx-auto mt-8 max-w-2xl text-center text-sm leading-6 text-muted-foreground md:text-base">
-              Semantix 连接 Agent Harness 与资源层，提供切片提取、BM25 检索和稳定注入路径。
-              <br className="hidden md:block" />
-              当前公开证据来自仓库测试与合成演示；生产环境中的成本和性能收益仍待验证。
-            </p>
+              {t(locale, "Semantix 连接 Agent Harness 与资源层，提供切片提取、BM25 检索和稳定注入路径。")}<br className="hidden md:block" />
+              {t(locale, "当前公开证据来自仓库测试与合成演示；生产环境中的成本和性能收益仍待验证。")}</p>
           </div>
         </Reveal>
       </div>
