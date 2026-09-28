@@ -15,7 +15,7 @@ import urllib.error
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[3]
-API = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+API = "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions"
 MODEL = "glm-5.3-flash"
 REQUEST_OPTIONS = {
     "model": MODEL,
@@ -177,6 +177,7 @@ def main():
                 messages[0]["content"] = f"Experiment {args.seed}:{arm}. " + POLICY
                 row = {
                     "case": i, "arm": arm, "order": order, "expected": expected,
+                    "endpoint": API,
                     "request": {**REQUEST_OPTIONS, "messages": messages},
                 }
                 if args.live:

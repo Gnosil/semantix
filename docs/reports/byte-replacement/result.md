@@ -1,13 +1,44 @@
-# Superseded GLM-4.7 pilot — 2026-09-28
+# GLM-5.3-Flash byte-replacement comparison — 2026-09-28
 
-The requested model is **GLM-5.3-Flash**. The numbers below came from
-GLM-4.7 and must not be presented as GLM-5.3-Flash results. A rerun using
-`glm-5.3-flash` reached the ordinary API endpoint, but the provider returned
-HTTP 429, code 1113. The available balance the user confirmed is for GLM
-Coding Plan, which has a separate endpoint and is limited to supported tools;
-it does not establish ordinary API credit for this experiment. No valid
-GLM-5.3-Flash token or quality comparison is available yet. The failed
-request is recorded in `comparison-5.3-flash.jsonl`.
+Three synthetic, explicitly managed project-context questions were run through
+the official GLM Coding Plan Chat Completion endpoint using `glm-5.3-flash`.
+Each question used the same model, system policy, output limit and sampling
+settings in all arms. Arm B adds the actual Semantix L2 block rendered by
+`kernel/inject.Injector.BuildHits`; arm D replaces the bounded source context
+with compact JSON retaining every field and value. The nine requests, answers
+and provider usage records are in `comparison-5.3-flash-plan.jsonl`.
+
+| Arm | Correct | Prompt | Cached prompt | Noncached prompt | Completion | Total |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| A original context | 3/3 | 640 | 256 | 384 | 357 | 997 |
+| B original + L2 injection | 3/3 | 1241 | 448 | 793 | 480 | 1721 |
+| D replacement | 3/3 | 533 | 128 | 405 | 409 | 942 |
+
+D used **57.1% fewer provider-reported input tokens than B** and **16.7%
+fewer than A**. Total input plus output tokens fell 45.3% versus B. The
+cached and noncached input counts and completion count also each fell versus
+B. The provider did not report a monetary charge or Coding Plan point cost,
+so this report does not claim a measured currency or plan-quota saving. Under
+the same nonnegative per-token rates by category, D's aggregate charge would
+be lower than B's; no such conclusion follows versus A because D used more
+noncached input and completion tokens than A.
+
+This is one small structured-context run, not proof that arbitrary prose,
+tool outputs, conflicting facts or multi-turn tasks retain their behavior.
+The runner does not change Semantix production request assembly. A real
+replacement path still needs a managed source block and fail-open handling at
+`context.prepare`, with the saved transcript unchanged.
+
+The earlier attempt on the ordinary API endpoint returned HTTP 429 / code
+1113; its failed request remains in `comparison-5.3-flash.jsonl`. GLM Coding
+Plan uses a separate endpoint. Official model and endpoint references:
+https://docs.bigmodel.cn/cn/guide/models/vlm/glm-5.3-flash and
+https://docs.bigmodel.cn/cn/coding-plan/quick-start.
+
+## Earlier GLM-4.7 pilot
+
+The numbers below came from GLM-4.7 and must not be presented as
+GLM-5.3-Flash results.
 
 Three synthetic, explicitly managed project-context questions were sent through
 the official `open.bigmodel.cn` chat endpoint. Each task used identical model,
