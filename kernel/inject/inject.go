@@ -131,6 +131,13 @@ type Injector struct {
 	// Untagged Memory slices and every other slice type are unaffected;
 	// empty TaskType keeps the historical behavior.
 	TaskType string
+	// Compress, when non-nil, enables the optional delete-only content
+	// compression stage (Issue #509): admitted slices are deduplicated
+	// against units already retained in this block, and each compression is
+	// gated by a semantic-equivalence check against the slice's original
+	// text — a gated-out slice keeps its original. Nil (default) is fully
+	// off: identical behavior, identical bytes, zero cost.
+	Compress *CompressionOptions
 }
 
 // Injection is the assembled, deterministic reuse block.
@@ -154,6 +161,10 @@ type Injection struct {
 	// TopMargin is top1-top2 over eligible candidates. Zero means fewer
 	// than two eligible candidates or equal scores.
 	TopMargin float64
+	// Compression observability (all zero when Compress is nil).
+	OriginalContentBytes   int // admitted slice content before compression
+	CompressedContentBytes int // after compression (equals OriginalContentBytes on gate fallbacks)
+	UnitsDropped           int // semantic units removed across the block
 }
 
 // CandidateDecision is the replayable admission outcome for one retrieved
@@ -170,6 +181,9 @@ type CandidateDecision struct {
 	Zone     string
 	Admitted bool
 	Reason   string
+	// Compressed records that the compression stage (when enabled) replaced
+	// this slice's sanitized content with its gated deduplicated form.
+	Compressed bool `json:"compressed,omitempty"`
 }
 
 const (
@@ -251,6 +265,15 @@ func (in *Injector) BuildHits(query string, hits []slice.Hit) (*Injection, error
 	var cands []candidate
 	decisions := make([]CandidateDecision, 0, len(hits))
 	size := len(blockOpen)
+	// Compression stage (Issue #509): nil options = fully off. The
+	// block-level compressor accumulates retained units across admitted
+	// slices so later slices dedupe against what earlier ones actually
+	// injected.
+	var compressor *blockCompressor
+	if in.Compress != nil && in.Compress.Mode == CompressionDedup {
+		compressor = newBlockCompressor(in.Compress)
+	}
+	var originalContentBytes, compressedContentBytes, unitsDropped int
 	for _, h := range hits {
 		d := CandidateDecision{Score: h.Score, Zone: zone.Miss.String(), Reason: "nil_slice"}
 		if h.Slice == nil {
@@ -371,6 +394,21 @@ func (in *Injector) BuildHits(query string, hits []slice.Hit) (*Injection, error
 			dropped++
 			continue
 		}
+		// Compression replaces the sanitized content before escaping and
+		// budget accounting (Issue #509): a gated-out slice keeps its
+		// original verbatim, so the gate can only reduce bytes, never
+		// meaning. delete-only output preserves citations, code and numbers.
+		if compressor != nil {
+			originalContentBytes += len(content)
+			if comp, applied := compressor.compressSlice(content); applied {
+				unitsDropped += len(splitUnits(content)) - len(splitUnits(comp))
+				content = comp
+				compressedContentBytes += len(comp)
+				d.Compressed = true
+			} else {
+				compressedContentBytes += len(content)
+			}
+		}
 		content = escapeMarker(content)
 		// Budget is judged on the exact bytes that will be written, including
 		// provenance, escaped content, and the grey audit variant.
@@ -420,13 +458,16 @@ func (in *Injector) BuildHits(query string, hits []slice.Hit) (*Injection, error
 	buf.WriteString(blockClose)
 
 	return &Injection{
-		Slices:       kept,
-		Text:         buf.String(),
-		Bytes:        buf.Len(),
-		Dropped:      dropped,
-		GreyIncluded: greyIncluded,
-		Decisions:    decisions,
-		TopMargin:    topMargin,
+		Slices:                 kept,
+		Text:                   buf.String(),
+		Bytes:                  buf.Len(),
+		Dropped:                dropped,
+		GreyIncluded:           greyIncluded,
+		Decisions:              decisions,
+		TopMargin:              topMargin,
+		OriginalContentBytes:   originalContentBytes,
+		CompressedContentBytes: compressedContentBytes,
+		UnitsDropped:           unitsDropped,
 	}, nil
 }
 

@@ -49,6 +49,15 @@ type Config struct {
 	// hit-rate loss is measurable instead of silent (W3 of the efficiency
 	// plan; GW4 measured 8/10 repeated tasks landing in grey).
 	GreyMode string
+	// Compression enables the optional delete-only injection compression
+	// stage (Issue #509): "" / "off" (default) or "dedup".
+	Compression string
+	// CompressionMinSimilarity overrides the equivalence-gate floor (0 =
+	// kernel default 0.85).
+	CompressionMinSimilarity float64
+	// CompressionDedupThreshold overrides the unit near-duplicate Jaccard
+	// threshold (0 = kernel default 0.6).
+	CompressionDedupThreshold float64
 	// SessionsDir is where the session JSONL mirror is written; empty uses
 	// <controller session dir>/sessions.
 	SessionsDir string
@@ -308,6 +317,7 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 		CurrentCommit: readGitHead(workspaceDir),
 		Zones:         &z,
 		AllowGrey:     b.cfg.GreyMode == "audit",
+		Compress:      b.compressionOptions(),
 		// A task tag describes the source action, not relevance to this turn.
 		// Keep it in the history; do not turn the keyword classifier into a
 		// veto on cross-action reference material (e.g. fix -> investigate).
@@ -762,6 +772,21 @@ func (b *Bridge) workspaceDir() string {
 		return b.cfg.WorkspaceDir
 	}
 	return b.projectDir()
+}
+
+// compressionOptions translates the bridge compression config into injector
+// options. Nil unless explicitly enabled — compression is opt-in (Issue #509).
+func (b *Bridge) compressionOptions() *inject.CompressionOptions {
+	switch strings.ToLower(strings.TrimSpace(b.cfg.Compression)) {
+	case inject.CompressionDedup:
+		return &inject.CompressionOptions{
+			Mode:           inject.CompressionDedup,
+			MinSimilarity:  b.cfg.CompressionMinSimilarity,
+			DedupThreshold: b.cfg.CompressionDedupThreshold,
+		}
+	default:
+		return nil
+	}
 }
 
 // usagePath is the kernel usage log the reuse panel savings delta reads.
