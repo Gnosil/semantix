@@ -33,6 +33,16 @@ provider-request replacement path for a matching managed source block, but
 no production source currently emits that block automatically. The saved
 transcript remains unchanged.
 
+The harness writes a session mirror, while slice extraction into the L2
+project library is a separate step. The SWE-bench runner performs that step
+after each instance before the next one in the same repository. A request
+against an empty library cannot measure replacement opportunities. The older
+10-instance SWE-bench pilot did exercise real cross-instance injection and
+reported 6,932,300 input tokens and $0.0980 with memory on, versus 4,353,870
+and $0.0544 with memory off (`docs/reports/swe-pilot-two-arm.md`). That is
+evidence that the former injection setup could increase cost, not a
+GLM-5.3-Flash baseline or an estimate for today's stricter admission rules.
+
 The earlier attempt on the ordinary API endpoint returned HTTP 429 / code
 1113; its failed request remains in `comparison-5.3-flash.jsonl`. GLM Coding
 Plan uses a separate endpoint. Official model and endpoint references:
