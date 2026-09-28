@@ -27,7 +27,7 @@ A separate `run_runtime.py` now captures A/B/D requests through actual
 three-case dry run confirmed all nine request shapes, including strict L2 and
 the Go replacement branch, with the same system message and current question
 within each case. No live model result has been collected from these captured
-requests yet. The current Go branch preserves the slice provenance in a short
+requests in the dry run. The current Go branch preserves the slice provenance in a short
 reference while omitting the duplicate body; the earlier 56.8% token figure
 was measured on the Python arm that removed the entire L2 block, so it is not
 an estimate for this revised runtime behavior. Across the three dry-run cases,
@@ -72,6 +72,28 @@ The earlier attempt on the ordinary API endpoint returned HTTP 429 / code
 Plan uses a separate endpoint. Official model and endpoint references:
 https://docs.bigmodel.cn/cn/guide/models/vlm/glm-5.3-flash and
 https://docs.bigmodel.cn/cn/coding-plan/quick-start.
+
+## Runtime-captured GLM-5.3-Flash partial result
+
+The first case from `run_runtime.py` completed on the Coding Plan endpoint.
+All three arms returned the expected facts from requests captured through
+`Agent.Run` with the same system message and current question:
+
+| Arm | Correct | Prompt | Cached prompt | Completion | Total |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| A off | 1/1 | 318 | 64 | 159 | 477 |
+| B strict | 1/1 | 592 | 0 | 126 | 718 |
+| D replace | 1/1 | 375 | 0 | 141 | 516 |
+
+D used **36.7% fewer input tokens** and **28.1% fewer total tokens** than B
+for this one case. It used more input and total tokens than A. The fourth call
+returned HTTP 429 / code 1302, and a later retry did too. The full nine
+provider requests and three successful responses are saved in
+`comparison-5.3-flash-plan-runtime.jsonl`; the first interrupted attempt is
+saved separately in `comparison-5.3-flash-plan-runtime-first-attempt.jsonl`.
+The runner retains each case's captured requests on resume. No result is
+available for cases 1 and 2, so this one-case observation does not establish
+answer equivalence or measured charges for the runtime mode.
 
 ## Existing session mirror census
 

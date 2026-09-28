@@ -50,8 +50,10 @@ admitted L2 slice per case, runs the real agent with a recording provider in
 `off`, `strict`, and `replace` modes, and passes those captured provider
 messages to GLM. A three-case dry run produced all nine requests and checked
 identical system/current messages across arms, unchanged source in A/B, and
-the expected full L2 versus provenance-only reference difference. No model quality or
-cost result exists yet for this runtime-captured comparison.
+the expected full L2 versus provenance-only reference difference. Its first
+live case has 3/3 correct answers and 36.7% fewer input tokens in D than B;
+the remaining two cases are pending after HTTP 429 / code 1302. No measured
+monetary or Coding Plan point cost is available.
 
 The earlier GLM-4.7 preflight established connectivity only; its model differs
 from the requested GLM-5.3-Flash. The GLM-5.3-Flash attempt on the ordinary
