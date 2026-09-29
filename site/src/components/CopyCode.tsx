@@ -1,9 +1,12 @@
 "use client";
 
+import { translate as t, type Locale } from "@/lib/i18n";
+
 import { Check, Copy } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 type CopyCodeProps = {
+  locale?: Locale;
   code: string;
   className?: string;
   prompt?: boolean;
@@ -31,6 +34,7 @@ function fallbackCopy(code: string) {
 }
 
 export default function CopyCode({
+  locale = "zh-CN",
   code,
   className = "",
   prompt = false,
@@ -74,7 +78,7 @@ export default function CopyCode({
     resetTimer.current = window.setTimeout(() => setState("idle"), 1800);
   }
 
-  const label = state === "copied" ? "已复制" : state === "failed" ? "重试" : "复制";
+  const label = state === "copied" ? t(locale, "已复制") : state === "failed" ? t(locale, "重试") : t(locale, "复制");
 
   return (
     <div
@@ -104,7 +108,7 @@ export default function CopyCode({
       <button
         type="button"
         onClick={handleCopy}
-        aria-label={`${label}代码`}
+        aria-label={locale === "en" ? `${label} code` : `${label}代码`}
         className={`flex w-11 shrink-0 items-center justify-center border-l transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent active:translate-y-px ${
           isDark
             ? "border-white/10 bg-[oklch(0.25_0.008_260)] text-slate-300 hover:bg-[oklch(0.29_0.01_260)] hover:text-emerald-300"

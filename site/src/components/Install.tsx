@@ -1,42 +1,45 @@
+import { translate as t, type LocaleProps, type Locale } from "@/lib/i18n";
+
 import Link from "next/link";
 import Reveal from "@/components/Reveal";
 import CopyCode from "@/components/CopyCode";
 import DesktopDownload from "@/components/DesktopDownload";
 
-const steps = [
+const getSteps = (locale: Locale) => [
   {
     number: "01",
-    title: "安装完整 Agent",
+    title: t(locale, "安装完整 Agent"),
     titleEn: "Install",
-    desc: "一行安装交互式 Agent 与记忆内核，无需安装 Go。",
+    desc: t(locale, "一行安装交互式 Agent 与记忆内核，无需安装 Go。"),
     code: "curl -fsSL https://raw.githubusercontent.com/Gnosil/semantix/main/agent-skill/scripts/install.sh | sh",
     href: "https://github.com/Gnosil/semantix/releases/latest",
     external: true,
-    linkLabel: "发布包 ↗",
+    linkLabel: t(locale, "发布包 ↗"),
   },
   {
     number: "02",
-    title: "进入项目",
+    title: t(locale, "进入项目"),
     titleEn: "Open project",
-    desc: "进入你的项目文件夹；该目录将成为 Agent 的工作区。",
+    desc: t(locale, "进入你的项目文件夹；该目录将成为 Agent 的工作区。"),
     code: "cd ~/your-project",
     href: "https://github.com/Gnosil/semantix/blob/main/docs/QUICKSTART.md",
     external: true,
-    linkLabel: "快速上手 ↗",
+    linkLabel: t(locale, "快速上手 ↗"),
   },
   {
     number: "03",
-    title: "开始对话",
+    title: t(locale, "开始对话"),
     titleEn: "Start",
-    desc: "运行 Semantix；首次启动会引导你配置模型与 API key。",
+    desc: t(locale, "运行 Semantix；首次启动会引导你配置模型与 API key。"),
     code: "semantix",
     href: "/docs/guide",
     external: false,
-    linkLabel: "深度文档 →",
+    linkLabel: t(locale, "深度文档 →"),
   },
 ];
 
-export default function Install() {
+export default function Install({ locale = "zh-CN" }: LocaleProps) {
+  const steps = getSteps(locale);
   return (
     <section
       id="start"
@@ -45,26 +48,21 @@ export default function Install() {
       <div className="mx-auto max-w-[1100px] px-5 py-16 md:px-10 md:py-20">
         <Reveal>
           <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.24em] text-[#168b6d]">
-            Install 安装
-          </p>
+            {t(locale, "Install 安装")}</p>
           <h2 className="font-brand-display mt-4 text-[clamp(2rem,3.4vw,2.75rem)] font-black leading-[1.08] tracking-[-0.045em]">
-            选择你的使用方式。
-          </h2>
+            {t(locale, "选择你的使用方式。")}</h2>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-muted-foreground md:text-base">
-            下载桌面版，或在终端安装 Semantix。
-          </p>
+            {t(locale, "下载桌面版，或在终端安装 Semantix。")}</p>
         </Reveal>
 
-        <DesktopDownload />
+        <DesktopDownload locale={locale} />
 
         <div id="terminal-install" className="mt-10 scroll-mt-24 border-t border-border pt-10">
           <Reveal>
             <h3 className="font-brand-display text-xl font-bold tracking-[-0.025em]">
-              终端安装
-            </h3>
+              {t(locale, "终端安装")}</h3>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              偏好命令行？按下面三步开始。
-            </p>
+              {t(locale, "偏好命令行？按下面三步开始。")}</p>
           </Reveal>
         <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
           {steps.map((step, i) => (
@@ -80,7 +78,7 @@ export default function Install() {
                   {step.titleEn}
                 </p>
                 <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">{step.desc}</p>
-                <CopyCode
+                <CopyCode locale={locale}
                   className="mt-5 border-border"
                   code={step.code}
                   prompt
@@ -113,7 +111,7 @@ export default function Install() {
 
         <Reveal delay={240}>
           <nav
-            aria-label="安装后续操作"
+            aria-label={t(locale, "安装后续操作")}
             className="mt-11 flex flex-wrap items-center justify-center gap-y-4 text-center"
           >
             <a
@@ -122,7 +120,7 @@ export default function Install() {
               rel="noopener"
               className="group inline-flex items-center gap-3 px-5 py-2 text-sm font-bold text-[#168b6d] transition-colors hover:text-[#101313]"
             >
-              <span>运行离线验证</span>
+              <span>{t(locale, "运行离线验证")}</span>
               <span
                 aria-hidden="true"
                 className="font-mono text-base transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
@@ -135,7 +133,7 @@ export default function Install() {
               href="/docs/guide"
               className="px-5 py-2 text-sm font-semibold text-[#101313] transition-colors hover:text-[#168b6d]"
             >
-              阅读架构文档 <span aria-hidden="true">→</span>
+              {t(locale, "阅读架构文档")}<span aria-hidden="true">→</span>
             </Link>
             <span aria-hidden="true" className="h-5 w-px bg-[#101313]/18" />
             <a
@@ -144,7 +142,7 @@ export default function Install() {
               rel="noopener"
               className="px-5 py-2 text-sm font-semibold text-[#101313] transition-colors hover:text-[#168b6d]"
             >
-              参与贡献 <span aria-hidden="true">→</span>
+              {t(locale, "参与贡献")}<span aria-hidden="true">→</span>
             </a>
           </nav>
         </Reveal>

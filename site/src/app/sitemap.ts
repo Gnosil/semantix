@@ -17,7 +17,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
   }));
 
   return [
-    { url: `${BASE}/`, lastModified, changeFrequency: "weekly", priority: 1 },
+    ...(["/", "/en/"] as const).map((path) => ({
+      url: `${BASE}${path}`, lastModified, changeFrequency: "weekly" as const, priority: 1,
+      alternates: { languages: { "zh-CN": `${BASE}/`, en: `${BASE}/en/`, "x-default": `${BASE}/` } },
+    })),
     { url: `${BASE}/about`, lastModified, changeFrequency: "monthly", priority: 0.8 },
     { url: `${BASE}/contact`, lastModified, changeFrequency: "monthly", priority: 0.7 },
     { url: `${BASE}/docs`, lastModified, changeFrequency: "weekly", priority: 0.9 },

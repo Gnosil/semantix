@@ -1,6 +1,9 @@
 "use client";
 
+import { translate as t, type LocaleProps } from "@/lib/i18n";
+
 import { useEffect, useRef, useState } from "react";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { Download } from "lucide-react";
 import ParticleCanvas from "@/components/ParticleCanvas";
 import CopyCode from "@/components/CopyCode";
@@ -17,7 +20,7 @@ const range = (value: number, start: number, end: number) =>
 
 const NAV_REVEAL_PROGRESS = 0.78;
 
-export default function BrandIntroOverlay() {
+export default function BrandIntroOverlay({ locale = "zh-CN" }: LocaleProps) {
   const storyRef = useRef<HTMLElement>(null);
   const frameRef = useRef<number | null>(null);
   const scrollFrameRef = useRef<number | null>(null);
@@ -149,6 +152,9 @@ export default function BrandIntroOverlay() {
 
         </div>
 
+        <div className="absolute right-5 top-4 z-30 sm:right-6">
+          <LanguageSwitcher locale={locale} />
+        </div>
         <button
           type="button"
           aria-label="Continue to the Semantix overview"
@@ -197,8 +203,8 @@ export default function BrandIntroOverlay() {
             A <span className="text-[#168b6d]">verifiable</span> agent memory kernel.
           </h1>
           <p className="font-brand-display mx-auto mt-5 max-w-4xl text-[1.9rem] font-black leading-[0.98] tracking-[-0.055em] md:text-[2.5rem]">
-            <span className="block md:inline">把每一次对话，</span>
-            <span className="block text-[#168b6d]">沉淀为可检索的记忆</span>
+            <span className="block md:inline">{t(locale, "把每一次对话，")}</span>
+            <span className="block text-[#168b6d]">{t(locale, "沉淀为可检索的记忆")}</span>
           </p>
 
           <time
@@ -212,10 +218,9 @@ export default function BrandIntroOverlay() {
             <div className="relative overflow-hidden rounded-lg border border-border bg-white p-4 transition-colors hover:border-accent">
               <ParticleCanvas className="pointer-events-none absolute inset-0 opacity-45" />
               <div className="relative">
-                <h2 className="font-semibold">下载桌面版</h2>
+                <h2 className="font-semibold">{t(locale, "下载桌面版")}</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  适用于 macOS 和 Windows，下载后即可开始。
-                </p>
+                  {t(locale, "适用于 macOS 和 Windows，下载后即可开始。")}</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <a
                     href="https://github.com/Gnosil/semantix/releases/download/desktop-v0.1.0/Semantix-darwin-universal.dmg"
@@ -235,8 +240,7 @@ export default function BrandIntroOverlay() {
                     href="#start"
                     className="inline-flex min-h-9 items-center px-1 text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   >
-                    安装说明 ↓
-                  </a>
+                    {t(locale, "安装说明 ↓")}</a>
                 </div>
               </div>
             </div>
@@ -246,9 +250,8 @@ export default function BrandIntroOverlay() {
               <div className="relative">
                 <h2 className="font-semibold">CLI</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Coding Agent + 跨会话记忆内核
-                </p>
-                <CopyCode
+                  {t(locale, "Coding Agent + 跨会话记忆内核")}</p>
+                <CopyCode locale={locale}
                   className="mt-3"
                   code="curl -fsSL https://raw.githubusercontent.com/Gnosil/semantix/main/agent-skill/scripts/install.sh | sh"
                   prompt
