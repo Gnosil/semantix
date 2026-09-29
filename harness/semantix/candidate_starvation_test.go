@@ -25,10 +25,14 @@ func TestBridgeCandidateStarvation(t *testing.T) {
 					item.Type = slice.Result
 				}
 			}
-			blockedType, blockedReason := slice.Prompt, "type_not_allowed"
-			if mode == "probation_blockers" {
-				blockedType, blockedReason = slice.Result, "result_probation"
-			}
+				blockedType, blockedReason := slice.Prompt, "type_not_allowed"
+				admission := []string(nil)
+				if mode == "probation_blockers" {
+					blockedType, blockedReason = slice.Result, "result_probation"
+					// Result must pass the allowlist to reach the probation
+					// guard this subtest isolates.
+					admission = []string{"context", "result"}
+				}
 			for i := 0; i < 5; i++ {
 				items = append(items, &slice.Slice{ID: fmt.Sprintf("blocked-%d", i), Type: blockedType, Scope: slice.Project, Content: []byte("repair parser regression repair parser regression")})
 			}
@@ -36,7 +40,7 @@ func TestBridgeCandidateStarvation(t *testing.T) {
 				items = append(items, &slice.Slice{ID: fmt.Sprintf("other-%d", i), Type: slice.Prompt, Scope: slice.Project, Content: []byte("unrelated deployment configuration")})
 			}
 			dir := writeKernelDir(t, items, nil)
-			b := NewBridge(Config{Enabled: true, Mode: "strict", ProjectDir: dir})
+				b := NewBridge(Config{Enabled: true, Mode: "strict", ProjectDir: dir, AdmissionTypes: admission})
 			defer b.Close()
 			const query = "repair parser regression"
 			store, idx, err := b.kernelIndex()
@@ -143,7 +147,11 @@ func TestBridgeCandidateWindowAfterFreshness(t *testing.T) {
 				for i := 0; i < 10; i++ {
 					items = append(items, &slice.Slice{ID: fmt.Sprintf("other-%d", i), Type: slice.Prompt, Scope: slice.Project, Content: []byte("unrelated deployment configuration")})
 				}
-				b := NewBridge(Config{Enabled: true, Mode: mode, ProjectDir: writeKernelDir(t, items, nil)})
+				// cross_task blockers are Memory cards: admit the type so the
+				// window-filling behaviour under test is the freshness/task
+				// semantics, not the allowlist.
+				b := NewBridge(Config{Enabled: true, Mode: mode, ProjectDir: writeKernelDir(t, items, nil),
+					AdmissionTypes: []string{"context", "memory"}})
 				defer b.Close()
 				const query = "repair parser regression"
 				store, idx, err := b.kernelIndex()

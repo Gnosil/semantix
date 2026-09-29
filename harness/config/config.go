@@ -964,6 +964,13 @@ type SemantixConfig struct {
 	Mode string `toml:"mode"`
 	// Budget caps the L2 injection block size in bytes (default 4096).
 	Budget int `toml:"budget"`
+	// AdmissionTypes is the L2 injection allowlist by slice wire name
+	// (prompt|context|tool_pattern|result|memory). Empty = ["context"],
+	// the only admission set that beat memory-off in both frozen-subset
+	// campaigns (issue #508 R1/R2, +3 paired net win each run). "result"
+	// still requires a host-verified slice; unknown names are dropped
+	// fail-closed.
+	AdmissionTypes []string `toml:"admission_types"`
 	// SessionsDir is where the session JSONL mirror is written; empty uses
 	// <controller session dir>/sessions.
 	SessionsDir string `toml:"sessions_dir"`

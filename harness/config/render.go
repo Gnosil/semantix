@@ -537,6 +537,11 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	} else {
 		b.WriteString("# budget  = 4096          # L2 injection block byte cap\n")
 	}
+	if len(c.Semantix.AdmissionTypes) > 0 {
+		fmt.Fprintf(&b, "admission_types = %s   # injectable slice wire names\n", renderStringArray(c.Semantix.AdmissionTypes))
+	} else {
+		b.WriteString("# admission_types = [\"context\"]   # L2 admission allowlist; context-only beat off in both #508 campaigns\n")
+	}
 	if c.Semantix.SessionsDir != "" {
 		fmt.Fprintf(&b, "sessions_dir = %q\n", c.Semantix.SessionsDir)
 	}

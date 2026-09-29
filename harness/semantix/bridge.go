@@ -43,6 +43,12 @@ type Config struct {
 	Mode string
 	// Budget caps the L2 injection block size in bytes (default 4096).
 	Budget int
+	// AdmissionTypes is the L2 injection allowlist by slice wire name
+	// (prompt|context|tool_pattern|result|memory). Empty defaults to
+	// Context-only — the only admission set that beat memory-off in both
+	// frozen-subset campaigns (issue #508 R1/R2). "result" still requires a
+	// host-verified slice; unknown names are dropped fail-closed.
+	AdmissionTypes []string
 	// GreyMode controls the grey-zone injection policy: "" / "drop" keeps
 	// the fail-closed default (only zone.Hit slices injected); "audit"
 	// admits grey slices under a separate unverified marker so grey-zone
@@ -71,9 +77,12 @@ type Config struct {
 // without the kernel — every failure path degrades fail-open, never blocking
 // the agent main loop.
 type Bridge struct {
-	cfg    Config
-	mode   RetrievalMode
-	events *kernelevent.SyncBus
+	cfg  Config
+	mode RetrievalMode
+	// allowed is the resolved L2 admission allowlist (Config.AdmissionTypes
+	// or the Context-only default).
+	allowed map[slice.SliceType]bool
+	events  *kernelevent.SyncBus
 
 	mu    sync.Mutex
 	hs    *HarnessSink // lazily created once a session label is known
@@ -98,10 +107,30 @@ const (
 	RetrievalStrict RetrievalMode = "strict"
 )
 
+// strictAllowedTypes is the default L2 admission allowlist: Context cards
+// only. Both frozen-subset campaigns (issue #508, 2026-09-25 R1 and 2026-09-27
+// R2) measured Context-only injection at +3 paired net wins over memory-off
+// while the Context+Memory+verified-Result mix sat at parity — Memory
+// (plan-skeleton/outcome) cards carried 18% of injected bytes with no resolve
+// effect. AdmissionTypes extends or narrows this set per config.
 var strictAllowedTypes = map[slice.SliceType]bool{
 	slice.Context: true,
-	slice.Memory:  true,
-	slice.Result:  true,
+}
+
+// admissionTypes resolves configured wire names into an allowlist. Unknown
+// names are dropped, and a list that resolves to nothing keeps the default —
+// a typo can therefore never widen admission beyond strictAllowedTypes.
+func admissionTypes(names []string) map[slice.SliceType]bool {
+	allowed := make(map[slice.SliceType]bool, len(names))
+	for _, name := range names {
+		if t, ok := slice.TypeFromString(strings.ToLower(strings.TrimSpace(name))); ok {
+			allowed[t] = true
+		}
+	}
+	if len(allowed) == 0 {
+		return strictAllowedTypes
+	}
+	return allowed
 }
 
 // NewBridge builds a Bridge from cfg.
@@ -110,7 +139,7 @@ func NewBridge(cfg Config) *Bridge {
 		cfg.Budget = 4096
 	}
 	bus := kernelevent.NewSyncBus()
-	b := &Bridge{cfg: cfg, mode: resolveRetrievalMode(cfg), events: bus}
+	b := &Bridge{cfg: cfg, mode: resolveRetrievalMode(cfg), allowed: admissionTypes(cfg.AdmissionTypes), events: bus}
 	bus.Subscribe(b.mirrorKernel)
 	b.evolution = NewEvolutionLoop(bus, evolve.New(evolve.Config{}))
 	return b
@@ -291,8 +320,10 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 	// silently veto every candidate. Zero them here; per-scale threshold
 	// calibration is the W0–W4 follow-up, not this wiring's job.
 	z.AbsHigh, z.AbsLow = 0, 0
-	// Context, Memory and host-verified Result remain eligible history;
-	// raw Prompt and ToolPattern cards do not become reusable evidence.
+	// The admission allowlist defaults to Context-only (issue #508 R1/R2:
+	// the only arm with a paired net win over off in both runs). Raw Prompt
+	// and ToolPattern cards never become reusable evidence; a configured
+	// "result" still passes only host-verified slices.
 	// Do not stack the #447 library/source-count, runner-up, score, coverage
 	// and margin vetoes on the original BM25/zone selection. A singleton or
 	// two corroborating cards can be useful without satisfying those proxies.
@@ -302,7 +333,7 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 		Scope:         slice.Project,
 		K:             5,
 		Budget:        budget,
-		AllowedTypes:  strictAllowedTypes,
+		AllowedTypes:  b.allowed,
 		MinOrigin:     slice.OriginSessionAuto,
 		RootDir:       workspaceDir,
 		CurrentCommit: readGitHead(workspaceDir),

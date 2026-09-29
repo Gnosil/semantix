@@ -259,7 +259,10 @@ func TestBridgeDeliveredInjectionRecordsStatsAndEvent(t *testing.T) {
 
 func TestBridgeStrictAdmissionKeepsTypeChecksInSmallLibrary(t *testing.T) {
 	dir := writeKernelDir(t, reuseFixtureSlices(), nil)
-	b := NewBridge(Config{Enabled: true, Mode: "strict", ProjectDir: dir})
+	// Result stays allowlisted here so the probation guard (not the
+	// Context-only default) is what rejects slice "b".
+	b := NewBridge(Config{Enabled: true, Mode: "strict", ProjectDir: dir,
+		AdmissionTypes: []string{"context", "result"}})
 	defer b.Close()
 	result := b.InjectDetailed(context.Background(), "修复 go 测试")
 	if result.Text == "" || result.Diagnostics == nil || len(result.Targets) != 1 || result.Targets[0] != "c" {
@@ -276,7 +279,10 @@ func TestBridgeStrictAdmissionKeepsTypeChecksInSmallLibrary(t *testing.T) {
 
 func TestBridgeStrictAdmissionInjectsOnlyContextWithStrongEvidence(t *testing.T) {
 	dir := writeKernelDir(t, admissionFixtureSlices(), nil)
-	b := NewBridge(Config{Enabled: true, Mode: "strict", ProjectDir: dir})
+	// Result stays allowlisted so result-blocked exercises the probation
+	// guard it is named for.
+	b := NewBridge(Config{Enabled: true, Mode: "strict", ProjectDir: dir,
+		AdmissionTypes: []string{"context", "result"}})
 	defer b.Close()
 	result := b.InjectDetailed(context.Background(), "修复 go 测试")
 	if result.Text == "" || result.Diagnostics == nil || result.Diagnostics.Decision != "assembled" {
