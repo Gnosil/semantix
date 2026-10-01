@@ -1,6 +1,6 @@
 import { translate as t, type LocaleProps } from "@/lib/i18n";
 
-import Reveal from "@/components/Reveal";
+import { ScrollScene, ScrollLayer } from "@/components/ScrollScene";
 
 export default function Hero({ locale = "zh-CN" }: LocaleProps) {
   return (
@@ -22,9 +22,9 @@ export default function Hero({ locale = "zh-CN" }: LocaleProps) {
       </div>
       <div className="relative wrap text-center">
         {/* terminal demo */}
-        <Reveal>
-          <div className="mx-auto max-w-3xl text-left">
-            <div className="pane-in overflow-hidden rounded-xl border border-border bg-[oklch(0.21_0.006_260)] shadow-lg">
+        <ScrollScene className="mx-auto max-w-3xl text-left">
+          <ScrollLayer from={0.02} to={0.7} rise={46} scaleFrom={0.97}>
+            <div className="overflow-hidden rounded-xl border border-border bg-[oklch(0.21_0.006_260)] shadow-lg">
               <div className="flex items-center gap-2 bg-[oklch(0.27_0.008_260)] px-4 py-3">
                 <span className="h-3 w-3 rounded-full bg-[#F87171]" />
                 <span className="h-3 w-3 rounded-full bg-[#FBBF24]" />
@@ -34,6 +34,7 @@ export default function Hero({ locale = "zh-CN" }: LocaleProps) {
                 </span>
               </div>
               <div className="px-5 py-4 font-mono text-sm leading-relaxed text-slate-300">
+                <ScrollLayer from={0.07} to={0.4} rise={12}>
                 <div>
                   <span className="text-accent">$ semantix extract</span>{" "}
                   <span className="text-slate-400">
@@ -46,12 +47,16 @@ export default function Hero({ locale = "zh-CN" }: LocaleProps) {
                 <div className="text-slate-400">
                   {"  "}P-slices 214 · C-slices 158 · T-slices 140
                 </div>
+                </ScrollLayer>
                 <div>&nbsp;</div>
+                <ScrollLayer from={0.2} to={0.58} rise={12}>
                 <div>
                   <span className="text-accent">$ semantix search</span>{" "}
                   <span className="text-slate-400">
                     {t(locale, "\"如何缓存跨会话前缀\" -topk 3")}</span>
                 </div>
+                </ScrollLayer>
+                <ScrollLayer from={0.3} to={0.76} rise={12}>
                 <div>
                   #1 [P] id=9f2a score=7.42 &quot;stable slice injection → vendor byte
                   cache&quot;
@@ -63,6 +68,8 @@ export default function Hero({ locale = "zh-CN" }: LocaleProps) {
                   #3 [C] id=b704 score=6.51 &quot;L2 freeze-period ≥1h guard&quot;
                 </div>
                 <div>&nbsp;</div>
+                </ScrollLayer>
+                <ScrollLayer from={0.4} to={0.86} rise={10}>
                 <div className="text-slate-500">
                   {t(locale, "命中 3 slices · 0.4ms · 下次会话注入前缀，直接命中字节缓存")}</div>
                 <div>
@@ -70,14 +77,16 @@ export default function Hero({ locale = "zh-CN" }: LocaleProps) {
                     ▍
                   </span>
                 </div>
+                </ScrollLayer>
               </div>
             </div>
-
+          </ScrollLayer>
+          <ScrollLayer from={0.42} to={0.95} rise={24}>
             <p className="mx-auto mt-8 max-w-2xl text-center text-sm leading-6 text-muted-foreground md:text-base">
               {t(locale, "Semantix 连接 Agent Harness 与资源层，提供切片提取、BM25 检索和稳定注入路径。")}<br className="hidden md:block" />
               {t(locale, "当前公开证据来自仓库测试与合成演示；生产环境中的成本和性能收益仍待验证。")}</p>
-          </div>
-        </Reveal>
+          </ScrollLayer>
+        </ScrollScene>
       </div>
     </section>
   );
