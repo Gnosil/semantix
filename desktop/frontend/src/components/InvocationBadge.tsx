@@ -1,5 +1,4 @@
-import { Bot, WandSparkles } from "./SemantixIcons";
-import { X } from "./SemantixIcons";
+import { Bot, WandSparkles, X } from "lucide-react";
 import type { CSSProperties } from "react";
 import type { InvocationDisplay } from "../lib/invocationDisplay";
 import { projectColorValue } from "../lib/projectColors";

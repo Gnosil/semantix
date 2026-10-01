@@ -1,4 +1,3 @@
-import { SiteWordmark } from "./SiteWordmark";
 import { useMemo, type CSSProperties } from "react";
 import { deriveCodeReadabilityPalette, type CodeReadabilityPalette } from "../lib/codeReadability";
 import { themePackKind, type ThemePackView } from "../lib/themePack";
@@ -117,7 +116,7 @@ export function ThemePreviewSurface({
       <div className="theme-preview-surface__overlay" aria-hidden="true" />
       <div className="theme-preview-surface__chrome">
         <aside className="theme-preview-surface__side">
-          <div className="theme-preview-surface__logo"><SiteWordmark /></div>
+          <div className="theme-preview-surface__logo">R</div>
           <div className="theme-preview-surface__nav" />
           <div className="theme-preview-surface__nav theme-preview-surface__nav--dim" />
           <div className="theme-preview-surface__nav theme-preview-surface__nav--dim" />

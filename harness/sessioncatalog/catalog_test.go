@@ -12,43 +12,6 @@ import (
 	"semantix/harness/agent"
 )
 
-func TestTopicReadsPreserveTitleSource(t *testing.T) {
-	t.Parallel()
-	ctx := context.Background()
-	catalog, err := Open(ctx, Options{Path: filepath.Join(t.TempDir(), "catalog.sqlite"), DisableRepair: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = catalog.Close(context.Background()) })
-	for _, source := range []string{"auto", "manual"} {
-		if err := catalog.UpsertSession(ctx, SessionRecord{
-			Path: "/sessions/" + source + ".jsonl", Directory: "/sessions", Scope: "global",
-			TopicID: source, Turns: 1, TurnsState: TurnsValid, Health: HealthOK,
-		}); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := catalog.SyncMetadata(ctx, nil, []TopicMetadata{
-		{Scope: "global", TopicID: "auto", Title: "新的会话", TitleSource: "auto"},
-		{Scope: "global", TopicID: "manual", Title: "新的会话", TitleSource: "manual"},
-	}); err != nil {
-		t.Fatal(err)
-	}
-	page, err := catalog.ListTopics(ctx, TopicPageRequest{Scope: "global", Limit: 50})
-	if err != nil || len(page.Items) != 2 {
-		t.Fatalf("page=%+v err=%v", page, err)
-	}
-	for _, listed := range page.Items {
-		if listed.TitleSource != listed.TopicID {
-			t.Fatalf("list title source=%q, want %q", listed.TitleSource, listed.TopicID)
-		}
-		topic, ok, err := catalog.GetTopic(ctx, TopicKey{Scope: "global", TopicID: listed.TopicID})
-		if err != nil || !ok || topic.TitleSource != listed.TitleSource {
-			t.Fatalf("get topic=%+v ok=%v err=%v", topic, ok, err)
-		}
-	}
-}
-
 func TestReconcileMakesUnknownCountsVisibleWithoutReadingTranscript(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

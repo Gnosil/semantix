@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, Gauge } from "./SemantixIcons";
+import { Check, ChevronsUpDown, Gauge } from "lucide-react";
 import { asArray } from "../lib/array";
 import type { EffortInfo } from "../lib/types";
 import { ANCHORED_POPOVER_CLOSE_MS, AnchoredPopover } from "./AnchoredPopover";
@@ -66,7 +66,7 @@ export function EffortSwitcher({
       >
         <Gauge size={14} className="modelsw__kind" />
         <span className="modelsw__label">{current}</span>
-        <ChevronDown size={11} />
+        <ChevronsUpDown size={11} />
       </button>
       <AnchoredPopover
         open={open && !disabled}

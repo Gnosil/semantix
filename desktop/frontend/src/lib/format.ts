@@ -2,7 +2,7 @@
  * Shared formatting utilities for token counts and numeric displays.
  *
  * Centralises the previously duplicated fmtTokens / fmtFullTokens helpers
- * scattered across ContextPanel and Composer so every surface renders
+ * so every surface (Composer, status bar, context ring) renders
  * identical compact token strings (e.g. "1.5K", "2.0M").
  */
 
@@ -65,16 +65,4 @@ export function formatTokens(tokens: number | undefined, options?: TokenFormatOp
   }
 
   return String(tokens);
-}
-
-/**
- * Convenience wrapper for optional token counts (session / turn totals).
- *
- * Delegates to {@link formatTokens} and returns `"-"` when the value is
- * absent, zero, or negative — matching the old `fmtOptionalTokens` helper
- * it replaces.
- */
-export function formatOptionalTokens(tokens?: number | null, options?: TokenFormatOptions): string {
-  if (typeof tokens !== "number" || tokens <= 0) return "-";
-  return formatTokens(tokens, options);
 }

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RotateCcw, Upload } from "./SemantixIcons";
-import { Check, Copy, Download, Pencil, Plus, Trash2 } from "./SemantixIcons";
+import { Check, Copy, Download, Pencil, Plus, RotateCcw, Trash2, Upload } from "lucide-react";
 import { app } from "../lib/bridge";
 import { useT } from "../lib/i18n";
 import { THEME_STYLES, type ThemeStyle, isThemeStyle } from "../lib/theme";

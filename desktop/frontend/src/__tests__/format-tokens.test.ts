@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { formatTokens, formatOptionalTokens } from "../lib/format";
+import { formatTokens } from "../lib/format";
 
 describe("formatTokens", () => {
   it("returns '-' for undefined, zero, and negative values", () => {
@@ -57,20 +57,5 @@ describe("formatTokens", () => {
     // toLocaleString output varies by locale, but should contain digits
     assert.match(result, /142/);
     assert.doesNotMatch(result, /[KM]/);
-  });
-});
-
-describe("formatOptionalTokens", () => {
-  it("returns '-' for missing, zero, and negative values", () => {
-    assert.equal(formatOptionalTokens(undefined), "-");
-    assert.equal(formatOptionalTokens(null), "-");
-    assert.equal(formatOptionalTokens(0), "-");
-    assert.equal(formatOptionalTokens(-50), "-");
-  });
-
-  it("formats positive values identically to formatTokens", () => {
-    assert.equal(formatOptionalTokens(1500), "1.5K");
-    assert.equal(formatOptionalTokens(1_000_000), "1M");
-    assert.equal(formatOptionalTokens(500), "500");
   });
 });

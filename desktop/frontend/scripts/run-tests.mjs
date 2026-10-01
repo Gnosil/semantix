@@ -8,7 +8,7 @@
 import { spawnSync } from "node:child_process";
 import { readdirSync } from "node:fs";
 import { createRequire } from "node:module";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 
 // Resolve the local tsx entry directly so the runner works both under pnpm
 // scripts and when invoked as plain `node scripts/run-tests.mjs`.
@@ -50,7 +50,6 @@ const OWNED_ELSEWHERE = new Map(Object.entries({
   "remote-error-ux.test.tsx": "test:remote",
   "remote-hosts-page.test.tsx": "test:remote",
   "remote-secret-dialog.test.tsx": "test:remote",
-  "remote-server-panel.test.tsx": "test:remote (needs the svg stub register)",
   "updater-shared-state.test.tsx": "test:updater",
   "window-state-ordering.test.ts": "test:window-state",
 }));
@@ -77,9 +76,7 @@ for (const name of suites) {
   // English locale mirrors the Go convention (LANG=en_US.UTF-8 go test):
   // Node's built-in navigator.language follows the machine's ICU locale, and
   // suites assert English UI strings.
-  const env = { ...process.env, LANG: "en_US.UTF-8", LC_ALL: "en_US.UTF-8",
-    NODE_OPTIONS: [process.env.NODE_OPTIONS, `--import=${resolve("scripts/svg-stub-register.mjs")}`].filter(Boolean).join(" "),
-  };
+  const env = { ...process.env, LANG: "en_US.UTF-8", LC_ALL: "en_US.UTF-8" };
   const result = spawnSync(process.execPath, [tsxCli, path], { stdio: "inherit", env });
   if (result.error) console.error(`run-tests: spawn failed for ${path}: ${result.error.message}`);
   if (result.status !== 0) {

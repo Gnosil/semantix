@@ -113,7 +113,7 @@ window.go = {
             { name: "docs", isDir: true },
             { name: "README.md", isDir: false },
           ]
-        : [{ name: "notes.md", isDir: false }],
+        : [],
       SearchFileRefsForTab: async () => [],
       WorkspaceGitHistory: async () => [],
       WorkspaceChanges: async () => ({ files: [], gitAvailable: true }),
@@ -138,10 +138,8 @@ await act(async () => {
         open
         tabId="workspace-tab"
         cwd="/repo"
-        maximized={false}
         initialViewMode="files"
         onClose={() => {}}
-        onToggleMaximized={() => {}}
         onOpenInTerminal={() => {}}
       />
     </LocaleProvider>,
@@ -150,29 +148,6 @@ await act(async () => {
 });
 
 await waitFor("workspace rows", () => document.querySelector('[data-workspace-path="README.md"]') != null);
-const folder = document.querySelector<HTMLButtonElement>('[data-workspace-path="docs/"]');
-ok(folder?.getAttribute("role") === "treeitem" && folder.getAttribute("aria-expanded") === "false", "folder exposes its collapsed tree state");
-await act(async () => {
-  folder?.dispatchEvent(new window.KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }));
-  await flushTimers();
-});
-await waitFor("nested file", () => document.querySelector('[data-workspace-path="docs/notes.md"]') != null);
-const child = document.querySelector<HTMLButtonElement>('[data-workspace-path="docs/notes.md"]');
-ok(folder?.getAttribute("aria-expanded") === "true", "right arrow opens the lazy directory");
-ok(child?.getAttribute("aria-level") === "2" && child.querySelector(".magic-file-tree__indicator") != null, "nested files retain their level and directory connector");
-await act(async () => { child?.click(); await flushTimers(); });
-ok(document.querySelector('[data-workspace-path="docs/notes.md"]')?.getAttribute("aria-selected") === "true", "file selection remains controlled by workspace preview");
-await act(async () => {
-  document.querySelector<HTMLButtonElement>('[data-workspace-path="docs/notes.md"]')?.click();
-  await flushTimers();
-});
-ok(document.querySelector('[data-workspace-path="docs/notes.md"]')?.getAttribute("aria-selected") === "false", "clicking the selected file closes its selection");
-await act(async () => {
-  document.querySelector('[data-workspace-path="docs/"]')?.dispatchEvent(new window.KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true, cancelable: true }));
-  await flushTimers();
-});
-ok(document.querySelector('[data-workspace-path="docs/notes.md"]') == null, "left arrow collapses children without losing workspace state");
-ok(document.querySelector('[data-workspace-path="README.md"]')?.getAttribute("draggable") === "true", "file rows preserve reference dragging");
 await openRowMenu("README.md");
 
 const fileLabels = [

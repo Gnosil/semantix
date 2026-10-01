@@ -1,5 +1,4 @@
-import { AlertTriangle, PanelBottomClose } from "./SemantixIcons";
-import { MessageSquarePlus, Plus, RefreshCw, TerminalSquare, X } from "./SemantixIcons";
+import { AlertTriangle, MessageSquarePlus, PanelBottomClose, Plus, RefreshCw, TerminalSquare, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useT } from "../lib/i18n";
@@ -80,7 +79,7 @@ export function TerminalPanel({
           </select>
           <button type="button" className="terminal-icon-button" onClick={newSession} disabled={!workspace?.available || terminalReadOnly} aria-label={t("terminal.newSession")} title={t("terminal.newSession")}><Plus size={15} /></button>
           <button type="button" className="terminal-icon-button" onClick={() => active && onAddOutput(active.id)} disabled={!active} aria-label={t("terminal.addOutput")} title={t("terminal.addOutput")}><MessageSquarePlus size={15} /></button>
-          <button type="button" className="terminal-icon-button" onClick={onClose} aria-label={t("rightDock.collapse")} title={t("rightDock.collapse")}><PanelBottomClose size={15} /></button>
+          <button type="button" className="terminal-icon-button" onClick={onClose} aria-label={t("terminal.close")} title={t("terminal.close")}><PanelBottomClose size={15} /></button>
         </div>
       </header>
       {!workspace && loading ? (

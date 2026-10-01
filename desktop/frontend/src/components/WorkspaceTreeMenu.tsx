@@ -1,5 +1,4 @@
-import { ExternalLink } from "./SemantixIcons";
-import { FileText, FolderOpen, MessageSquarePlus, TerminalSquare } from "./SemantixIcons";
+import { ExternalLink, FileText, FolderOpen, MessageSquarePlus, TerminalSquare } from "lucide-react";
 import { app } from "../lib/bridge";
 import { useT } from "../lib/i18n";
 import {

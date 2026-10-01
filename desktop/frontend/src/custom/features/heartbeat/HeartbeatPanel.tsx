@@ -4,8 +4,20 @@
 // "run now" button for each. The panel is opened from the sidebar nav item.
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ChevronLeft, Heart, Play } from "../../../components/SemantixIcons";
-import { Activity, ChevronsUpDown, Clock, Check, MessageSquare, Plus, Search, Trash2, X } from "../../../components/SemantixIcons";
+import {
+  Activity,
+  ChevronLeft,
+  ChevronsUpDown,
+  Clock,
+  Check,
+  Heart,
+  MessageSquare,
+  Play,
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 import { app } from "../../../lib/bridge";
 import { useT } from "../../../lib/i18n";
 import { AnchoredPopover } from "../../../components/AnchoredPopover";

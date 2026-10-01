@@ -1,5 +1,4 @@
-import { AlertTriangle, ArchiveRestore, History, Sparkles } from "./SemantixIcons";
-import { Activity, Check, ChevronDown, ChevronRight, FileText, Pencil, Plus, RefreshCw, Search, Trash2 } from "./SemantixIcons";
+import { Activity, AlertTriangle, ArchiveRestore, Check, ChevronDown, ChevronRight, FileText, History, Pencil, Plus, RefreshCw, Search, Sparkles, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { app } from "../lib/bridge";
 import { useT } from "../lib/i18n";

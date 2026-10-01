@@ -889,16 +889,12 @@ func TestOpenRemoteWorkspaceWindowOpenFailureKeepsServeReady(t *testing.T) {
 	}
 	// The serve is up and ready for the new workspace; the recorded last
 	// workspace matches the running serve so the next open reuses it.
-	status, _ := a.RemoteServerStatus(hostID)
-	if status.State != "ready" || status.Workspace != "/srv2" {
-		t.Fatalf("serve state after failed open = %+v, want ready /srv2", status)
-	}
 	if got := a.RemoteLastWorkspace(hostID); got != "/srv2" {
 		t.Fatalf("last workspace = %q, want /srv2 (the running serve)", got)
 	}
 }
 
-func TestRemoteWindowDisconnectAndStopCloseWindow(t *testing.T) {
+func TestRemoteWindowDisconnectClosesWindow(t *testing.T) {
 	fake := &fakeRemoteKernel{}
 	a := NewApp()
 	a.remoteRuntime = fake
@@ -913,16 +909,5 @@ func TestRemoteWindowDisconnectAndStopCloseWindow(t *testing.T) {
 	waitRemoteWindowHelperExit(t, p)
 	if a.hasRemoteWindow("box") {
 		t.Fatal("window survived explicit disconnect")
-	}
-
-	p2 := spawnRemoteWindowHelper(t)
-	defer waitRemoteWindowHelperExit(t, p2)
-	a.remoteWindows.record(key, p2)
-	if err := a.StopRemoteServer("box"); err != nil {
-		t.Fatal(err)
-	}
-	waitRemoteWindowHelperExit(t, p2)
-	if a.hasRemoteWindow("box") {
-		t.Fatal("window survived stop-server")
 	}
 }

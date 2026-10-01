@@ -1,7 +1,6 @@
 import { memo, type RefObject, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle, Code2, Play, RotateCcw, ZoomIn, ZoomOut } from "./SemantixIcons";
-import { Maximize2, Minimize2 } from "./SemantixIcons";
+import { AlertCircle, Code2, Maximize2, Minimize2, Play, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 import { CopyButton } from "./CopyButton";
 import { openExternal } from "../lib/bridge";
 import { markdownImageSource } from "../lib/markdownImage";

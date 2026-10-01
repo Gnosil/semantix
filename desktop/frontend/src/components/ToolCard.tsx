@@ -1,6 +1,5 @@
 import { memo, useEffect, useRef, useState, type ReactNode } from "react";
-import { Compass } from "./SemantixIcons";
-import { ChevronRight } from "./SemantixIcons";
+import { ChevronRight, Compass } from "lucide-react";
 import { CodeViewer } from "./CodeViewer";
 import { DiffView } from "./DiffView";
 import { useT } from "../lib/i18n";

@@ -188,7 +188,7 @@ func (a *App) runtimeOnlyProjectTopics(scope, workspaceRoot string) []ProjectNod
 		snapshots = append(snapshots, catalogRuntimeSnapshot{
 			scope: tab.Scope, workspaceRoot: tab.WorkspaceRoot, topicID: tab.TopicID,
 			sessionPath: tab.SessionPath, activity: tab.ActivityStatus,
-			topicTitle: a.localizedTopicTitle(tab.TopicTitle, tab.topicTitleSource), ctrl: tab.Ctrl, open: open,
+			topicTitle: tab.TopicTitle, ctrl: tab.Ctrl, open: open,
 		})
 	}
 	for _, tab := range a.tabs {
@@ -219,7 +219,7 @@ func (a *App) runtimeOnlyProjectTopics(scope, workspaceRoot string) []ProjectNod
 			kind = "global_topic"
 			sessionKind = "global_session"
 		}
-		label := a.localizedDefaultTopicTitle()
+		label := defaultTopicTitle
 		if strings.TrimSpace(sessions[0].topicTitle) != "" {
 			label = sessions[0].topicTitle
 		}
@@ -302,7 +302,7 @@ func (a *App) projectNodeFromCatalogTopic(topic sessioncatalog.TopicRecord, topi
 	}
 	overlay := topicOverlays[topicSummaryKey(topic.Scope, topic.WorkspaceRoot, topic.TopicID)]
 	node := ProjectNode{
-		Key: kind + "_" + topic.TopicID, Kind: kind, Label: a.localizedTopicTitle(topic.Title, topic.TitleSource),
+		Key: kind + "_" + topic.TopicID, Kind: kind, Label: a.localizedTopicTitle(topic.Title, ""),
 		Root: topic.WorkspaceRoot, TopicID: topic.TopicID, Turns: topic.Turns,
 		TurnsState: string(topic.TurnsState), Health: string(topic.Health),
 		CreatedAt: topic.CreatedAt, LastActivityAt: topic.LastActivityAt,

@@ -23,8 +23,8 @@ export type ThemePreviewPalette = {
  */
 export const BASE_STYLE_PREVIEW_PALETTES: Record<ThemeStyle, Record<ThemePreviewMode, ThemePreviewPalette>> = {
   graphite: {
-    dark: { bg: "#131816", bgSoft: "#19201c", panel: "#1d2520", sidebar: "#101612", fg: "#eef3ef", fgDim: "#b1bdb5", accent: "#8bd5b3", accentFg: "#10291d", border: "#39483e", radius: "10px" },
-    light: { bg: "#fbfcfa", bgSoft: "#f0f4ef", panel: "#ffffff", sidebar: "#f0f4ef", fg: "#1d3024", fgDim: "#526558", accent: "#216747", accentFg: "#ffffff", border: "#c9d5ca", radius: "10px" },
+    dark: { bg: "#0c0d10", bgSoft: "#101115", panel: "#15161a", sidebar: "#15161a", fg: "#f1f1ef", fgDim: "#a7a8ad", accent: "#ff6a3d", accentFg: "#0c0d10", border: "rgba(255, 255, 255, 0.1)", radius: "8px" },
+    light: { bg: "#f4f3ef", bgSoft: "#f0efe9", panel: "#ffffff", sidebar: "#ffffff", fg: "#16181d", fgDim: "#4a4d56", accent: "#ff5a2c", accentFg: "#ffffff", border: "rgba(20, 22, 28, 0.12)", radius: "8px" },
   },
   aurora: {
     dark: { bg: "#0e0d18", bgSoft: "#121120", panel: "#17162a", sidebar: "#17162a", fg: "#ecebf7", fgDim: "#a9a4c6", accent: "#8b7cff", accentFg: "#0e0d18", border: "rgba(255, 255, 255, 0.07)", radius: "15px" },

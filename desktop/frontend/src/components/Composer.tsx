@@ -1,8 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { CSSProperties, ClipboardEvent, DragEvent, KeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
-import { ArrowRight, ArrowUp, AtSign, Check, ChevronDown, CornerDownRight, Equal, Eye, FilePlus2, FileText, Flag, Folder, Gauge, Hash, List, MessageSquare, Plus, Search, SlidersHorizontal, Square, Target, Trash2, X } from "./SemantixIcons";
+import { ArrowRight, ArrowUp, AtSign, Check, ChevronsUpDown, CornerDownRight, Equal, Eye, FilePlus2, FileText, Flag, Folder, Gauge, Hash, List, MessageSquare, Plus, Search, Shield, ShieldAlert, ShieldCheck, Square, Target, Trash2, X } from "lucide-react";
 import { asArray } from "../lib/array";
-import { BorderBeam } from "./magicui/BorderBeam";
 import { filterAtMatches } from "../lib/atMatches";
 import { DedupIndex, sha256 } from "../lib/attachDedup";
 import { app, onFilesDropped } from "../lib/bridge";
@@ -44,7 +43,6 @@ import { ArgMenu } from "./ArgMenu";
 import { ANCHORED_POPOVER_CLOSE_MS, AnchoredPopover } from "./AnchoredPopover";
 import { EffortSwitcher } from "./EffortSwitcher";
 import { ModelSwitcher } from "./ModelSwitcher";
-import { ApprovalModePicker } from "./ApprovalModePicker";
 import { Tooltip } from "./Tooltip";
 import { ComposerContextCard } from "./ComposerContextCard";
 import { Markdown } from "./Markdown";
@@ -552,7 +550,6 @@ export function Composer({
   guidanceQueuePreviewItems,
   showContextWindowRing = false,
   heroMode = false,
-  compactStart = false,
   context,
   turnCost,
   currency,
@@ -647,8 +644,6 @@ export function Composer({
   // Creation empty-session hero: slim centered composer under the welcome
   // headline (hides task/profile/approval chrome; keeps model + effort).
   heroMode?: boolean;
-  // Start with just attachments, model, and an optional settings row.
-  compactStart?: boolean;
   context?: ContextInfo;
   turnCost?: number;
   currency?: string;
@@ -665,9 +660,6 @@ export function Composer({
   const yoloComboLabel = useShortcutComboLabel("toolApproval.yolo");
   const draftKey = sessionKey || tabId || DEFAULT_COMPOSER_DRAFT_KEY;
   const now = useTick(running);
-  const [sessionOptionsOpen, setSessionOptionsOpen] = useState(false);
-  useEffect(() => setSessionOptionsOpen(false), [sessionKey, compactStart]);
-  const sessionOptionsId = `composer-session-options-${tabId || "main"}`;
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [imageViewer, setImageViewer] = useState<{ open: boolean; url: string; name: string }>({ open: false, url: "", name: "" });
@@ -2937,7 +2929,7 @@ export function Composer({
   }, []);
 
   const measureTextareaAutoHeight = useCallback(() => {
-    if (composerHeight !== null && !compactStart) {
+    if (composerHeight !== null) {
       setTextareaAutoHeight(null);
       setTextareaAutoOverflow(false);
       return;
@@ -2974,7 +2966,7 @@ export function Composer({
     if (node && previousHeight !== undefined) node.style.height = previousHeight;
     setTextareaAutoHeight((current) => (current === nextHeight ? current : nextHeight));
     setTextareaAutoOverflow((current) => (current === nextOverflow ? current : nextOverflow));
-  }, [composerHeight, heroMode, compactStart, invocations.length]);
+  }, [composerHeight, heroMode, invocations.length]);
 
   useLayoutEffect(() => {
     measureTextareaAutoHeight();
@@ -3612,16 +3604,16 @@ export function Composer({
   // is a separate variable consumed by the CSS calc, so the live resize drag
   // (which writes raw logical heights) stays consistent with this render path.
   const showRunStrip = Boolean(retry || running);
-  const composerCardStyle = composerHeight === null || compactStart
+  const composerCardStyle = composerHeight === null
     ? undefined
     : ({
         "--composer-height": `${composerHeight}px`,
         "--composer-run-strip-reserved": `${showRunStrip ? COMPOSER_RUN_STRIP_RESERVED : 0}px`,
       } as CSSProperties);
-  const textareaStyle = (composerHeight === null || compactStart) && textareaAutoHeight !== null
+  const textareaStyle = composerHeight === null && textareaAutoHeight !== null
     ? ({ height: `${textareaAutoHeight}px`, overflowY: textareaAutoOverflow ? "auto" : "hidden" } as CSSProperties)
     : undefined;
-  const composerAutoExpanded = (composerHeight === null || compactStart) && textareaAutoHeight !== null && textareaAutoHeight > 40;
+  const composerAutoExpanded = composerHeight === null && textareaAutoHeight !== null && textareaAutoHeight > 40;
   const composerResizeValue = composerHeight ?? clampComposerHeight((textareaAutoHeight ?? 0) + COMPOSER_AUTO_RESERVED_HEIGHT);
   void onSetMode;
   const chooseApprovalMode = (nextMode: ToolApprovalMode) => {
@@ -3896,165 +3888,13 @@ export function Composer({
     },
   ];
 
-  const sessionOptionsTrigger = (
-    <Tooltip label={t("composer.sessionOptions")} disabled={sessionOptionsOpen}>
-      <button type="button" className="composer-session-options-trigger"
-        aria-label={t("composer.sessionOptions")}
-        aria-expanded={sessionOptionsOpen} aria-controls={sessionOptionsId}
-        onClick={() => setSessionOptionsOpen((open) => !open)}>
-        <SlidersHorizontal size={15} aria-hidden="true" />
-      </button>
-    </Tooltip>
-  );
-  const attachmentControl = (<>
-            {!heroMode && (
-              <div className="composer-meta__control composer-meta__control--content">
-                <Tooltip label={t("composer.contentMenuTitle")} disabled={contentMenuOpen}>
-                  <button
-                    ref={contentMenuAnchorRef}
-                    type="button"
-                    className={`composer-content-trigger${contentMenuOpen ? " composer-content-trigger--open" : ""}`}
-                    onClick={() => (contentMenuOpen ? setContentMenuOpen(false) : openContentMenu())}
-                    disabled={disabled || readOnly || running}
-                    aria-haspopup="menu"
-                    aria-expanded={contentMenuOpen}
-                    aria-label={t("composer.contentMenuTitle")}
-                  >
-                    <Plus size={17} strokeWidth={1.8} aria-hidden="true" />
-                  </button>
-                </Tooltip>
-              </div>
-            )}
-
-  </>);
-  const workControls = (<>
-            {!heroMode && (
-              <div className="composer-meta__control composer-meta__control--intent">
-                <Tooltip label={taskModeTooltipLabel} disabled={intentMenuOpen || intentMenuClosing || creationChrome}>
-                  <button
-                    ref={intentMenuAnchorRef}
-                    type="button"
-                    className={`composer-task-mode-trigger${intentMenuOpen || intentMenuClosing ? " composer-task-mode-trigger--open" : ""}`}
-                    onClick={() => (intentMenuOpen || intentMenuClosing ? closeIntentMenu() : openIntentMenu())}
-                    onMouseEnter={creationChrome ? onIntentHoverEnter : undefined}
-                    onMouseLeave={creationChrome ? onIntentHoverLeave : undefined}
-                    disabled={disabled || running}
-                    aria-haspopup="menu"
-                    aria-expanded={intentMenuOpen && !intentMenuClosing}
-                    aria-label={taskModeTriggerLabel}
-                    title={intentMenuOpen || intentMenuClosing || creationChrome ? undefined : taskModeTriggerLabel}
-                  >
-                    <TaskModeIcon size={14} aria-hidden="true" />
-                    <span className="composer-task-mode-trigger__value">{t(taskModeShortKey)}</span>
-                    <ChevronDown size={11} aria-hidden="true" />
-                    <BorderBeam active={!disabled} duration={4800} size={38} />
-                  </button>
-                </Tooltip>
-              </div>
-            )}
-            {!heroMode && (
-              <div className="composer-meta__control composer-meta__control--profile">
-                <Tooltip label={runtimeProfileTooltipLabel} disabled={profileMenuOpen || profileMenuClosing || creationChrome}>
-                  <button
-                    ref={profileMenuAnchorRef}
-                    type="button"
-                    data-profile={tokenMode}
-                    className={`composer-profile-trigger${profileMenuOpen || profileMenuClosing ? " composer-profile-trigger--open" : ""}`}
-                    onClick={() => (profileMenuOpen || profileMenuClosing ? closeProfileMenu() : openProfileMenu())}
-                    onMouseEnter={creationChrome ? onProfileHoverEnter : undefined}
-                    onMouseLeave={creationChrome ? onProfileHoverLeave : undefined}
-                    disabled={disabled || running}
-                    aria-haspopup="menu"
-                    aria-expanded={profileMenuOpen && !profileMenuClosing}
-                    aria-label={runtimeProfileTriggerLabel}
-                    title={profileMenuOpen || profileMenuClosing || creationChrome ? undefined : runtimeProfileTriggerLabel}
-                  >
-                    <RuntimeProfileIcon size={14} strokeWidth={1.75} aria-hidden="true" />
-                    <span className="composer-profile-trigger__label">
-                      <span className="composer-profile-trigger__value">{t(runtimeProfileShortKey)}</span>
-                    </span>
-                    <ChevronDown size={11} aria-hidden="true" />
-                  </button>
-                </Tooltip>
-              </div>
-            )}
-            {!heroMode && (
-              <div className="composer-meta__control composer-meta__control--approval">
-                {/* A pending tool approval disables the composer, but the approval
-                    bar stays usable so mode changes remain possible mid-prompt;
-                    the approval card explains that the pending request still needs
-                    an explicit decision. */}
-                <ApprovalModePicker mode={toolApprovalMode} disabled={approvalBarDisabled}
-                  shortcut={yoloComboLabel} onPick={chooseApprovalMode}/>
-              </div>
-            )}
-            {!heroMode && <span className="composer-meta__divider" aria-hidden="true" />}
-
-  </>);
-  const modelControl = (
-            <div className="composer-meta__control composer-meta__control--model">
-              {/*
-                Creation-only: showContextWindowRing is wired to sidebarCreation
-                (desktopLayoutStyle === "creation") in App.tsx. The ring popover
-                is portaled to <body> without an .app--creation prefix, so its
-                styles look global but only ever apply in creation layout. If you
-                ever surface this ring in another layout, its font sizes already
-                scale via --font-scale (see .context-ring-popover in styles.css).
-              */}
-              {!heroMode && !compactStart && showContextWindowRing && (
-                <ContextWindowRing
-                  enabled={showContextWindowRing}
-                  context={context}
-                  tabId={tabId}
-                  turnCost={turnCost}
-                  currency={currency}
-                  cacheHitTokens={cacheHitTokens}
-                  cacheMissTokens={cacheMissTokens}
-                  balance={balance}
-                />
-              )}
-              <ModelSwitcher label={modelLabel} tabId={tabId} onPick={onSwitchModel} />
-            </div>
-
-  );
-  const effortControls = (<>
-            {!heroMode && hasEffort && (
-              <div className="composer-meta__control composer-meta__control--effort">
-                <EffortSwitcher effort={effort} disabled={running} onPick={onSetEffort} />
-              </div>
-            )}
-            {!heroMode && hasEffort && (
-              <div className="composer-meta__control composer-meta__control--more">
-                <Tooltip label={compactEffortTitle} disabled={moreMenuOpen || moreMenuClosing}>
-                  <button
-                    ref={moreMenuAnchorRef}
-                    type="button"
-                    className={`composer-more-trigger composer-more-trigger--effort${currentEffort !== "auto" ? " composer-more-trigger--explicit" : ""}${moreMenuOpen || moreMenuClosing ? " composer-more-trigger--open" : ""}`}
-                    onClick={() => (moreMenuOpen || moreMenuClosing ? closeMoreMenu() : openMoreMenu())}
-                    disabled={disabled || running}
-                    aria-haspopup="menu"
-                    aria-expanded={moreMenuOpen && !moreMenuClosing}
-                    aria-label={compactEffortTitle}
-                    title={moreMenuOpen || moreMenuClosing ? undefined : compactEffortTitle}
-                  >
-                    <Gauge size={14} />
-                    <span>{currentEffort}</span>
-                    <ChevronDown size={11} />
-                  </button>
-                </Tooltip>
-              </div>
-            )}
-  </>);
-
   return (
     <div
       ref={composerWrapRef}
       className={[
         "composer-wrap",
-        "composer-wrap--polished",
         decisionPending ? "composer-wrap--decision-pending" : "",
         heroMode ? "composer-wrap--hero" : "",
-        compactStart ? "composer-wrap--compact-start" : "",
       ].filter(Boolean).join(" ")}
       style={{ "--wails-drop-target": "drop" } as CSSProperties}
       onDropCapture={onFileDropCapture}
@@ -4613,7 +4453,7 @@ export function Composer({
         </div>
       )}
       <div
-        className={`composer-card${(composerHeight !== null && !compactStart) || composerResizing ? " composer-card--resized" : ""}${composerAutoExpanded ? " composer-card--autosized" : ""}${composerResizing ? " composer-card--resizing" : ""}${running ? (waitingPrompt ? " composer-card--waiting" : " composer-card--running") : ""}`}
+        className={`composer-card${composerHeight !== null || composerResizing ? " composer-card--resized" : ""}${composerAutoExpanded ? " composer-card--autosized" : ""}${composerResizing ? " composer-card--resizing" : ""}${running ? (waitingPrompt ? " composer-card--waiting" : " composer-card--running") : ""}`}
         ref={composerCardRef}
         style={composerCardStyle}
       >
@@ -4658,7 +4498,6 @@ export function Composer({
           onDragLeave={onDragLeave}
         >
           <div className="composer__input-row">
-            {compactStart && attachmentControl}
             <span className="composer__caret">{shellModeActive ? "$" : "›"}</span>
             <div className="composer__content" onMouseDown={focusComposerFromContentBlank}>
               {invocations.length > 0 ? (
@@ -4768,8 +4607,6 @@ export function Composer({
                 />
               )}
             </div>
-            {compactStart && modelControl}
-            {compactStart && sessionOptionsTrigger}
             {composerPrompt && (
               <span className="composer__prompt" role="status">
                 {composerPrompt}
@@ -4808,14 +4645,173 @@ export function Composer({
           ariaLabel={t("composer.inputActions")}
           onClose={() => setInputMenuPoint(null)}
         />
-        <div className={composerMetaClass} hidden={compactStart && !sessionOptionsOpen}>
+        <div className={composerMetaClass}>
           <div className="composer-meta__params">
-            {compactStart ? (
-              <div id={sessionOptionsId} className="composer-session-options" hidden={!sessionOptionsOpen}
-                role="group" aria-label={t("composer.sessionOptions")}>
-                {workControls}{effortControls}
+            {!heroMode && (
+              <div className="composer-meta__control composer-meta__control--content">
+                <Tooltip label={t("composer.contentMenuTitle")} disabled={contentMenuOpen}>
+                  <button
+                    ref={contentMenuAnchorRef}
+                    type="button"
+                    className={`composer-content-trigger${contentMenuOpen ? " composer-content-trigger--open" : ""}`}
+                    onClick={() => (contentMenuOpen ? setContentMenuOpen(false) : openContentMenu())}
+                    disabled={disabled || readOnly || running}
+                    aria-haspopup="menu"
+                    aria-expanded={contentMenuOpen}
+                    aria-label={t("composer.contentMenuTitle")}
+                  >
+                    <Plus size={17} strokeWidth={1.8} aria-hidden="true" />
+                  </button>
+                </Tooltip>
               </div>
-            ) : (<>{attachmentControl}{workControls}{modelControl}{effortControls}</>)}
+            )}
+            {!heroMode && (
+              <div className="composer-meta__control composer-meta__control--intent">
+                <Tooltip label={taskModeTooltipLabel} disabled={intentMenuOpen || intentMenuClosing || creationChrome}>
+                  <button
+                    ref={intentMenuAnchorRef}
+                    type="button"
+                    className={`composer-task-mode-trigger${intentMenuOpen || intentMenuClosing ? " composer-task-mode-trigger--open" : ""}`}
+                    onClick={() => (intentMenuOpen || intentMenuClosing ? closeIntentMenu() : openIntentMenu())}
+                    onMouseEnter={creationChrome ? onIntentHoverEnter : undefined}
+                    onMouseLeave={creationChrome ? onIntentHoverLeave : undefined}
+                    disabled={disabled || running}
+                    aria-haspopup="menu"
+                    aria-expanded={intentMenuOpen && !intentMenuClosing}
+                    aria-label={taskModeTriggerLabel}
+                    title={intentMenuOpen || intentMenuClosing || creationChrome ? undefined : taskModeTriggerLabel}
+                  >
+                    <TaskModeIcon size={14} aria-hidden="true" />
+                    <span className="composer-task-mode-trigger__value">{t(taskModeShortKey)}</span>
+                    <ChevronsUpDown size={11} aria-hidden="true" />
+                  </button>
+                </Tooltip>
+              </div>
+            )}
+            {!heroMode && (
+              <div className="composer-meta__control composer-meta__control--profile">
+                <Tooltip label={runtimeProfileTooltipLabel} disabled={profileMenuOpen || profileMenuClosing || creationChrome}>
+                  <button
+                    ref={profileMenuAnchorRef}
+                    type="button"
+                    data-profile={tokenMode}
+                    className={`composer-profile-trigger${profileMenuOpen || profileMenuClosing ? " composer-profile-trigger--open" : ""}`}
+                    onClick={() => (profileMenuOpen || profileMenuClosing ? closeProfileMenu() : openProfileMenu())}
+                    onMouseEnter={creationChrome ? onProfileHoverEnter : undefined}
+                    onMouseLeave={creationChrome ? onProfileHoverLeave : undefined}
+                    disabled={disabled || running}
+                    aria-haspopup="menu"
+                    aria-expanded={profileMenuOpen && !profileMenuClosing}
+                    aria-label={runtimeProfileTriggerLabel}
+                    title={profileMenuOpen || profileMenuClosing || creationChrome ? undefined : runtimeProfileTriggerLabel}
+                  >
+                    <RuntimeProfileIcon size={14} strokeWidth={1.75} aria-hidden="true" />
+                    <span className="composer-profile-trigger__label">
+                      <span className="composer-profile-trigger__value">{t(runtimeProfileShortKey)}</span>
+                    </span>
+                    <ChevronsUpDown size={11} aria-hidden="true" />
+                  </button>
+                </Tooltip>
+              </div>
+            )}
+            {!heroMode && (
+              <div className="composer-meta__control composer-meta__control--approval">
+                {/* A pending tool approval disables the composer, but the approval
+                    bar stays usable so mode changes remain possible mid-prompt;
+                    the approval card explains that the pending request still needs
+                    an explicit decision. */}
+                <div
+                  className="composer-modebar composer-modebar--approval"
+                  data-mode={toolApprovalMode}
+                  title={t("composer.accessMenuTitle", { shortcut: yoloComboLabel })}
+                >
+                  <span className="composer-modebar__thumb" aria-hidden="true" />
+                  <button
+                    type="button"
+                    className={`composer-modebar__item composer-modebar__item--ask${toolApprovalMode === "ask" ? " composer-modebar__item--active" : ""}`}
+                    onClick={() => chooseApprovalMode("ask")}
+                    disabled={approvalBarDisabled}
+                    aria-pressed={toolApprovalMode === "ask"}
+                    title={t("composer.accessAskTitle")}
+                  >
+                    <Shield size={14} />
+                    <span>{t("composer.modeAsk")}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`composer-modebar__item composer-modebar__item--auto${toolApprovalMode === "auto" ? " composer-modebar__item--active" : ""}`}
+                    onClick={() => chooseApprovalMode("auto")}
+                    disabled={approvalBarDisabled}
+                    aria-pressed={toolApprovalMode === "auto"}
+                    title={t("composer.accessAutoTitle")}
+                  >
+                    <ShieldCheck size={14} />
+                    <span>{t("composer.modeNormal")}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`composer-modebar__item composer-modebar__item--yolo${toolApprovalMode === "yolo" ? " composer-modebar__item--active" : ""}`}
+                    onClick={() => chooseApprovalMode("yolo")}
+                    disabled={approvalBarDisabled}
+                    aria-pressed={toolApprovalMode === "yolo"}
+                    title={t("composer.accessYoloTitle", { shortcut: yoloComboLabel })}
+                  >
+                    <ShieldAlert size={14} />
+                    <span>{t("composer.modeYolo")}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+            {!heroMode && <span className="composer-meta__divider" aria-hidden="true" />}
+            <div className="composer-meta__control composer-meta__control--model">
+              {/*
+                Creation-only: showContextWindowRing is wired to sidebarCreation
+                (desktopLayoutStyle === "creation") in App.tsx. The ring popover
+                is portaled to <body> without an .app--creation prefix, so its
+                styles look global but only ever apply in creation layout. If you
+                ever surface this ring in another layout, its font sizes already
+                scale via --font-scale (see .context-ring-popover in styles.css).
+              */}
+              {!heroMode && showContextWindowRing && (
+                <ContextWindowRing
+                  enabled={showContextWindowRing}
+                  context={context}
+                  tabId={tabId}
+                  turnCost={turnCost}
+                  currency={currency}
+                  cacheHitTokens={cacheHitTokens}
+                  cacheMissTokens={cacheMissTokens}
+                  balance={balance}
+                />
+              )}
+              <ModelSwitcher label={modelLabel} tabId={tabId} onPick={onSwitchModel} />
+            </div>
+            {!heroMode && hasEffort && (
+              <div className="composer-meta__control composer-meta__control--effort">
+                <EffortSwitcher effort={effort} disabled={running} onPick={onSetEffort} />
+              </div>
+            )}
+            {!heroMode && hasEffort && (
+              <div className="composer-meta__control composer-meta__control--more">
+                <Tooltip label={compactEffortTitle} disabled={moreMenuOpen || moreMenuClosing}>
+                  <button
+                    ref={moreMenuAnchorRef}
+                    type="button"
+                    className={`composer-more-trigger composer-more-trigger--effort${currentEffort !== "auto" ? " composer-more-trigger--explicit" : ""}${moreMenuOpen || moreMenuClosing ? " composer-more-trigger--open" : ""}`}
+                    onClick={() => (moreMenuOpen || moreMenuClosing ? closeMoreMenu() : openMoreMenu())}
+                    disabled={disabled || running}
+                    aria-haspopup="menu"
+                    aria-expanded={moreMenuOpen && !moreMenuClosing}
+                    aria-label={compactEffortTitle}
+                    title={moreMenuOpen || moreMenuClosing ? undefined : compactEffortTitle}
+                  >
+                    <Gauge size={14} />
+                    <span>{currentEffort}</span>
+                    <ChevronsUpDown size={11} />
+                  </button>
+                </Tooltip>
+              </div>
+            )}
           </div>
         </div>
       </div>

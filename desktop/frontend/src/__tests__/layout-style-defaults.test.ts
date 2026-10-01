@@ -25,24 +25,24 @@ const layout = await import("../store/layout");
 
 eq(layout.defaultSidebarWidth(), 300, "wide classic default remains responsive");
 eq(layout.useLayoutStore.getState().sidebarWidth, 300, "shared store starts from the classic sidebar default");
-eq(layout.useLayoutStore.getState().rightDockTreeWidth, 300, "shared store starts from the classic dock default");
+eq(layout.useLayoutStore.getState().workspaceFloatWidth, 420, "shared store starts the floating panel at its default width");
+eq(layout.useLayoutStore.getState().workspaceFloatOpen, false, "the floating panel starts closed on every launch");
 
 layout.applyLayoutStyleDefaults("creation");
 eq(layout.useLayoutStore.getState().sidebarWidth, 236, "Creation applies its sidebar default after style hydration");
-eq(layout.useLayoutStore.getState().rightDockTreeWidth, 252, "Creation applies its dock default after style hydration");
+eq(layout.useLayoutStore.getState().workspaceFloatWidth, 420, "layout styles do not change the floating panel width");
 eq(dom.window.localStorage.getItem("semantix.layoutPreferences.v1"), null, "applying defaults does not overwrite user preferences");
 
 layout.applyLayoutStyleDefaults("workbench");
 eq(layout.useLayoutStore.getState().sidebarWidth, 300, "switching to workbench restores its responsive sidebar default");
-eq(layout.useLayoutStore.getState().rightDockTreeWidth, 300, "switching to workbench restores its dock default");
 
 layout.saveSidebarWidth(286);
-layout.saveRightDockTreeWidth(344);
+layout.saveWorkspaceFloatWidth(640);
 layout.useLayoutStore.getState().setSidebarWidth(286);
-layout.useLayoutStore.getState().setRightDockTreeWidth(344);
+layout.useLayoutStore.getState().setWorkspaceFloatWidth(640);
 layout.applyLayoutStyleDefaults("creation");
 eq(layout.useLayoutStore.getState().sidebarWidth, 286, "Creation preserves a saved sidebar width");
-eq(layout.useLayoutStore.getState().rightDockTreeWidth, 344, "Creation preserves a saved dock width");
+eq(layout.useLayoutStore.getState().workspaceFloatWidth, 640, "Creation preserves a saved floating panel width");
 
 dom.window.close();
 

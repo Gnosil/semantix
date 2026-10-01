@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, ImagePlus, Upload } from "./SemantixIcons";
-import { Check, CircleHelp, Copy, Download, MoreHorizontal, Pencil, Plus, Trash2, X } from "./SemantixIcons";
+import { ArrowLeft, Check, CircleHelp, Copy, Download, ImagePlus, MoreHorizontal, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 import { app } from "../lib/bridge";
 import { useT } from "../lib/i18n";
 import { THEME_STYLES, type ThemeStyle, isThemeStyle } from "../lib/theme";
