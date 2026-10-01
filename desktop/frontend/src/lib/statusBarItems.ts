@@ -19,7 +19,10 @@ export const STATUS_BAR_ITEM_IDS = [
 
 export type StatusBarItemId = typeof STATUS_BAR_ITEM_IDS[number];
 
-export const DEFAULT_STATUS_BAR_ITEMS: StatusBarItemId[] = [...STATUS_BAR_ITEM_IDS];
+// Keep the default dock focused; every metric remains available in Settings.
+export const DEFAULT_STATUS_BAR_ITEMS: StatusBarItemId[] = [
+  "model", "workspace", "git_branch", "session_tokens", "cache_avg", "context",
+];
 
 const statusBarItemSet = new Set<string>(STATUS_BAR_ITEM_IDS);
 

@@ -38,9 +38,9 @@ eq(next.mode, "auto", "Ctrl+Y restores auto from yolo");
 next = toggleYoloToolApprovalMode("yolo");
 eq(next.mode, "ask", "Ctrl+Y falls back to ask when no restore base exists");
 
-eq(en["composer.accessAskTitle"].includes("not read-only"), true, "English Ask copy is not presented as read-only");
-eq(zh["composer.accessAskTitle"].includes("不是只读"), true, "Simplified Chinese Ask copy is not presented as read-only");
-eq(zhTW["composer.accessAskTitle"].includes("不是唯讀"), true, "Traditional Chinese Ask copy is not presented as read-only");
+eq(en["composer.accessAskTitle"].includes("reading and allowed actions continue"), true, "English Ask copy is not presented as read-only");
+eq(zh["composer.accessAskTitle"].includes("读取及已允许的操作"), true, "Simplified Chinese Ask copy is not presented as read-only");
+eq(zhTW["composer.accessAskTitle"].includes("讀取及已允許的操作"), true, "Traditional Chinese Ask copy is not presented as read-only");
 eq(en["heartbeat.approvalModeAskHint"].includes("not read-only"), true, "heartbeat Ask hint preserves the same boundary");
 eq(en["composer.taskModePlanDesc"].includes("permissions and sandbox"), true, "Plan copy names permissions and sandbox");
 eq(en["composer.accessFullDesc"].includes("ordinary") && en["composer.accessFullDesc"].includes("fresh reviews"), true, "English Full access preserves fresh-review boundary");

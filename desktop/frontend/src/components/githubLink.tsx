@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
-import { Copy, ExternalLink, FolderOpen, Mail, Save } from "lucide-react";
+import { ExternalLink, Mail, Save } from "./SemantixIcons";
+import { Copy, FolderOpen } from "./SemantixIcons";
 import { app, openExternal } from "../lib/bridge";
 import { writeClipboardText } from "../lib/clipboard";
 import { t } from "../lib/i18n";
