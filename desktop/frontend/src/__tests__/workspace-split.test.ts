@@ -7,6 +7,7 @@ import {
   workspaceSplitCanFit,
   workspaceSplitTreeWidthFromPointer,
 } from "../lib/workspaceSplit";
+import { resolveWorkspacePanelWidth } from "../lib/workspaceLayout";
 import { closeWorkspacePreviewTab } from "../lib/workspacePreviewTabs";
 import { shouldScrollWorkspaceTreeSelection } from "../lib/workspaceTreeReveal";
 import { mergeWorkspaceSearchResults } from "../lib/workspaceTreeSearch";
@@ -104,6 +105,18 @@ eq(
   }),
   256,
   "manual split width is preserved when the parent width changes",
+);
+
+eq(
+  resolveWorkspacePanelWidth({
+    open: true,
+    maximized: false,
+    preferredWidth: 660,
+    minWidth: 300,
+    availableWidth: 228,
+  }),
+  228,
+  "outer file area can still shrink below split target width",
 );
 
 eq(
