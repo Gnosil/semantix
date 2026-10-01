@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { X } from "./SemantixIcons";
 
 import { useT } from "../lib/i18n";
 import type { TerminalSessionView } from "../lib/types";

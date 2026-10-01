@@ -6,7 +6,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { ContextWindowRing } from "../components/ContextWindowRing";
 import { LocaleProvider } from "../lib/i18n";
-import type { ContextInfo } from "../lib/types";
+import type { ContextPanelInfo } from "../lib/types";
 
 let passed = 0;
 let failed = 0;
@@ -44,8 +44,6 @@ function installDom() {
   (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   globalThis.window = dom.window as unknown as Window & typeof globalThis;
   globalThis.document = dom.window.document;
-  // Pin the locale to JSDOM's en-US; Node's own navigator follows the OS language.
-  Object.defineProperty(globalThis, "navigator", { configurable: true, value: dom.window.navigator });
   globalThis.Node = dom.window.Node;
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.Event = dom.window.Event;
@@ -70,18 +68,36 @@ function installDom() {
   return dom;
 }
 
-// The ring must render purely from props: any bound-method access is a regression.
-function forbidBridgeAccess() {
-  const trap = new Proxy({}, {
-    get(_target, prop) {
-      throw new Error(`ContextWindowRing must not call bound method ${String(prop)}`);
-    },
-  });
-  (window as unknown as { go: { main: { App: unknown } } }).go = { main: { App: trap } };
+function contextPanelInfo(requestCount: number): ContextPanelInfo {
+  return {
+    usedTokens: 0,
+    windowTokens: 0,
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    reasoningTokens: 0,
+    cacheHitTokens: 0,
+    cacheMissTokens: 0,
+    sessionCacheHitTokens: 0,
+    sessionCacheMissTokens: 0,
+    sessionCompletionTokens: 0,
+    requestCount,
+    elapsedMs: 0,
+    sessionCost: 0,
+    sessionCurrency: "",
+    readFiles: [],
+    changedFiles: [],
+  };
 }
 
-function contextInfo(overrides: Partial<ContextInfo> = {}): ContextInfo {
-  return { used: 10, window: 100, sessionTokens: 0, compactRatio: 0.8, ...overrides };
+function installContextPanelMock(fn: (tabId: string) => Promise<ContextPanelInfo>) {
+  (window as unknown as { go: { main: { App: { ContextPanel: typeof fn } } } }).go = {
+    main: {
+      App: {
+        ContextPanel: fn,
+      },
+    },
+  };
 }
 
 async function renderRing(props: Partial<Parameters<typeof ContextWindowRing>[0]> = {}) {
@@ -91,7 +107,7 @@ async function renderRing(props: Partial<Parameters<typeof ContextWindowRing>[0]
   let currentProps: Parameters<typeof ContextWindowRing>[0] = {
     enabled: true,
     tabId: "tab-a",
-    context: contextInfo(),
+    context: { used: 10, window: 100, compactRatio: 0.8 },
     ...props,
   };
   const paint = async (nextProps: Partial<Parameters<typeof ContextWindowRing>[0]> = {}) => {
@@ -109,27 +125,20 @@ async function renderRing(props: Partial<Parameters<typeof ContextWindowRing>[0]
   return { root, rerender: paint };
 }
 
-function popoverRow(label: string): Element | undefined {
-  return [...document.querySelectorAll(".context-ring-popover__row")]
-    .find((row) => row.querySelector(".context-ring-popover__label")?.textContent === label);
-}
-
-async function hover(button: HTMLElement) {
-  await act(async () => {
-    button.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, relatedTarget: null }));
-    await wait(220);
-  });
-}
-
 console.log("\ncontext window ring");
 
 {
   const dom = installDom();
-  forbidBridgeAccess();
+  const calls: string[] = [];
+  installContextPanelMock(async (tabId) => {
+    calls.push(tabId);
+    return contextPanelInfo(1);
+  });
 
   const { root } = await renderRing({ enabled: false });
 
   eq(document.querySelector(".context-ring"), null, "disabled ring renders nothing");
+  eq(calls.length, 0, "disabled ring does not request context panel data");
 
   await act(async () => {
     root.unmount();
@@ -139,18 +148,22 @@ console.log("\ncontext window ring");
 
 {
   const dom = installDom();
-  forbidBridgeAccess();
+  installContextPanelMock(async () => contextPanelInfo(0));
 
   const { root } = await renderRing({ turnCost: 0.125, currency: "$" });
   const button = document.querySelector(".context-ring") as HTMLButtonElement | null;
   if (!button) throw new Error("missing context ring button");
-  await hover(button);
+  await act(async () => {
+    button.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, relatedTarget: null }));
+    await wait(220);
+  });
+  const turnCostRow = [...document.querySelectorAll(".context-ring-popover__row")]
+    .find((row) => row.querySelector(".context-ring-popover__label")?.textContent === "turn cost");
   eq(
-    popoverRow("turn cost")?.querySelector(".context-ring-popover__value")?.textContent,
+    turnCostRow?.querySelector(".context-ring-popover__value")?.textContent,
     "$0.1250",
-    "turn cost falls back to the composer currency when the context has none",
+    "turn cost uses the session currency before panel info is available",
   );
-  eq(popoverRow("Requests"), undefined, "request row is hidden before any request landed");
 
   await act(async () => {
     root.unmount();
@@ -160,12 +173,15 @@ console.log("\ncontext window ring");
 
 {
   const dom = installDom();
-  forbidBridgeAccess();
+  installContextPanelMock(async () => contextPanelInfo(0));
 
-  const { root } = await renderRing({ context: contextInfo({ used: 1_001, window: 1_000 }) });
+  const { root } = await renderRing({ context: { used: 1_001, window: 1_000, compactRatio: 0.8 } });
   const button = document.querySelector(".context-ring") as HTMLButtonElement | null;
   if (!button) throw new Error("missing over-limit context ring button");
-  await hover(button);
+  await act(async () => {
+    button.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, relatedTarget: null }));
+    await wait(220);
+  });
 
   const popover = document.querySelector(".context-ring-popover");
   const fill = popover?.querySelector(".context-ring-popover__fill") as HTMLElement | null;
@@ -181,26 +197,53 @@ console.log("\ncontext window ring");
 
 {
   const dom = installDom();
-  forbidBridgeAccess();
-
-  const { root, rerender } = await renderRing({
-    tabId: "old-tab",
-    context: contextInfo({ requestCount: 1, elapsedMs: 65_000, sessionCost: 0.5, sessionCurrency: "USD" }),
+  const calls: string[] = [];
+  const resolvers = new Map<string, (value: ContextPanelInfo) => void>();
+  installContextPanelMock((tabId) => {
+    calls.push(tabId);
+    return new Promise<ContextPanelInfo>((resolve) => {
+      resolvers.set(tabId, resolve);
+    });
   });
+
+  const { root, rerender } = await renderRing({ tabId: "old-tab" });
   const button = document.querySelector(".context-ring") as HTMLButtonElement | null;
   if (!button) throw new Error("missing context ring button");
-  await hover(button);
-  eq(popoverRow("Requests")?.querySelector(".context-ring-popover__value")?.textContent, "1", "request count comes from the live context snapshot");
-  ok(popoverRow("Runtime") !== undefined, "elapsed time row renders from the context snapshot");
+  await act(async () => {
+    button.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, relatedTarget: null }));
+    await wait();
+  });
 
-  // A tab switch swaps the snapshot synchronously: no stale async response can
-  // paint the previous tab's numbers over the new one.
-  await rerender({ tabId: "new-tab", context: contextInfo({ requestCount: 2, elapsedMs: 0 }) });
+  await rerender({ tabId: "new-tab" });
   const nextButton = document.querySelector(".context-ring") as HTMLButtonElement | null;
   if (!nextButton) throw new Error("missing context ring button after tab switch");
-  await hover(nextButton);
-  eq(popoverRow("Requests")?.querySelector(".context-ring-popover__value")?.textContent, "2", "tab switch shows the new tab's request count immediately");
-  eq(popoverRow("Runtime"), undefined, "elapsed row disappears when the new snapshot has no duration");
+  await act(async () => {
+    nextButton.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, relatedTarget: null }));
+    await wait();
+  });
+
+  await act(async () => {
+    resolvers.get("new-tab")?.(contextPanelInfo(2));
+    await wait();
+  });
+  await act(async () => {
+    resolvers.get("old-tab")?.(contextPanelInfo(1));
+    await wait();
+  });
+  await act(async () => {
+    nextButton.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, relatedTarget: null }));
+    await wait(220);
+  });
+
+  eq(calls[0], "old-tab", "old tab request starts first");
+  eq(calls[1], "new-tab", "new tab request starts after tab switch");
+  const requestRow = [...document.querySelectorAll(".context-ring-popover__row")]
+    .find((row) => row.querySelector(".context-ring-popover__label")?.textContent === "Requests");
+  eq(
+    requestRow?.querySelector(".context-ring-popover__value")?.textContent,
+    "2",
+    "stale old-tab response cannot overwrite the new tab info",
+  );
 
   await act(async () => {
     root.unmount();

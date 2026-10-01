@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare } from "./SemantixIcons";
 import { ContextMenu, type ContextMenuPoint } from "./ContextMenu";
 import { messageSelectionContextText, TRANSCRIPT_COPY_FAILED_EVENT } from "../lib/messageSelectionCopy";
 import { writeClipboardText } from "../lib/clipboard";

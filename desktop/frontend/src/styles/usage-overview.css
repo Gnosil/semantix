@@ -1,0 +1,104 @@
+:root .app .context-panel.context-panel--usage .context-panel__body{padding:18px 20px 22px;display:block}
+.app .usage-overview{font-size:12px;line-height:1.6;color:var(--fg)}
+.app .usage-overview h3{font-size:12px;font-weight:500;letter-spacing:0;margin:0;color:var(--fg)}
+.app .usage-overview button{font:inherit;cursor:pointer}
+.app .usage-preview-label{font-size:10px;color:var(--fg-muted);margin:0 0 12px}
+.app .usage-period{position:relative;display:grid;grid-template-columns:1fr 1fr;border:0;border-radius:4px;padding:0;background:transparent;margin-bottom:20px;isolation:isolate}
+.app .usage-period button{position:relative;border:1px solid transparent;background:var(--bg);color:var(--fg-dim);font-size:11px;padding:7px 8px;border-radius:4px;min-height:30px;transition:color var(--dur-fast,120ms) var(--ease-out)}
+.app .usage-period button>span:not(.semantix-border-beam){display:flex;align-items:center;justify-content:center;gap:7px;transition:transform var(--dur-fast,120ms) var(--ease-out)}
+.app .usage-period button i{display:block;flex:none;width:2px;height:7px;border-radius:0;background:currentColor;opacity:.35;transition:opacity var(--dur-fast,120ms) var(--ease-out),transform var(--dur-fast,120ms) var(--ease-out)}
+.app .usage-period button[aria-pressed=true]{color:var(--accent);border-color:var(--border)}
+.app .usage-period button[aria-pressed=true] i{opacity:1;transform:scale(1.25)}
+@media(hover:hover){.app .usage-period button[aria-pressed=false]:hover{color:var(--accent)}.app .usage-period button:hover>span:not(.semantix-border-beam){transform:translateY(-1px)}.app .usage-period button:hover i{opacity:1}}
+.app .usage-period button:active>span:not(.semantix-border-beam){transform:scale(.97)}
+@media(prefers-reduced-motion:reduce){.app .usage-period::before,.app .usage-period button,.app .usage-period button>span,.app .usage-period button i{transition:none}.app .usage-period button:hover>span,.app .usage-period button:active>span{transform:none}}
+.app .usage-total{padding-bottom:19px}
+.app .usage-total h3{color:var(--fg-muted);font-weight:400}
+.app .usage-total>strong{display:block;font-size:32px;font-weight:500;line-height:1.2;letter-spacing:-1.5px;margin:8px 0;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.app .usage-total>p{font-size:11px;color:var(--fg-muted);margin:0}
+.app .usage-total>div{display:flex;flex-wrap:wrap;gap:20px;margin-top:12px;color:var(--fg-muted);font-size:10px}
+.app .usage-total b{font-weight:500;color:var(--fg-dim);margin-left:4px}
+.app .usage-retry{border:0;color:var(--accent);background:none;display:flex;align-items:center;gap:7px;padding:9px 0}
+.app .usage-models{border-top:1px solid var(--border);padding:15px 0 4px}
+.app .usage-models>header,.app .usage-cache>header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.app .usage-models>header>span,.app .usage-cache>header>span{font-size:10px;color:var(--fg-muted);text-align:right}
+.app .usage-model-row{--meter-ink:var(--fg-dim);margin-bottom:16px}
+.app .usage-model-row[data-primary=true]{--meter-ink:var(--accent)}
+.app .usage-model-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:11px;margin-bottom:8px}
+.app .usage-model-heading>span{min-width:0;overflow-wrap:anywhere}
+.app .usage-model-heading strong{font-size:12px;font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums}
+.app .usage-ticks{position:relative;overflow:visible}
+.app .usage-ticks::before{content:"";position:absolute;inset:-16px 0}
+.app .usage-ticks>svg{display:block;overflow:visible;pointer-events:none}
+.app .usage-ticks rect{transform-box:fill-box;transform-origin:center bottom;transition:none}
+.app .usage-tick-ink{stop-color:var(--meter-ink,var(--accent))}
+.app .usage-tick-track{stop-color:var(--border)}
+@media(prefers-reduced-motion:reduce){.app .usage-ticks rect{transform:none!important;transition:none}}
+.app .usage-model-meter{height:6px}
+.app .usage-model-row>footer{display:flex;justify-content:space-between;gap:12px;font-size:10px;color:var(--fg-muted);margin-top:5px;font-variant-numeric:tabular-nums}
+.app .usage-models>small{display:block;font-size:9px;color:var(--fg-muted);margin:4px 0 12px}
+.app .usage-models>p{font-size:11px;color:var(--fg-muted);margin:0 0 17px}
+.app .usage-models>button{border:0;background:none;color:var(--accent);padding:6px 0 12px;display:flex;gap:6px;align-items:center;font-size:11px}
+.app .usage-cache{border-top:1px solid var(--border);padding:15px 0 17px}
+.app .usage-cache>header{margin-bottom:10px}
+.app .usage-cache-rates{display:grid;grid-template-columns:1fr auto;align-items:end;gap:16px;margin:16px 0 18px}
+.app .usage-cache-turn{text-align:right;padding-bottom:3px}
+.app .usage-cache-rates span{display:block;font-size:10px;color:var(--fg-muted);margin-bottom:3px}
+.app .usage-cache-rates strong{font-size:18px;font-weight:500;letter-spacing:-.4px;font-variant-numeric:tabular-nums}
+.app .usage-cache-average strong{font-size:30px;font-weight:400;letter-spacing:-1px;line-height:1.2}
+.app .usage-cache-average strong[data-reported=true]{color:var(--accent)}
+.app .usage-cache-meter{--tick-width:2px;--tick-step:6px;height:14px;margin-bottom:10px}
+.app .usage-cache-volume{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0;padding:0}
+.app .usage-cache-volume>div:last-child{text-align:right}
+.app .usage-cache-volume dt{font-size:10px;color:var(--fg-muted)}
+.app .usage-cache-volume dd{font-size:12px;color:var(--fg-dim);font-variant-numeric:tabular-nums;margin:3px 0 0}
+.app .usage-memory{border-top:1px solid var(--border);padding:13px 0 17px}
+.app .usage-memory>summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none}
+.app .usage-memory>summary::-webkit-details-marker,.app .usage-context>summary::-webkit-details-marker{display:none}
+.app .usage-memory>summary>div{flex:1;min-width:0}
+.app .usage-memory>summary small{display:block;font-size:10px;color:var(--fg-muted);margin-top:2px}
+.app .usage-memory>summary>strong{font-size:18px;font-weight:500}
+.app .usage-memory>summary svg:last-child{color:var(--fg-muted)}
+.app .usage-memory[open]>summary svg:last-child,.app .usage-context[open]>summary svg:last-child{transform:rotate(90deg)}
+.app .usage-memory article{border-top:1px solid var(--border);padding:12px 0;margin-top:12px}
+.app .usage-memory article header{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px}
+.app .usage-memory article header>span,.app .usage-memory article>small{color:var(--fg-muted);font-size:10px}
+.app .usage-memory article p,.app .usage-memory>p{font-size:11px;color:var(--fg-dim);line-height:1.7;margin:8px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.app .usage-since{font-size:9px;color:var(--fg-muted);margin:0 0 13px}
+.app .usage-context{border-top:1px solid var(--border);padding-top:14px}
+.app .usage-context>summary{display:flex;align-items:center;gap:9px;list-style:none;cursor:pointer;font-size:11px;padding-bottom:11px}
+.app .usage-context>summary>span:first-child{flex:1;font-weight:500}
+.app .usage-context>summary>span:nth-child(2){font-size:10px;color:var(--fg-muted)}
+.app .usage-context>div>p{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:10px;color:var(--fg-muted);margin:8px 0 12px}
+.app .usage-context>div strong{color:var(--fg-dim);font-weight:500}
+.app .usage-context-meter{--meter-ink:var(--fg-dim);height:4px;margin-bottom:8px}
+.app .usage-context-foot{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:9px;color:var(--fg-muted);margin-top:0}
+.app .usage-context-foot strong{font-size:15px;font-weight:400;letter-spacing:-.3px;color:var(--fg-dim);font-variant-numeric:tabular-nums;margin-right:3px}
+.app .usage-session-details{border-top:1px solid var(--border);margin-top:21px;padding-top:12px}
+.app .usage-session-details>summary{cursor:pointer;color:var(--fg-muted);font-size:11px}
+.app .usage-session-details>.context-panel__overview{margin-top:18px}
+.app .usage-session-details .context-panel__usage,.app .usage-session-details .context-panel__creation-grid{display:none}
+.app .usage-session-details .context-panel__mini-stat:nth-child(2){display:none}
+.app .usage-overview button:focus-visible,.app .usage-overview summary:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+@media(max-height:850px){.app .usage-period{margin-bottom:16px}.app .usage-total{padding-bottom:15px}.app .usage-models{padding-top:12px}.app .usage-models>header{margin-bottom:12px}.app .usage-model-row{margin-bottom:12px}.app .usage-cache{padding-top:12px;padding-bottom:13px}}
+
+/* Hermes Desktop default sans/mono stacks. Explicit font preferences remain available. */
+@font-face{font-family:"JetBrains Mono";src:url("/fonts/JetBrainsMono.woff2") format("woff2");font-weight:100 800;font-style:normal;font-display:swap}
+@font-face{font-family:"JetBrains Mono";src:url("/fonts/JetBrainsMono-Italic.woff2") format("woff2");font-weight:100 800;font-style:italic;font-display:swap}
+:root:not([data-font-family]){--font-ui:"Segoe WPC", "Segoe UI", -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", emoji}
+:root:not([data-mono-font-family]){--font-mono:"JetBrains Mono", "Cascadia Code", "Cascadia Mono", "DejaVu Sans Mono", "Liberation Mono", "Noto Sans Mono", "Noto Mono", "SF Mono", ui-monospace, Menlo, Monaco, Consolas, monospace, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", emoji}
+
+.app .usage-memory>summary>svg:first-child{color:var(--accent)}
+
+/* A quiet Didone display counter; only changed digits roll on real increases. */
+@font-face { font-family:"Semantix Usage Didone"; src:url("/fonts/BodoniModa-Regular.woff2") format("woff2"); font-weight:400; font-style:normal; font-display:swap; }
+.app .usage-total > .usage-rolling-number { color:var(--sx-accent); font-family:"Semantix Usage Didone","Bodoni 72",Didot,serif; font-size:42px; font-weight:400; line-height:1.12; letter-spacing:0; font-variant-numeric:lining-nums tabular-nums; margin:11px 0 8px; overflow-wrap:normal; }
+.usage-roller { display:inline-flex; align-items:baseline; white-space:nowrap; }
+.usage-roller__digit { position:relative; display:inline-block; width:.58em; height:1.12em; overflow:hidden; text-align:center; }
+.usage-roller__settled { display:block; line-height:1.12; }
+.usage-roller__track { position:absolute; top:0; inset-inline:0; display:none; }
+.usage-roller__digit[data-rolling=true] .usage-roller__settled { visibility:hidden; }
+.usage-roller__digit[data-rolling=true] .usage-roller__track { display:block; }
+.usage-roller__step { display:block; height:1.12em; line-height:1.12; }
+.usage-roller__symbol { display:inline-block; line-height:1.12; }
+.usage-roller__decimal { width:.22em; text-align:center; }

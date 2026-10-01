@@ -70,15 +70,12 @@ ok(
   "Trash and existing session search remain available",
 );
 ok(
-  /\.sidebar__nav--primary \{/.test(stylesSource)
-    && !stylesSource.includes(".sidebar__utility-row")
-    && !stylesSource.includes(".sidebar-feature-zone"),
-  "every layout style shares the primary sidebar action rows without the old utility grid",
+  /\.sidebar--workbench\s+\.sidebar__utility-row\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/s.test(stylesSource),
+  "Workbench footer distributes its three utility actions evenly",
 );
 ok(
-  !/\.app--creation\s+\.sidebar__nav\s*\{[^}]*grid-template-columns:\s*repeat\(3/.test(stylesSource)
-    && !stylesSource.includes(".app--creation .sidebar__navitem span"),
-  "creation sidebar rows use the shared labeled-row treatment",
+  /\.app--creation\s+\.sidebar__nav,\s*:root\[data-theme-style\]\s+\.app--creation\s+\.sidebar__nav\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/s.test(stylesSource),
+  "Creation footer distributes search, trash, and settings evenly",
 );
 ok(
   !/import\s+\{[^}]*\b(?:MCPServersSettingsPage|SkillsSettingsPage|PluginsSettingsPage)\b[^}]*\}\s+from\s+["']\.\/CapabilitiesPanel["']/.test(settingsSource) &&

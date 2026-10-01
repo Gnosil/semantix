@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ShieldAlert } from "lucide-react";
+import { ShieldAlert } from "./SemantixIcons";
 import { app } from "../lib/bridge";
 import { useI18n } from "../lib/i18n";
 
