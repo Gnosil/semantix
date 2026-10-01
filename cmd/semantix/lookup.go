@@ -108,6 +108,8 @@ func runInject(args []string, stdout, stderr io.Writer, deps dependencies) error
 	scopeValue := flags.String("scope", cfgString(deps.resolved, "store.scope", "project"), "slice scope: session, project, or user")
 	k := flags.Int("k", cfgInt(deps.resolved, "retrieval.limit", 5), "top-k slices to consider")
 	budget := flags.Int("budget", cfgInt(deps.resolved, "inject.budget", inject.DefaultBudget), "max injection block bytes")
+	renderMode := flags.String("render", "", "output rendering: empty = raw [semantix-reuse] block (default); 'playbook' = A7 distilled prior fixes (Round3 winner)")
+	repoShort := flags.String("repo", "", "repo short name for playbook path cutting (e.g. django); used with --render playbook")
 	dbOverride := flags.String("db", cfgString(deps.resolved, "store.db", ""), "database path override")
 	evolveDB := flags.String("evolve-db", "", "optional evolve state dir; its tuned tau_l2 sets the grey-zone floor unless --tau-low is given (Issue #220)")
 	zf := addZoneFlags(flags)
@@ -144,6 +146,18 @@ func runInject(args []string, stdout, stderr io.Writer, deps dependencies) error
 	inj, err := (&inject.Injector{Index: idx, Scope: scope, K: *k, Budget: *budget, Zones: &z}).Build(*query)
 	if err != nil {
 		return err
+	}
+	if *renderMode == "playbook" {
+		pb, rules := inject.RenderPlaybook(inj.Slices, inject.PlaybookOptions{RepoShort: *repoShort})
+		if pb == "" {
+			fmt.Fprintln(stdout, "[semantix-miss]") // caller falls back to the plain base prompt
+			return nil
+		}
+		fmt.Fprintf(stdout, "%s\n---RULES---\n%s\n", stripESC(pb), rules)
+		return nil
+	}
+	if *renderMode != "" {
+		return usagef("inject: unknown --render %q (supported: playbook)", *renderMode)
 	}
 	fmt.Fprintf(stdout, "%s\n", stripESC(inj.Text))
 	return nil
