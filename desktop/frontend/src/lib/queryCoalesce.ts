@@ -24,7 +24,6 @@ const WINDOW_MS = 200;
 const COALESCED = new Set([
   "ListProjectTree",
   "ListTabs",
-  "ContextPanel",
   "MetaForTab",
   "EffortForTab",
   "JobsForTab",

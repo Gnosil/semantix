@@ -1,6 +1,27 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { Search, X } from "./SemantixIcons";
-import { SemantixNavigationArt } from "./SemantixNavigationArt";
+import {
+  Activity,
+  Bot,
+  Box,
+  Cable,
+  Database,
+  HardDrive,
+  Keyboard,
+  LockKeyhole,
+  Network,
+  Package,
+  Palette,
+  Plug,
+  RefreshCw,
+  Search,
+  Server,
+  Settings2,
+  ShieldCheck,
+  Sparkles,
+  Users,
+  Webhook,
+  X,
+} from "lucide-react";
 import { useT, type DictKey } from "../lib/i18n";
 import type { SettingsTab } from "../lib/types";
 
@@ -87,6 +108,7 @@ export function SettingsNavigation({
                       {settingsTabIcon(id)}
                       <span>{item.label}</span>
                     </span>
+                    {item.meta && (activeTab === id || query.trim()) && <small>{item.meta}</small>}
                   </button>
                 );
               })}
@@ -102,5 +124,26 @@ export function SettingsNavigation({
 }
 
 function settingsTabIcon(id: SettingsTab): ReactNode {
-  return <SemantixNavigationArt name={id} size={20} />;
+  const props = { size: 17, strokeWidth: 1.8, "aria-hidden": true as const };
+  switch (id) {
+    case "general": return <Settings2 {...props} />;
+    case "models": return <Box {...props} />;
+    case "providers": return <Cable {...props} />;
+    case "bots": return <Bot {...props} />;
+    case "mcp": return <Plug {...props} />;
+    case "remote": return <Server {...props} />;
+    case "skills": return <Sparkles {...props} />;
+    case "subagents": return <Users {...props} />;
+    case "plugins": return <Package {...props} />;
+    case "memory": return <Database {...props} />;
+    case "hooks": return <Webhook {...props} />;
+    case "diagnostics": return <Activity {...props} />;
+    case "shortcuts": return <Keyboard {...props} />;
+    case "permissions": return <ShieldCheck {...props} />;
+    case "sandbox": return <LockKeyhole {...props} />;
+    case "network": return <Network {...props} />;
+    case "appearance": return <Palette {...props} />;
+    case "storage": return <HardDrive {...props} />;
+    case "updates": return <RefreshCw {...props} />;
+  }
 }

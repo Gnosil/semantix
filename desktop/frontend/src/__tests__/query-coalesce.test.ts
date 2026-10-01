@@ -13,8 +13,8 @@ async function identicalCallsInFlightShareOneAnswer() {
   let runs = 0;
   const d = deferred<string>();
   const run = () => { runs++; return d.promise; };
-  const a = shareQuery("ContextPanel", ["tab-1"], run);
-  const b = shareQuery("ContextPanel", ["tab-1"], run);
+  const a = shareQuery("EffortForTab", ["tab-1"], run);
+  const b = shareQuery("EffortForTab", ["tab-1"], run);
   d.resolve("panel");
   assert.equal(await a, "panel");
   assert.equal(await b, "panel");
@@ -71,7 +71,7 @@ async function settledTabListsAreNotShared() {
 
 // Anything that mutates or starts work must never be collapsed.
 function onlyReadOnlyQueriesAreCoalesced() {
-  for (const readOnly of ["ListProjectTree", "ContextPanel", "MetaForTab", "BalanceForTab"]) {
+  for (const readOnly of ["ListProjectTree", "EffortForTab", "MetaForTab", "BalanceForTab"]) {
     assert.equal(coalescesQuery(readOnly), true, `${readOnly} should coalesce`);
   }
   for (const mutating of ["Send", "SetActiveTab", "OpenGlobalTab", "Cancel", "ApproveTool"]) {

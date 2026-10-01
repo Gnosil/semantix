@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Clipboard, Loader2 } from "./SemantixIcons";
-import { ChevronDown, ChevronRight, RefreshCw } from "./SemantixIcons";
+import { ChevronDown, ChevronRight, Clipboard, Loader2, RefreshCw } from "lucide-react";
 import { app } from "../lib/bridge";
 import { asArray } from "../lib/array";
 import { useT } from "../lib/i18n";

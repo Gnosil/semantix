@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { FileText, Folder, MessageSquare, X } from "./SemantixIcons";
+import { FileText, Folder, MessageSquare, X } from "lucide-react";
 import { Tooltip } from "./Tooltip";
 
 type ComposerContextCardVariant = "attachment" | "workspace" | "session" | "selection";

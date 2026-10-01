@@ -12,8 +12,7 @@
 // The component's styles live in UsageStatsPanel.css (loaded on demand with
 // this chunk), so the ~7 KB rule block never inflates the settings bundle.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, Coins, MessagesSquare } from "./SemantixIcons";
-import { Activity, ChevronDown, ChevronRight, Cpu, MessageSquare } from "./SemantixIcons";
+import { Activity, CalendarDays, ChevronDown, ChevronRight, Coins, Cpu, MessageSquare, MessagesSquare } from "lucide-react";
 import { useI18n } from "../lib/i18n";
 import { app } from "../lib/bridge";
 import type { DailyTokenUsage, ModelTokenUsage, UsageStatsRange, UsageStatsRequest } from "../lib/types";

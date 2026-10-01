@@ -1,4 +1,4 @@
-import { Copy } from "../components/SemantixIcons";
+import { Copy } from "lucide-react";
 import type { FloatingMenuItem } from "../components/FloatingMenu";
 import { writeClipboardText } from "./clipboard";
 

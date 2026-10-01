@@ -21,14 +21,6 @@ type UsageStatsRequest struct {
 	Source string `json:"source,omitempty"` // "" | "all" | "desktop" | "cli" | "serve" | "bot" | "remote"
 }
 
-// SavingsTotals is a read-only cumulative counter from persisted local activity.
-func (a *App) SavingsTotals() (stats.SavingsTotals, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
-	defer cancel()
-	_ = stats.Flush(ctx, config.StatsDir())
-	return stats.NewWriter(config.StatsDir()).Savings()
-}
-
 // UsageStatsRange is the aggregate response. Fields map 1:1 to the settings
 // panel sections (totals, derived stats, daily trend, per-model split).
 type UsageStatsRange struct {

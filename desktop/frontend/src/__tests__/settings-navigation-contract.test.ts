@@ -26,7 +26,7 @@ console.log("\nsettings navigation contract");
 ok(panel.includes('["workbench", "classic", "creation"] as const'), "desktop styles prioritize workbench before classic and creation");
 ok(/useEffect\(\(\) => \{[\s\S]*?content\.scrollTop = 0;[\s\S]*?content\.scrollLeft = 0;[\s\S]*?\}, \[tab\]\);/.test(panel), "switching settings pages resets both content scroll axes");
 ok(navigation.includes('aria-current={activeTab === id ? "page" : undefined}'), "the active settings page is exposed semantically");
-ok(!navigation.includes('settings-nav__meta'), "compact navigation does not expand a subtitle beneath the selected item");
+ok(navigation.includes('item.meta && (activeTab === id || query.trim())'), "navigation metadata stays limited to the active or searched items");
 
 console.log(`\n${passed} passed, ${failed} failed, ${passed + failed} total`);
 if (failed > 0) process.exit(1);

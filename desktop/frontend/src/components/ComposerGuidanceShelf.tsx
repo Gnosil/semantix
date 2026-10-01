@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, CornerDownRight, Trash2 } from "./SemantixIcons";
+import { ChevronDown, ChevronUp, CornerDownRight, Trash2 } from "lucide-react";
 import { guidanceNeedsRetry } from "../lib/composerGuidance";
 import { useI18n } from "../lib/i18n";
 import type { StructuredInvocationSubmit } from "../lib/invocationDisplay";

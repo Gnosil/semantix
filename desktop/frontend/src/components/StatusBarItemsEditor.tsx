@@ -1,8 +1,7 @@
 import { useEffect, useId, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent } from "react";
-import { EyeOff, GripVertical } from "./SemantixIcons";
-import { Check, ChevronDown, ChevronUp } from "./SemantixIcons";
+import { Check, ChevronDown, ChevronUp, EyeOff, GripVertical } from "lucide-react";
 import { useT } from "../lib/i18n";
-import { DEFAULT_STATUS_BAR_ITEMS, STATUS_BAR_ITEM_IDS, type StatusBarItemId } from "../lib/statusBarItems";
+import { DEFAULT_STATUS_BAR_ITEMS, type StatusBarItemId } from "../lib/statusBarItems";
 import { Tooltip } from "./Tooltip";
 
 type DropPlacement = "before" | "after";
@@ -31,7 +30,7 @@ export function StatusBarItemsEditor({
   const panelId = useId();
   const visibleItems = items;
   const visibleSet = new Set<StatusBarItemId>(visibleItems);
-  const hiddenItems = STATUS_BAR_ITEM_IDS.filter((id) => !visibleSet.has(id));
+  const hiddenItems = DEFAULT_STATUS_BAR_ITEMS.filter((id) => !visibleSet.has(id));
   const visiblePaneLabel = t("settings.statusBarItemsVisible", { count: visibleItems.length });
   const hiddenPaneLabel = t("settings.statusBarItemsHidden", { count: hiddenItems.length });
   const isDefault = visibleItems.length === DEFAULT_STATUS_BAR_ITEMS.length &&
@@ -240,7 +239,7 @@ export function StatusBarItemsEditor({
     <div className={`status-bar-items-editor${expanded ? " status-bar-items-editor--expanded" : ""}`}>
       <div className="status-bar-items-editor__summary">
         <span className="status-bar-items-editor__summary-text">
-          {t("settings.statusBarItemsSummary", { visible: visibleItems.length, total: STATUS_BAR_ITEM_IDS.length })}
+          {t("settings.statusBarItemsSummary", { visible: visibleItems.length, total: DEFAULT_STATUS_BAR_ITEMS.length })}
         </span>
         <div className="status-bar-items-editor__summary-actions">
           {expanded && (

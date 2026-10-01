@@ -3,12 +3,11 @@
 import { JSDOM } from "jsdom";
 import React, { act, useCallback, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
-import { ContextPanel } from "../components/ContextPanel";
 import { StatusBar } from "../components/StatusBar";
 import { historySliceFromMessages } from "./mockHistorySlice";
 import type { AppBindings } from "../lib/bridge";
 import { LocaleProvider } from "../lib/i18n";
-import type { BalanceInfo, ContextInfo, ContextPanelInfo, EffortInfo, Meta, TabMeta, WireEvent } from "../lib/types";
+import type { BalanceInfo, ContextInfo, EffortInfo, Meta, TabMeta, WireEvent } from "../lib/types";
 import { useController } from "../lib/useController";
 
 let passed = 0;
@@ -149,23 +148,6 @@ type ModelSwitchStep = {
 };
 const modelSwitchSteps: ModelSwitchStep[] = [];
 let modelSwitchCalls = 0;
-const stalePanelInfo: ContextPanelInfo = {
-  usedTokens: 100,
-  windowTokens: 1_000,
-  promptTokens: 100,
-  completionTokens: 10,
-  totalTokens: 110,
-  reasoningTokens: 0,
-  cacheHitTokens: 0,
-  cacheMissTokens: 100,
-  sessionCacheHitTokens: 0,
-  sessionCacheMissTokens: 100,
-  sessionCompletionTokens: 10,
-  requestCount: 1,
-  elapsedMs: 1_000,
-  readFiles: [],
-  changedFiles: [],
-};
 
 window.runtime = {
   EventsOn: (name: string, cb: (payload: unknown) => void) => {
@@ -183,9 +165,6 @@ window.go = {
         contextCalls += 1;
         return contextLoader ? contextLoader() : backendContext;
       },
-      // Keep this private snapshot deliberately stale. The shared ContextInfo
-      // must still keep the panel average aligned with StatusBar during bursts.
-      ContextPanel: async () => stalePanelInfo,
       EffortForTab: async () => effort,
       BalanceForTab: async () => {
         balanceCalls += 1;
@@ -255,18 +234,6 @@ function Probe() {
           running={controller.state.running}
           items={["cache_avg", "balance"]}
         />
-        <ContextPanel
-          tabId={controller.activeTabId}
-          context={controller.state.context}
-          usage={controller.state.usage}
-          sessionTokens={controller.state.sessionTokens}
-          sessionCost={controller.state.sessionCost}
-          sessionCurrency={controller.state.sessionCurrency}
-          turnTokens={controller.state.turnTotalTokens}
-          turnCost={controller.state.turnCost}
-          sessionGen={controller.state.sessionGen}
-          usageSeq={controller.state.usageSeq}
-        />
         <LiveProbe value={controller} />
       </>
     </LocaleProvider>
@@ -275,10 +242,6 @@ function Probe() {
 
 function renderedAverage(): string {
   return document.querySelector('[data-statusbar-item="cache_avg"] b')?.textContent ?? "";
-}
-
-function renderedPanelAverage(): string {
-  return document.querySelector(".context-panel__summary-rows .context-panel__mini-stat strong")?.textContent ?? "";
 }
 
 function renderedBalance(): string {
@@ -321,7 +284,6 @@ ok(
   "executor usage refreshes all-source context before turn_done",
 );
 eq(renderedAverage(), "90.00%", "status bar renders the live executor-era session average");
-eq(renderedPanelAverage(), "90.00%", "panel ignores its stale private snapshot and matches the status bar");
 ok(contextCalls > initialContextCalls, "usage triggers a new ContextUsageForTab snapshot");
 
 const rendersBeforeTextBurst = controllerProbeRenders;
@@ -357,7 +319,6 @@ ok(
   "subagent usage also refreshes the shared all-source context",
 );
 eq(renderedAverage(), "96.00%", "status bar renders the live all-source session average");
-eq(renderedPanelAverage(), "96.00%", "panel stays aligned after a burst usage update");
 eq(controller?.state.usage?.source, "executor", "subagent usage does not replace the executor latest-request metric");
 
 const staleSnapshot = deferred<ContextInfo>();
@@ -390,7 +351,6 @@ ok(
   "newest usage snapshot wins",
 );
 eq(renderedAverage(), "99.00%", "status bar follows the newest usage snapshot");
-eq(renderedPanelAverage(), "99.00%", "panel follows the same newest usage snapshot");
 
 staleSnapshot.resolve({
   used: 100,
@@ -404,7 +364,6 @@ await act(async () => {
 });
 eq(controller?.state.context.cacheHitTokens, 990, "late stale snapshot cannot regress the status bar");
 eq(renderedAverage(), "99.00%", "late stale snapshot cannot regress the rendered average");
-eq(renderedPanelAverage(), "99.00%", "late stale snapshot cannot regress the panel average");
 contextLoader = undefined;
 
 const staleBalance = deferred<BalanceInfo>();

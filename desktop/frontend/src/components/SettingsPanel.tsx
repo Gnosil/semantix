@@ -1,6 +1,5 @@
 import { lazy, memo, Suspense, startTransition, useCallback, useDeferredValue, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
-import { Bot as BotIcon, BrainCircuit, CheckCircle2, Clipboard, ExternalLink, KeyRound, Languages, ListChecks, Loader2, MessageCircle, Monitor, PanelBottom, Play, Power, QrCode, Send, SlidersHorizontal, Volume2 } from "./SemantixIcons";
-import { ArrowRight, Check, ChevronDown, ChevronUp, CircleDollarSign, MoreHorizontal, RefreshCw, ShieldCheck, Trash2 } from "./SemantixIcons";
+import { ArrowRight, Bot as BotIcon, BrainCircuit, Check, CheckCircle2, ChevronDown, ChevronUp, CircleDollarSign, Clipboard, ExternalLink, KeyRound, Languages, ListChecks, Loader2, MessageCircle, Monitor, MoreHorizontal, PanelBottom, Play, Power, QrCode, RefreshCw, Send, ShieldCheck, SlidersHorizontal, Trash2, Volume2 } from "lucide-react";
 import { asArray } from "../lib/array";
 import { useDeferredClose } from "../lib/useMountTransition";
 import { app, openExternal } from "../lib/bridge";
@@ -321,11 +320,7 @@ export function SettingsPanel({
     <div className="management-modal-backdrop settings-modal-backdrop" data-state={status} onMouseDown={(e) => { if (e.target === e.currentTarget) requestClose(); }}>
       <div className="management-modal settings-modal" data-state={status}>
         <header className="management-modal__head settings-modal__head">
-          <div className="management-modal__title settings-modal__title">
-            <span className="settings-modal__root-label">{t("settings.title")}</span>
-            <span className="settings-modal__separator" aria-hidden="true">/</span>
-            <span>{settingsTabLabel(tab, t)}</span>
-          </div>
+          <div className="management-modal__title settings-modal__title">{t("settings.title")}</div>
           <ModalCloseButton label={t("common.close")} onClick={requestClose} />
         </header>
 
@@ -1772,7 +1767,7 @@ function GeneralSection({ s, busy, apply, agentRunning }: SectionProps & { agent
           ))}
         </div>
       </SettingsField>
-      <SettingsField label={t("settings.sound")} hint={t("settings.soundHint")} icon={<Volume2 size={18} />} stacked={soundExpanded}>
+      <SettingsField label={t("settings.sound")} hint={t("settings.soundHint")} icon={<Volume2 size={18} />} stacked>
         <div className={`settings-sound-editor${soundExpanded ? " settings-sound-editor--expanded" : ""}`}>
           <div className="settings-sound-editor__summary">
             <span className={`settings-sound-editor__status settings-sound-editor__status--${soundStatus}`}>
@@ -2129,42 +2124,6 @@ type BotConnectionListItem =
   | { kind: "connection"; connection: BotConnectionView };
 
 type BotsSectionProps = SectionProps & { initialFocus?: SettingsInitialFocus };
-
-// Shared bot connection workflow, also available directly from the workspace.
-export function BotsWorkspacePage({ onChanged }: { onChanged: (settings: SettingsView | null) => void }) {
-  const t = useT();
-  const [settings, setSettings] = useState<SettingsView | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const reload = useCallback(async () => {
-    const next = normalizeSettingsView(await app.Settings());
-    setSettings(next);
-    return next;
-  }, []);
-  useEffect(() => {
-    let disposed = false;
-    void app.Settings().then((next) => { if (!disposed) setSettings(normalizeSettingsView(next)); })
-      .catch((e) => { if (!disposed) setError(String(e)); });
-    return () => { disposed = true; };
-  }, []);
-  const apply = async (fn: () => Promise<unknown>) => {
-    setBusy(true);
-    setError(null);
-    try {
-      await fn();
-      onChanged(await reload());
-      return true;
-    } catch (e) {
-      setError(formatSettingsError(e, t));
-      try { onChanged(await reload()); } catch { /* Retain the original error. */ }
-      return false;
-    } finally { setBusy(false); }
-  };
-  return <>
-    {error && <div className="banner banner--error" role="alert">{error}<button type="button" className="btn btn--small" onClick={() => { setError(null); void reload().catch((e) => setError(String(e))); }}>{t("common.retry")}</button></div>}
-    {settings ? <BotsSection s={settings} busy={busy} apply={apply} /> : !error && <div className="empty">{t("caps.loading")}</div>}
-  </>;
-}
 
 function BotsSection({ s, busy, apply, initialFocus }: BotsSectionProps) {
   const t = useT();

@@ -92,38 +92,6 @@ type RemoteConnectionErrorDetailsView struct {
 	KnownHostRecords []RemoteKnownHostLocationView `json:"knownHostRecords,omitempty"`
 }
 
-type RemoteDirEntry struct {
-	Name      string `json:"name"`
-	Path      string `json:"path"`
-	IsDir     bool   `json:"isDir"`
-	Size      int64  `json:"size"`
-	MtimeUnix int64  `json:"mtimeUnix"`
-	Symlink   bool   `json:"symlink"`
-}
-
-type RemoteFilePreview struct {
-	Path      string `json:"path"`
-	Body      string `json:"body"`
-	Size      int64  `json:"size"`
-	MtimeUnix int64  `json:"mtimeUnix"`
-	Truncated bool   `json:"truncated"`
-	Binary    bool   `json:"binary"`
-	Err       string `json:"err,omitempty"`
-}
-
-type RemoteWriteResult struct {
-	OK           bool  `json:"ok"`
-	Conflict     bool  `json:"conflict"`
-	NewMtimeUnix int64 `json:"newMtimeUnix"`
-}
-
-type RemoteForwardInput struct {
-	LocalPort  int    `json:"localPort"`
-	RemoteHost string `json:"remoteHost"`
-	RemotePort int    `json:"remotePort"`
-	Label      string `json:"label"`
-}
-
 type RemoteForwardView struct {
 	ID         string `json:"id"`
 	HostID     string `json:"hostId"`
@@ -161,21 +129,8 @@ type remoteKernel interface {
 	ResolveHostKey(hostID string, accept bool) error
 	ResolveSecret(hostID, promptID, secret string, accept bool) error
 
-	ListDir(ctx context.Context, hostID, path string) ([]RemoteDirEntry, error)
-	ReadFile(ctx context.Context, hostID, path string) (RemoteFilePreview, error)
-	WriteFile(ctx context.Context, hostID, path, body string, expectMtime int64) (RemoteWriteResult, error)
-	Mkdir(ctx context.Context, hostID, path string) error
-	Rename(ctx context.Context, hostID, oldPath, newPath string) error
-	Delete(ctx context.Context, hostID, path string, recursive bool) error
-
-	Forwards(hostID string) []RemoteForwardView
-	AddForward(hostID string, in RemoteForwardInput) (RemoteForwardView, error)
-	RemoveForward(hostID, forwardID string) error
-
 	EnsureServer(ctx context.Context, hostID, workspace string) (RemoteServerView, string, error)
-	StopServer(hostID string) error
 	ServerStatus(hostID string) RemoteServerView
-	ServerLogs(ctx context.Context, hostID string, tailLines int) (string, error)
 
 	Close() error
 }
@@ -423,78 +378,6 @@ func (a *App) ConfirmRemoteSecret(hostID, promptID, secret string, accept bool) 
 	return rt.ResolveSecret(hostID, promptID, secret, accept)
 }
 
-func (a *App) ListRemoteDir(hostID, path string) ([]RemoteDirEntry, error) {
-	rt, err := a.remoteRT()
-	if err != nil {
-		return nil, err
-	}
-	return rt.ListDir(a.bootContext(), hostID, path)
-}
-
-func (a *App) ReadRemoteFile(hostID, path string) (RemoteFilePreview, error) {
-	rt, err := a.remoteRT()
-	if err != nil {
-		return RemoteFilePreview{}, err
-	}
-	return rt.ReadFile(a.bootContext(), hostID, path)
-}
-
-func (a *App) WriteRemoteFile(hostID, path, body string, expectMtimeUnix int64) (RemoteWriteResult, error) {
-	rt, err := a.remoteRT()
-	if err != nil {
-		return RemoteWriteResult{}, err
-	}
-	return rt.WriteFile(a.bootContext(), hostID, path, body, expectMtimeUnix)
-}
-
-func (a *App) MkdirRemote(hostID, path string) error {
-	rt, err := a.remoteRT()
-	if err != nil {
-		return err
-	}
-	return rt.Mkdir(a.bootContext(), hostID, path)
-}
-
-func (a *App) RenameRemotePath(hostID, oldPath, newPath string) error {
-	rt, err := a.remoteRT()
-	if err != nil {
-		return err
-	}
-	return rt.Rename(a.bootContext(), hostID, oldPath, newPath)
-}
-
-func (a *App) DeleteRemotePath(hostID, path string, recursive bool) error {
-	rt, err := a.remoteRT()
-	if err != nil {
-		return err
-	}
-	return rt.Delete(a.bootContext(), hostID, path, recursive)
-}
-
-func (a *App) RemoteForwards(hostID string) ([]RemoteForwardView, error) {
-	rt, err := a.remoteRT()
-	if err != nil {
-		return nil, err
-	}
-	return rt.Forwards(hostID), nil
-}
-
-func (a *App) AddRemoteForward(hostID string, in RemoteForwardInput) (RemoteForwardView, error) {
-	rt, err := a.remoteRT()
-	if err != nil {
-		return RemoteForwardView{}, err
-	}
-	return rt.AddForward(hostID, in)
-}
-
-func (a *App) RemoveRemoteForward(hostID, forwardID string) error {
-	rt, err := a.remoteRT()
-	if err != nil {
-		return err
-	}
-	return rt.RemoveForward(hostID, forwardID)
-}
-
 // OpenRemoteWorkspace is the idempotent "open remote web" entry: it starts or
 // reuses the target workspace's remote Serve, atomically replaces the loopback
 // tunnel, then opens (or re-points) the host's web window.
@@ -544,39 +427,6 @@ func serveURLWithToken(localURL, token string) string {
 	return localURL
 }
 
-func (a *App) StopRemoteServer(hostID string) error {
-	op := a.beginRemoteWindowHostOperation(hostID)
-	return op.run(func(func() bool) error {
-		rt, err := a.remoteRT()
-		if err != nil {
-			return err
-		}
-		if err := rt.StopServer(hostID); err != nil {
-			return err
-		}
-		// Stopping the service also tears down the loopback tunnel, so close the
-		// host's web window.
-		a.closeRemoteWindowForHost(hostID)
-		return nil
-	})
-}
-
-func (a *App) RemoteServerStatus(hostID string) (RemoteServerView, error) {
-	rt, err := a.remoteRT()
-	if err != nil {
-		return RemoteServerView{}, err
-	}
-	return rt.ServerStatus(hostID), nil
-}
-
-func (a *App) RemoteServerLogs(hostID string, tailLines int) (string, error) {
-	rt, err := a.remoteRT()
-	if err != nil {
-		return "", err
-	}
-	return rt.ServerLogs(a.bootContext(), hostID, tailLines)
-}
-
 // editUserConfig runs mutate against the user-global config under the edit lock
 // and saves it there. Remote hosts are user-global (pinned in LoadForRoot).
 func editUserConfig(mutate func(*config.Config) error) error {
@@ -609,7 +459,7 @@ type managedHost struct {
 	secretAnswer   chan remoteSecretAnswer // one-shot credential channel; non-nil while pending
 	secretPromptID string                  // opaque ID prevents a stale dialog resolving a later prompt
 	verifiedPeer   *RemoteFingerprintView  // authenticated target key; retained after pending UI clears
-	serveMu        sync.Mutex              // serializes EnsureServer/StopServer for this host
+	serveMu        sync.Mutex              // serializes EnsureServer for this host
 }
 
 type remoteSecretAnswer struct {
@@ -634,7 +484,6 @@ type desktopRemoteManager struct {
 	newClient         func(remote.Options) (desktopSSHClient, error)
 	ensureServe       func(context.Context, bootstrap.Conn, bootstrap.Options) (bootstrap.Result, error)
 	stopServe         func(context.Context, bootstrap.Conn, string) error
-	serveLogs         func(context.Context, bootstrap.Conn, string, int, *strings.Builder) error
 	localBinary       func() string
 	fetchRemoteBinary func(context.Context, string, string, string) ([]byte, error)
 	promptGate        chan struct{}
@@ -648,11 +497,8 @@ func newDesktopRemoteManager(sink remoteEventSink) *desktopRemoteManager {
 		newClient: func(opts remote.Options) (desktopSSHClient, error) {
 			return remote.New(opts)
 		},
-		ensureServe: bootstrap.EnsureServe,
-		stopServe:   bootstrap.Stop,
-		serveLogs: func(ctx context.Context, conn bootstrap.Conn, workspace string, n int, out *strings.Builder) error {
-			return bootstrap.Logs(ctx, conn, workspace, n, out)
-		},
+		ensureServe:       bootstrap.EnsureServe,
+		stopServe:         bootstrap.Stop,
 		localBinary:       desktopCLIBinaryPath,
 		fetchRemoteBinary: downloadRemoteCLIBinary,
 		promptGate:        make(chan struct{}, 1),
@@ -1118,176 +964,6 @@ func (m *desktopRemoteManager) client(hostID string) desktopSSHClient {
 	return nil
 }
 
-func (m *desktopRemoteManager) fs(ctx context.Context, hostID string) (desktopSSHClient, error) {
-	c := m.client(hostID)
-	if c == nil {
-		return nil, fmt.Errorf("host %q is not connected", hostID)
-	}
-	return c, nil
-}
-
-func (m *desktopRemoteManager) ListDir(ctx context.Context, hostID, path string) ([]RemoteDirEntry, error) {
-	c, err := m.fs(ctx, hostID)
-	if err != nil {
-		return nil, err
-	}
-	fsys, err := c.SFTP()
-	if err != nil {
-		return nil, err
-	}
-	entries, err := fsys.List(ctx, path)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]RemoteDirEntry, 0, len(entries))
-	for _, e := range entries {
-		out = append(out, RemoteDirEntry{
-			Name: e.Name, Path: e.Path, IsDir: e.IsDir,
-			Size: e.Size, MtimeUnix: e.ModTime, Symlink: e.Symlink,
-		})
-	}
-	return out, nil
-}
-
-func (m *desktopRemoteManager) ReadFile(ctx context.Context, hostID, path string) (RemoteFilePreview, error) {
-	c, err := m.fs(ctx, hostID)
-	if err != nil {
-		return RemoteFilePreview{}, err
-	}
-	fsys, err := c.SFTP()
-	if err != nil {
-		return RemoteFilePreview{}, err
-	}
-	st, err := fsys.Stat(ctx, path)
-	if err != nil {
-		return RemoteFilePreview{Path: path, Err: err.Error()}, nil
-	}
-	data, truncated, kind, err := fsys.ReadFile(ctx, path, 0)
-	if err != nil {
-		return RemoteFilePreview{Path: path, Err: err.Error()}, nil
-	}
-	binary := kind != 0 // sftpfs.KindText == 0
-	prev := RemoteFilePreview{
-		Path: path, Size: st.Size, MtimeUnix: st.ModTime,
-		Truncated: truncated, Binary: binary,
-	}
-	if !binary {
-		prev.Body = string(data)
-	}
-	return prev, nil
-}
-
-func (m *desktopRemoteManager) WriteFile(ctx context.Context, hostID, path, body string, expectMtime int64) (RemoteWriteResult, error) {
-	c, err := m.fs(ctx, hostID)
-	if err != nil {
-		return RemoteWriteResult{}, err
-	}
-	fsys, err := c.SFTP()
-	if err != nil {
-		return RemoteWriteResult{}, err
-	}
-	// Optimistic-concurrency check: if the caller passed an expected mtime and
-	// the remote file moved, report a conflict instead of overwriting.
-	if expectMtime > 0 {
-		if st, serr := fsys.Stat(ctx, path); serr == nil && st.ModTime != expectMtime {
-			return RemoteWriteResult{Conflict: true}, nil
-		}
-	}
-	if err := fsys.WriteFileAtomic(ctx, path, []byte(body), 0o644); err != nil {
-		return RemoteWriteResult{}, err
-	}
-	st, _ := fsys.Stat(ctx, path)
-	return RemoteWriteResult{OK: true, NewMtimeUnix: st.ModTime}, nil
-}
-
-func (m *desktopRemoteManager) Mkdir(ctx context.Context, hostID, path string) error {
-	c, err := m.fs(ctx, hostID)
-	if err != nil {
-		return err
-	}
-	fsys, err := c.SFTP()
-	if err != nil {
-		return err
-	}
-	return fsys.MkdirAll(ctx, path)
-}
-
-func (m *desktopRemoteManager) Rename(ctx context.Context, hostID, oldPath, newPath string) error {
-	c, err := m.fs(ctx, hostID)
-	if err != nil {
-		return err
-	}
-	fsys, err := c.SFTP()
-	if err != nil {
-		return err
-	}
-	return fsys.Rename(ctx, oldPath, newPath)
-}
-
-func (m *desktopRemoteManager) Delete(ctx context.Context, hostID, path string, recursive bool) error {
-	c, err := m.fs(ctx, hostID)
-	if err != nil {
-		return err
-	}
-	fsys, err := c.SFTP()
-	if err != nil {
-		return err
-	}
-	return fsys.Remove(ctx, path, recursive)
-}
-
-func (m *desktopRemoteManager) Forwards(hostID string) []RemoteForwardView {
-	c := m.client(hostID)
-	if c == nil {
-		return nil
-	}
-	return forwardEntriesToViews(hostID, c.Forwards().List())
-}
-
-func (m *desktopRemoteManager) AddForward(hostID string, in RemoteForwardInput) (RemoteForwardView, error) {
-	c := m.client(hostID)
-	if c == nil {
-		return RemoteForwardView{}, fmt.Errorf("host %q is not connected", hostID)
-	}
-	if in.LocalPort <= 0 || in.LocalPort > 65535 || in.RemotePort <= 0 || in.RemotePort > 65535 || strings.TrimSpace(in.RemoteHost) == "" {
-		return RemoteForwardView{}, fmt.Errorf("forward requires a remote host and ports between 1 and 65535")
-	}
-	spec := forward.Spec{
-		Name:       in.Label,
-		Direction:  forward.Local,
-		BindAddr:   net.JoinHostPort("127.0.0.1", fmt.Sprint(in.LocalPort)),
-		TargetAddr: net.JoinHostPort(strings.TrimSpace(in.RemoteHost), fmt.Sprint(in.RemotePort)),
-	}
-	if _, err := c.Forwards().Add(spec); err != nil {
-		return RemoteForwardView{}, err
-	}
-	m.emitForwards(hostID)
-	view := RemoteForwardView{
-		ID: spec.DefaultName(), HostID: hostID, LocalPort: in.LocalPort,
-		RemoteHost: in.RemoteHost, RemotePort: in.RemotePort, Label: in.Label, State: "active",
-	}
-	return view, nil
-}
-
-func (m *desktopRemoteManager) RemoveForward(hostID, forwardID string) error {
-	c := m.client(hostID)
-	if c == nil {
-		return fmt.Errorf("host %q is not connected", hostID)
-	}
-	if err := c.Forwards().Remove(forwardID); err != nil {
-		return err
-	}
-	m.emitForwards(hostID)
-	return nil
-}
-
-func (m *desktopRemoteManager) emitForwards(hostID string) {
-	mh := m.managed(hostID)
-	if mh != nil {
-		m.emitForwardsFor(hostID, mh)
-	}
-}
-
 func (m *desktopRemoteManager) emitForwardsFor(hostID string, generation *managedHost) {
 	entries := generation.client.Forwards().List()
 	m.mu.Lock()
@@ -1385,35 +1061,6 @@ func (m *desktopRemoteManager) EnsureServer(ctx context.Context, hostID, workspa
 	return view, res.Token, nil
 }
 
-func (m *desktopRemoteManager) StopServer(hostID string) error {
-	mh := m.managed(hostID)
-	if mh == nil || mh.client == nil {
-		return fmt.Errorf("host %q is not connected", hostID)
-	}
-	mh.serveMu.Lock()
-	defer mh.serveMu.Unlock()
-	if !m.isCurrent(hostID, mh) {
-		return fmt.Errorf("host %q connection was replaced", hostID)
-	}
-	c := mh.client
-	m.mu.Lock()
-	ws := mh.server.Workspace
-	m.mu.Unlock()
-	if strings.TrimSpace(ws) == "" {
-		return fmt.Errorf("host %q has no managed server workspace", hostID)
-	}
-	opCtx, cancel := managedOperationContext(context.Background(), mh)
-	defer cancel()
-	if err := m.stopServe(opCtx, c, ws); err != nil {
-		return err
-	}
-	// Tear down the local serve tunnel so a stale forward can't linger.
-	_ = c.Forwards().Remove(serveForwardName)
-	view := RemoteServerView{HostID: hostID, Workspace: ws, State: "stopped"}
-	m.publishServerIfCurrent(hostID, mh, view, "")
-	return nil
-}
-
 // managed returns the managed host record for hostID, or nil.
 func (m *desktopRemoteManager) managed(hostID string) *managedHost {
 	m.mu.Lock()
@@ -1428,32 +1075,6 @@ func (m *desktopRemoteManager) ServerStatus(hostID string) RemoteServerView {
 		return mh.server
 	}
 	return RemoteServerView{HostID: hostID, State: "stopped"}
-}
-
-func (m *desktopRemoteManager) ServerLogs(ctx context.Context, hostID string, tailLines int) (string, error) {
-	m.mu.Lock()
-	mh := m.hosts[hostID]
-	ws := ""
-	if mh != nil {
-		ws = mh.server.Workspace
-	}
-	m.mu.Unlock()
-	if mh == nil || mh.client == nil {
-		return "", fmt.Errorf("host %q is not connected", hostID)
-	}
-	if strings.TrimSpace(ws) == "" {
-		return "", fmt.Errorf("host %q has no managed server workspace", hostID)
-	}
-	opCtx, cancel := managedOperationContext(ctx, mh)
-	defer cancel()
-	var sb strings.Builder
-	if err := m.serveLogs(opCtx, mh.client, ws, tailLines, &sb); err != nil {
-		return "", err
-	}
-	if !m.isCurrent(hostID, mh) {
-		return "", fmt.Errorf("host %q connection was replaced", hostID)
-	}
-	return sb.String(), nil
 }
 
 func (m *desktopRemoteManager) Close() error {
@@ -1509,10 +1130,10 @@ func managedOperationContext(parent context.Context, mh *managedHost) (context.C
 // publishFailedServeStart keeps host server ownership on a previous ready
 // Serve when a new Serve or its tunnel failed to establish. The previous
 // Serve is still running with its tunnel (forward Replace is atomic), so
-// Stop/Logs and reconnect refresh must keep operating on the workspace that
-// actually runs; the failure is delivered through the EnsureServer return
-// value and the caller's actionErr. When there is no previous ready Serve
-// (first start), the error view is published so the UI can show it.
+// reconnect refresh must keep operating on the workspace that actually runs;
+// the failure is delivered through the EnsureServer return value and the
+// caller's actionErr. When there is no previous ready Serve (first start),
+// the error view is published so the UI can show it.
 func (m *desktopRemoteManager) publishFailedServeStart(hostID string, generation *managedHost, previous RemoteServerView, previousToken string, failed RemoteServerView) {
 	if previous.State == "ready" {
 		m.publishServerIfCurrent(hostID, generation, previous, previousToken)

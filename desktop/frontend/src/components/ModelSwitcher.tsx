@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Brain, Check, ChevronDown, Search } from "./SemantixIcons";
+import { Brain, Check, ChevronsUpDown, Search } from "lucide-react";
 import { asArray } from "../lib/array";
 import { app } from "../lib/bridge";
 import { useT } from "../lib/i18n";
@@ -173,7 +173,7 @@ export function ModelSwitcher({
         >
           <Brain size={14} className="modelsw__kind" />
           <span className="modelsw__label">{label}</span>
-          <ChevronDown size={11} />
+          <ChevronsUpDown size={11} />
         </button>
       </Tooltip>
       <AnchoredPopover

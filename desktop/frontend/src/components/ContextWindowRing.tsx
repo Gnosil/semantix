@@ -1,14 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { app } from "../lib/bridge";
-import { contextWindowPercentages } from "../lib/contextWindow";
+import { contextWindowPercentages, contextWindowStatus, formatCacheHitRate } from "../lib/contextWindow";
 import { useI18n } from "../lib/i18n";
 import { formatMoneyLocalized } from "../lib/money";
-import type { BalanceInfo, ContextInfo, ContextPanelInfo } from "../lib/types";
+import type { BalanceInfo, ContextInfo } from "../lib/types";
 import { AnchoredPopover } from "./AnchoredPopover";
-import {
-  contextWindowStatus,
-  formatCacheHitRate,
-} from "./ContextPanel";
 
 interface ContextWindowRingProps {
   enabled?: boolean;
@@ -41,13 +36,12 @@ function fmtDuration(ms: number, t: ReturnType<typeof useI18n>['t']): string {
   return t("context.durationMinutesSeconds", { minutes, seconds });
 }
 
+// The ring reads everything from the live `context` snapshot (ContextUsageForTab,
+// refreshed by useController on every usage event); it makes no request of its own.
 export function ContextWindowRing({ enabled = true, context, tabId, turnCost, currency, cacheHitTokens, cacheMissTokens, balance }: ContextWindowRingProps) {
   const { locale, t } = useI18n();
   const [open, setOpen] = useState(false);
-  const [info, setInfo] = useState<ContextPanelInfo | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const loadingTabRef = useRef<string | null>(null);
-  const requestSeq = useRef(0);
   const enterTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -60,39 +54,21 @@ export function ContextWindowRing({ enabled = true, context, tabId, turnCost, cu
   const compactPct = Math.round(compactRatio * 100);
   const status = contextWindowStatus(rawUsagePct, compactPct);
 
-  const loadInfo = useCallback(() => {
-    if (!enabled || !tabId) return;
-    if (loadingTabRef.current === tabId) return;
-    const requestTab = tabId;
-    const seq = requestSeq.current + 1;
-    requestSeq.current = seq;
-    loadingTabRef.current = requestTab;
-    app.ContextPanel(requestTab).then((next) => {
-      if (requestSeq.current === seq) setInfo(next);
-    }).catch(() => {}).finally(() => {
-      if (requestSeq.current === seq) loadingTabRef.current = null;
-    });
-  }, [enabled, tabId]);
-
-  // Reset when tabId changes so an older panel request cannot paint a new session.
+  // Close when the ring is disabled or the tab changes so a stale popover
+  // cannot linger over a new session.
   useEffect(() => {
-    requestSeq.current += 1;
-    loadingTabRef.current = null;
-    setInfo(null);
-    if (!enabled) setOpen(false);
+    setOpen(false);
   }, [enabled, tabId]);
 
   useEffect(() => () => {
-    requestSeq.current += 1;
     if (enterTimer.current != null) clearTimeout(enterTimer.current);
     if (leaveTimer.current != null) clearTimeout(leaveTimer.current);
   }, []);
 
   const onEnter = useCallback(() => {
     if (leaveTimer.current != null) clearTimeout(leaveTimer.current);
-    loadInfo();
     enterTimer.current = setTimeout(() => setOpen(true), 200);
-  }, [loadInfo]);
+  }, []);
 
   const onLeave = useCallback(() => {
     if (enterTimer.current != null) clearTimeout(enterTimer.current);
@@ -109,34 +85,32 @@ export function ContextWindowRing({ enabled = true, context, tabId, turnCost, cu
 
   if (!enabled) return null;
 
-  const turnCacheHit = cacheHitTokens ?? info?.cacheHitTokens ?? 0;
-  const turnCacheMiss = cacheMissTokens ?? info?.cacheMissTokens ?? 0;
-  const turnCacheRate = formatCacheHitRate(turnCacheHit, turnCacheMiss);
+  const turnCacheRate = formatCacheHitRate(cacheHitTokens ?? 0, cacheMissTokens ?? 0);
   const compactTokens = windowTokens > 0 ? Math.round(windowTokens * compactRatio) : 0;
   const tokensToCompact = compactTokens > used ? compactTokens - used : 0;
   const ringOffset = RING_C * (1 - usagePct / 100);
-  const elapsed = info?.elapsedMs && info.elapsedMs > 0 ? fmtDuration(info.elapsedMs, t) : undefined;
-  const quoteStatus = info?.sessionCostQuote?.displayStatus;
-  const sessionCostBucketed = quoteStatus === "bucketed" || info?.sessionCostQuote?.aggregateMode === "currency_buckets";
+  const requestCount = context?.requestCount ?? 0;
+  const elapsed = context?.elapsedMs && context.elapsedMs > 0 ? fmtDuration(context.elapsedMs, t) : undefined;
+  const quote = context?.sessionCostQuote;
+  const quoteStatus = quote?.displayStatus;
+  const sessionCostBucketed = quoteStatus === "bucketed" || quote?.aggregateMode === "currency_buckets";
   const sessionCostFallback = quoteStatus === "fallback_original";
-  const sessionCostComplete = (sessionCostFallback || info?.sessionCostComplete !== false) && quoteStatus !== "unavailable";
-  const sessionCostRaw = info?.sessionCostQuote?.selected
-    ? Number(info.sessionCostQuote.selected.amount)
-    : info?.sessionCost;
-  const sessionCostCurrency = info?.sessionCostQuote?.selected?.currency || info?.sessionCurrency;
+  const sessionCostComplete = (sessionCostFallback || context?.sessionCostComplete !== false) && quoteStatus !== "unavailable";
+  const sessionCostRaw = quote?.selected ? Number(quote.selected.amount) : context?.sessionCost;
+  const sessionCostCurrency = quote?.selected?.currency || context?.sessionCurrency;
   const sessionCost =
     !sessionCostBucketed && sessionCostComplete && typeof sessionCostRaw === "number" && sessionCostRaw > 0
       ? `≈${formatMoneyLocalized(sessionCostRaw, sessionCostCurrency, { locale, empty: "dash" }).replace(/^≈/, "")}`
       : undefined;
   const sessionCostHint =
-    info?.sessionBillingMode === "subscription_equivalent"
+    quote?.billingMode === "subscription_equivalent"
         ? "payg_equivalent"
         : sessionCostFallback
           ? "fallback_original"
         : sessionCost
           ? "estimated"
         : undefined;
-  const turnCostLabel = formatMoneyLocalized(turnCost, info?.sessionCurrency || currency, { locale, empty: "dash" });
+  const turnCostLabel = formatMoneyLocalized(turnCost, context?.sessionCurrency || currency, { locale, empty: "dash" });
 
   return (
     <>
@@ -188,10 +162,10 @@ export function ContextWindowRing({ enabled = true, context, tabId, turnCost, cu
               <span className="context-ring-popover__label">{t("context.windowCompactDistance")}</span>
               <span className="context-ring-popover__value">{fmtCompact(tokensToCompact)}</span>
             </div>
-            {info?.requestCount != null && info.requestCount > 0 && (
+            {requestCount > 0 && (
               <div className="context-ring-popover__row">
                 <span className="context-ring-popover__label">{t("context.requests")}</span>
-                <span className="context-ring-popover__value">{info.requestCount}</span>
+                <span className="context-ring-popover__value">{requestCount}</span>
               </div>
             )}
             {elapsed && (
@@ -228,7 +202,7 @@ export function ContextWindowRing({ enabled = true, context, tabId, turnCost, cu
                 <span className="context-ring-popover__value">{t("context.sessionCostBucketed")}</span>
               </div>
             )}
-            {!sessionCost && !sessionCostBucketed && info?.sessionCostComplete === false && (
+            {!sessionCost && !sessionCostBucketed && context?.sessionCostComplete === false && (
               <div className="context-ring-popover__row">
                 <span className="context-ring-popover__label">{t("context.sessionCostEstimated")}</span>
                 <span className="context-ring-popover__value">—</span>

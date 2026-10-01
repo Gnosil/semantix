@@ -105,17 +105,6 @@ if (!rootEl.textContent?.includes("skill-b")) {
   throw new Error("workspace B skills disappeared after stale response");
 }
 
-let chosenCommand = "";
-await act(async () => {
-  root.render(<LocaleProvider><SkillsSettingsPage activeWorkspaceKey="tab-b\u0000/workspace-b" onUseSkill={(command) => { chosenCommand = command; }} /></LocaleProvider>);
-});
-const useSkillButton = rootEl.querySelector<HTMLButtonElement>(".capability-workspace__use");
-if (!useSkillButton || useSkillButton.disabled) throw new Error("enabled workspace skill is not available for chat");
-await act(async () => { useSkillButton.click(); });
-if (chosenCommand !== "/skill-b") throw new Error("workspace skill did not use the current workspace invocation");
-const sources = rootEl.querySelector("details.capability-workspace__sources");
-if (!sources || sources.hasAttribute("open")) throw new Error("workspace skill folders should start collapsed");
-
 await act(async () => {
   root.unmount();
   await flushPromises();

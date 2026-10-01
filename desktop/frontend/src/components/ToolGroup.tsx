@@ -1,5 +1,5 @@
 import { memo, useRef, useState } from "react";
-import { ChevronRight } from "./SemantixIcons";
+import { ChevronRight } from "lucide-react";
 import { useT } from "../lib/i18n";
 import { useCollapseAnimation } from "../lib/useCollapseAnimation";
 import type { Item } from "../lib/useController";

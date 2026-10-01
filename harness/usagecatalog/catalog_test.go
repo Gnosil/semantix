@@ -112,27 +112,3 @@ func TestReadyRejectsSameSizeRewriteWithDifferentMtime(t *testing.T) {
 		t.Fatal("same-size rewrite was treated as still ready")
 	}
 }
-
-func TestActivityRecordsAreExcludedFromUsageProjection(t *testing.T) {
-	ctx := context.Background()
-	path := filepath.Join(t.TempDir(), "2026-09-30.jsonl")
-	data := `{"ts":"2026-09-30T12:00:00Z","model":"a/model","source":"desktop","total":42,"requests":1}
-{"ts":"2026-09-30T12:01:00Z","kind":"memory_recall","source":"desktop","memory_hits":3}
-{"ts":"2026-09-30T12:02:00Z","kind":"context_reduction","source":"desktop","reduced_tokens":500}
-`
-	if err := os.WriteFile(path, []byte(data), 0600); err != nil {
-		t.Fatal(err)
-	}
-	catalog, err := Open(ctx, filepath.Join(t.TempDir(), "usage.sqlite"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer catalog.Close(ctx)
-	if err := catalog.ReconcileFile(ctx, path, "2026-09-30"); err != nil {
-		t.Fatal(err)
-	}
-	rows, err := catalog.Query(ctx, "2026-09-30", "2026-09-30", "desktop")
-	if err != nil || len(rows) != 1 || rows[0].Total != 42 || rows[0].Requests != 1 {
-		t.Fatalf("activity polluted usage: %#v %v", rows, err)
-	}
-}

@@ -15,8 +15,6 @@ import type {
   RemoteSecretPromptView,
 } from "../lib/types";
 
-export type RemoteExplorerTab = "files" | "ports" | "server";
-
 export type RemoteStatusPopoverRequest = {
   hostId: string;
   nonce: number;
@@ -40,9 +38,6 @@ export type RemoteState = {
   pendingFingerprint: RemoteFingerprintView | null;
   pendingSecretPrompt: RemoteSecretPromptView | null;
   statusPopoverRequest: RemoteStatusPopoverRequest | null;
-  explorerOpen: boolean;
-  explorerHostId: string | null;
-  explorerTab: RemoteExplorerTab;
 
   setHosts: (hosts: RemoteHostView[]) => void;
   applyStatus: (s: RemoteConnectionStatus) => void;
@@ -54,9 +49,6 @@ export type RemoteState = {
   clearPendingSecretPrompt: (expected?: RemoteSecretPromptView) => void;
   requestStatusPopover: (hostId: string) => void;
   clearStatusPopoverRequest: (expected: RemoteStatusPopoverRequest) => void;
-  openExplorer: (hostId: string) => void;
-  closeExplorer: () => void;
-  setExplorerTab: (tab: RemoteExplorerTab) => void;
 };
 
 export const useRemoteStore = create<RemoteState>((set) => ({
@@ -67,9 +59,6 @@ export const useRemoteStore = create<RemoteState>((set) => ({
   pendingFingerprint: null,
   pendingSecretPrompt: null,
   statusPopoverRequest: null,
-  explorerOpen: false,
-  explorerHostId: null,
-  explorerTab: "files",
 
   setHosts: (hosts) => set({ hosts }),
 
@@ -150,9 +139,6 @@ export const useRemoteStore = create<RemoteState>((set) => ({
         : state
     )),
 
-  openExplorer: (hostId) => set({ explorerOpen: true, explorerHostId: hostId }),
-  closeExplorer: () => set({ explorerOpen: false }),
-  setExplorerTab: (tab) => set({ explorerTab: tab }),
 }));
 
 export function waitForRemoteConnection(hostId: string, timeoutMs = 60_000): Promise<void> {

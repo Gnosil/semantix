@@ -201,48 +201,6 @@ func TestStaleClientStatusCannotOverwriteReplacement(t *testing.T) {
 	}
 }
 
-func TestServerLogsCancellationOnDisconnect(t *testing.T) {
-	sink := &lifecycleEventSink{statuses: make(chan RemoteConnectionStatusView, 1)}
-	mgr := newDesktopRemoteManager(sink)
-	hostCtx, hostCancel := context.WithCancel(context.Background())
-	mh := &managedHost{
-		ctx: hostCtx, cancel: hostCancel, client: newLifecycleSSHClient(nil),
-		server: RemoteServerView{HostID: "box", Workspace: "/work", State: "ready"},
-	}
-	mgr.hosts["box"] = mh
-	entered := make(chan struct{})
-	mgr.serveLogs = func(ctx context.Context, _ bootstrap.Conn, _ string, _ int, _ *strings.Builder) error {
-		close(entered)
-		<-ctx.Done()
-		return ctx.Err()
-	}
-	done := make(chan error, 1)
-	go func() {
-		_, err := mgr.ServerLogs(context.Background(), "box", 20)
-		done <- err
-	}()
-	<-entered
-	if err := mgr.Disconnect("box"); err != nil {
-		t.Fatal(err)
-	}
-	select {
-	case status := <-sink.statuses:
-		if status.HostID != "box" || status.State != "stopped" {
-			t.Fatalf("Disconnect status = %+v", status)
-		}
-	default:
-		t.Fatal("Disconnect did not publish a stopped status")
-	}
-	select {
-	case err := <-done:
-		if !errors.Is(err, context.Canceled) {
-			t.Fatalf("ServerLogs error = %v, want context canceled", err)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("ServerLogs was not canceled by Disconnect")
-	}
-}
-
 func TestEnsureServerResultCannotMutateReplacement(t *testing.T) {
 	seedLifecycleHost(t, "box")
 	mgr := newDesktopRemoteManager(nil)
@@ -284,21 +242,6 @@ func TestEnsureServerResultCannotMutateReplacement(t *testing.T) {
 	}
 	if replacement.token != "new-token" {
 		t.Fatalf("replacement token = %q, want new-token", replacement.token)
-	}
-}
-
-func TestStopServerRejectsEmptyWorkspace(t *testing.T) {
-	mgr := newDesktopRemoteManager(nil)
-	hostCtx, hostCancel := context.WithCancel(context.Background())
-	defer hostCancel()
-	mgr.hosts["box"] = &managedHost{ctx: hostCtx, cancel: hostCancel, client: newLifecycleSSHClient(nil)}
-	called := false
-	mgr.stopServe = func(context.Context, bootstrap.Conn, string) error { called = true; return nil }
-	if err := mgr.StopServer("box"); err == nil {
-		t.Fatal("StopServer accepted an empty workspace")
-	}
-	if called {
-		t.Fatal("StopServer called bootstrap.Stop with an empty workspace")
 	}
 }
 
@@ -407,7 +350,7 @@ func TestHostKeyPromptsAreSerializedForGlobalDialog(t *testing.T) {
 // TestEnsureServerFailureKeepsOwnershipOnPreviousReadyServe is the failed-
 // switch atomicity contract: when the new workspace's Serve fails to start,
 // the host's server ownership stays on the still-running previous Serve, so
-// Stop and Logs keep operating on the workspace that actually runs.
+// reconnect refresh keeps operating on the workspace that actually runs.
 func TestEnsureServerFailureKeepsOwnershipOnPreviousReadyServe(t *testing.T) {
 	seedLifecycleHost(t, "box")
 	mgr := newDesktopRemoteManager(nil)
@@ -422,15 +365,6 @@ func TestEnsureServerFailureKeepsOwnershipOnPreviousReadyServe(t *testing.T) {
 	mgr.ensureServe = func(context.Context, bootstrap.Conn, bootstrap.Options) (bootstrap.Result, error) {
 		return bootstrap.Result{}, errors.New("serve launch failed")
 	}
-	var stopped, logged []string
-	mgr.stopServe = func(_ context.Context, _ bootstrap.Conn, workspace string) error {
-		stopped = append(stopped, workspace)
-		return nil
-	}
-	mgr.serveLogs = func(_ context.Context, _ bootstrap.Conn, workspace string, _ int, _ *strings.Builder) error {
-		logged = append(logged, workspace)
-		return nil
-	}
 
 	if _, _, err := mgr.EnsureServer(context.Background(), "box", "/srv/b"); err == nil {
 		t.Fatal("expected the serve launch failure")
@@ -441,19 +375,6 @@ func TestEnsureServerFailureKeepsOwnershipOnPreviousReadyServe(t *testing.T) {
 	}
 	if got := mgr.hosts["box"].token; got != "token-a" {
 		t.Fatalf("token after failed switch = %q, want the previous token", got)
-	}
-
-	if err := mgr.StopServer("box"); err != nil {
-		t.Fatal(err)
-	}
-	if len(stopped) != 1 || stopped[0] != "/srv/a" {
-		t.Fatalf("StopServer operated on %v, want the previous /srv/a", stopped)
-	}
-	if _, err := mgr.ServerLogs(context.Background(), "box", 50); err != nil {
-		t.Fatal(err)
-	}
-	if len(logged) != 1 || logged[0] != "/srv/a" {
-		t.Fatalf("ServerLogs operated on %v, want the previous /srv/a", logged)
 	}
 }
 

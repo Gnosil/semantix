@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Check, Copy, ChevronDown, ChevronRight } from "./SemantixIcons";
+import { Check, Copy, ChevronDown, ChevronRight } from "lucide-react";
 import { diffLines, type DiffRow } from "../lib/diff";
 
 // InlineDiff is a compact, expandable diff view for tool results that

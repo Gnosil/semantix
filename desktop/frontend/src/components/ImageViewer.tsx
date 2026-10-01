@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { X } from "./SemantixIcons";
+import { X } from "lucide-react";
 import { useT } from "../lib/i18n";
 
 export interface ImageViewerProps {
