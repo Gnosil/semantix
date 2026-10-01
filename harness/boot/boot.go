@@ -300,6 +300,8 @@ func build(ctx context.Context, opts Options) (*BuildResult, error) {
 		Binary:      cfg.Semantix.Binary,
 		Inject:      cfg.Semantix.Inject,
 		Budget:      cfg.Semantix.Budget,
+		Playbook:    cfg.Semantix.Playbook,
+		RepoShort:   cfg.Semantix.RepoShort,
 		SessionsDir: cfg.Semantix.SessionsDir,
 		CostMissUSD: cfg.Semantix.CostInputPriceUSD,
 		CostHitUSD:  cfg.Semantix.CostCachePriceUSD,

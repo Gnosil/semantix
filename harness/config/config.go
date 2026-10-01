@@ -961,6 +961,14 @@ type SemantixConfig struct {
 	Inject bool `toml:"inject"`
 	// Budget caps the L2 injection block size in bytes (default 4096).
 	Budget int `toml:"budget"`
+	// Playbook switches injection to A7 distilled-prior rendering (Round3
+	// winner): slices render as a compact playbook, the generic exploration
+	// rule is swapped for economy directives, and retrieval misses fall back
+	// to the plain base prompt.
+	Playbook bool `toml:"playbook"`
+	// RepoShort is the repo name for playbook path cutting (e.g. "django");
+	// empty disables repo-relative path extraction.
+	RepoShort string `toml:"repo_short"`
 	// SessionsDir is where the session JSONL mirror is written; empty uses
 	// <controller session dir>/sessions.
 	SessionsDir string `toml:"sessions_dir"`
