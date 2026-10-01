@@ -1,6 +1,7 @@
 import { translate as t, type LocaleProps, type Locale } from "@/lib/i18n";
 
 import Link from "next/link";
+import AnimatedText from "@/components/AnimatedText";
 import Reveal from "@/components/Reveal";
 import CopyCode from "@/components/CopyCode";
 import DesktopDownload from "@/components/DesktopDownload";
@@ -43,14 +44,14 @@ export default function Install({ locale = "zh-CN" }: LocaleProps) {
   return (
     <section
       id="start"
-      className="scroll-mt-16 border-x-[10px] border-t-[10px] border-accent bg-white text-[#111411] md:border-x-[18px] md:border-t-[18px]"
+      className="install-scroll-handoff scroll-mt-16 border-x-[10px] border-t-[10px] border-accent bg-white text-[#111411] md:border-x-[18px] md:border-t-[18px]"
     >
-      <div className="mx-auto max-w-[1100px] px-5 py-16 md:px-10 md:py-20">
+      <div className="install-scroll-content mx-auto max-w-[1100px] px-5 py-16 md:px-10 md:py-20">
         <Reveal>
           <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.24em] text-[#168b6d]">
             {t(locale, "Install 安装")}</p>
           <h2 className="font-brand-display mt-4 text-[clamp(2rem,3.4vw,2.75rem)] font-black leading-[1.08] tracking-[-0.045em]">
-            {t(locale, "选择你的使用方式。")}</h2>
+            <AnimatedText locale={locale}>{t(locale, "选择你的使用方式。")}</AnimatedText></h2>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-muted-foreground md:text-base">
             {t(locale, "下载桌面版，或在终端安装 Semantix。")}</p>
         </Reveal>

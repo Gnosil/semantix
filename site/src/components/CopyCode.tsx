@@ -2,6 +2,8 @@
 
 import { translate as t, type Locale } from "@/lib/i18n";
 
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { RippleButton } from "@/components/ui/ripple-button";
 import { Check, Copy } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -41,6 +43,7 @@ export default function CopyCode({
   singleLine = false,
   tone = "light",
 }: CopyCodeProps) {
+  const reducedMotion = useReducedMotion();
   const [state, setState] = useState<CopyState>("idle");
   const resetTimer = useRef<number | undefined>(undefined);
   const isDark = tone === "dark";
@@ -105,11 +108,12 @@ export default function CopyCode({
       >
         <code>{prompt ? `$ ${code}` : code}</code>
       </pre>
-      <button
+      <RippleButton
+        rippleColor={isDark || isGray ? "#bde8d9" : "#168b6d"}
         type="button"
         onClick={handleCopy}
         aria-label={locale === "en" ? `${label} code` : `${label}代码`}
-        className={`flex w-11 shrink-0 items-center justify-center border-l transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent active:translate-y-px ${
+        className={`flex w-11 rounded-none border-0 p-0 shrink-0 items-center justify-center border-l transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent active:translate-y-px ${
           isDark
             ? "border-white/10 bg-[oklch(0.25_0.008_260)] text-slate-300 hover:bg-[oklch(0.29_0.01_260)] hover:text-emerald-300"
             : isGray
@@ -117,15 +121,19 @@ export default function CopyCode({
               : "border-border/60 bg-white text-accent hover:bg-accent/5"
         }`}
       >
-        {state === "copied" ? (
-          <Check aria-hidden="true" className="size-4" strokeWidth={1.8} />
-        ) : (
-          <Copy aria-hidden="true" className="size-4" strokeWidth={1.8} />
-        )}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.span key={state === "copied" ? "copied" : "copy"}
+            initial={reducedMotion ? false : { opacity: 0, scale: 0.65, rotate: -20 }}
+            animate={{ opacity: 1, scale: 1, rotate: 0 }}
+            exit={{ opacity: 0, scale: 0.65 }}
+            transition={{ duration: reducedMotion ? 0 : 0.15 }}>
+            {state === "copied" ? <Check aria-hidden="true" className="size-4" strokeWidth={1.8} /> : <Copy aria-hidden="true" className="size-4" strokeWidth={1.8} />}
+          </motion.span>
+        </AnimatePresence>
         <span className="sr-only" aria-live="polite">
           {label}
         </span>
-      </button>
+      </RippleButton>
     </div>
   );
 }

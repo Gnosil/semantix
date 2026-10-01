@@ -4,6 +4,11 @@ import { translate as t, type LocaleProps, type Locale } from "@/lib/i18n";
 
 import { useState } from "react";
 import Image from "next/image";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { TextReveal } from "@/components/ui/text-reveal";
+import { RippleButton } from "@/components/ui/ripple-button";
+import AnimatedText from "@/components/AnimatedText";
+import { ScrollScene, ScrollLayer } from "@/components/ScrollScene";
 import CopyCode from "@/components/CopyCode";
 
 type Capability = {
@@ -80,22 +85,28 @@ const getGroups = (locale: Locale) => [
 ];
 
 export default function Features({ locale = "zh-CN" }: LocaleProps) {
+  const reducedMotion = useReducedMotion();
   const groups = getGroups(locale);
   const capabilities = getCapabilities(locale);
   const [active, setActive] = useState<number | null>(null);
+  const [renderedByGroup, setRenderedByGroup] = useState<(number | null)[]>([null, null, null]);
 
   const capabilityButton = (index: number, panelId: string) => {
     const item = capabilities[index];
     const isActive = active === index;
 
     return (
-      <button
+      <RippleButton
+        rippleColor="#168b6d"
         key={item.num}
         type="button"
-        onClick={() => setActive(isActive ? null : index)}
+        onClick={() => {
+          setActive(isActive ? null : index);
+          if (!isActive) setRenderedByGroup((current) => current.map((value, group) => group === Math.floor(index / 2) ? index : value));
+        }}
         aria-expanded={isActive}
         aria-controls={panelId}
-        className="group grid w-full scroll-mt-20 grid-cols-[3rem_1fr_auto] items-center gap-3 border-b border-[#101313]/20 py-5 text-left md:grid-cols-[5rem_1fr_auto] md:py-6"
+        className="group grid w-full rounded-none border-0 bg-transparent px-0 text-inherit scroll-mt-20 grid-cols-[3rem_1fr_auto] items-center gap-3 border-b border-[#101313]/20 py-5 text-left md:grid-cols-[5rem_1fr_auto] md:py-6"
       >
         <span
           className={`font-mono text-[10px] tracking-[0.16em] transition-colors ${
@@ -130,7 +141,7 @@ export default function Features({ locale = "zh-CN" }: LocaleProps) {
               : "border-[#101313]/30 bg-transparent"
           }`}
         />
-      </button>
+      </RippleButton>
     );
   };
 
@@ -139,12 +150,15 @@ export default function Features({ locale = "zh-CN" }: LocaleProps) {
     indices: readonly [number, number],
   ) => {
     const isOpen = active !== null && indices.includes(active);
-    const selected = isOpen ? capabilities[active] : null;
+    const rendered = renderedByGroup[groupIndex];
+    const selected = rendered === null ? null : capabilities[rendered];
     const panelId = `semantix-feature-detail-${groupIndex}`;
 
     return (
       <div
         id={panelId}
+        aria-hidden={!isOpen}
+        inert={!isOpen}
         className={`grid transition-[grid-template-rows,opacity] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none ${
           isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
         }`}
@@ -152,8 +166,14 @@ export default function Features({ locale = "zh-CN" }: LocaleProps) {
         <div className="min-h-0 overflow-hidden">
           <div className="relative overflow-hidden border-b border-[#101313] bg-[#2c8c75] text-[#f7f6f1]">
             <div className="semantix-grid pointer-events-none absolute inset-0 opacity-20" aria-hidden="true" />
+            <AnimatePresence initial={false} mode="wait">
             {selected ? (
-              <div key={selected.num} className="semantix-detail-in relative min-h-[28rem] overflow-hidden md:min-h-[34rem]">
+              <motion.div key={selected.num}
+                initial={reducedMotion ? false : { opacity: 0, y: 14, filter: "blur(4px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -6, transition: { duration: reducedMotion ? 0 : 0.16 } }}
+                transition={{ duration: reducedMotion ? 0 : 0.5, ease: [0.22, 1, 0.36, 1] }}
+                className="relative min-h-[28rem] overflow-hidden md:min-h-[34rem]">
                 <div
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.045),transparent_44%)]"
@@ -193,7 +213,7 @@ export default function Features({ locale = "zh-CN" }: LocaleProps) {
                       {locale !== "en" && selected.titleEn}
                     </p>
                     <h3 className="font-brand-display mt-4 text-4xl font-black tracking-[-0.055em] md:text-5xl">
-                      {selected.title}
+                      <AnimatedText locale={locale}>{selected.title}</AnimatedText>
                     </h3>
                     <p className="mt-5 max-w-2xl text-sm leading-7 text-white/70 md:text-base">
                       {selected.body}
@@ -210,8 +230,9 @@ export default function Features({ locale = "zh-CN" }: LocaleProps) {
                     SEMANTIX / {selected.num}
                   </div>
                 </div>
-              </div>
+              </motion.div>
             ) : null}
+            </AnimatePresence>
           </div>
         </div>
       </div>
@@ -232,9 +253,9 @@ export default function Features({ locale = "zh-CN" }: LocaleProps) {
         <div className="lg:sticky lg:top-24 lg:self-start">
           <p className="font-mono text-[10px] font-medium tracking-[0.24em] text-[#168b6d]">
             {t(locale, "Features 特性")}</p>
-          <h2 className="font-brand-display mt-7 max-w-xl text-[clamp(2.7rem,5.8vw,6.5rem)] font-black leading-[0.98] tracking-[-0.055em]">
-            <span className="block">{t(locale, "跨会话复用，")}</span>
-            <span className="block text-[#168b6d]">{t(locale, "能力持续进化。")}</span>
+          <h2 className="font-brand-display mt-7 max-w-xl text-[clamp(2.7rem,5.2vw,6rem)] font-black leading-[0.98] tracking-[-0.055em]">
+            <TextReveal className="block" by={locale === "en" ? "word" : "character"}>{t(locale, "跨会话复用，")}</TextReveal>
+            <TextReveal className="block text-[#168b6d]" by={locale === "en" ? "word" : "character"}>{t(locale, "能力持续进化。")}</TextReveal>
           </h2>
           <p className="mt-7 text-lg text-[#101313]/55">
             Shipped capabilities, traceable evidence, and explicit limits.
@@ -247,17 +268,17 @@ export default function Features({ locale = "zh-CN" }: LocaleProps) {
           {groups.map((group, groupIndex) => {
             const panelId = `semantix-feature-detail-${groupIndex}`;
             return (
-              <div key={group.label} className={groupIndex === 0 ? "" : "mt-6"}>
+              <ScrollScene key={group.label} className={groupIndex === 0 ? "" : "mt-6"}>
                 <div className="sticky top-16 z-20 flex items-center justify-between border-b border-[#101313]/20 bg-white/95 py-4 font-mono text-[11px] font-semibold tracking-[0.16em] text-[#168b6d] backdrop-blur md:text-sm">
                   <span>{group.label}</span>
                   <span className="text-[10px] font-normal tracking-[0.12em] md:text-xs">
                     {group.action}
                   </span>
                 </div>
-                {capabilityButton(group.indices[0], panelId)}
+                <ScrollLayer settled={active === group.indices[0]} from={0.06} to={0.58} rise={24}>{capabilityButton(group.indices[0], panelId)}</ScrollLayer>
                 {capabilityPanel(groupIndex, group.indices)}
-                {capabilityButton(group.indices[1], panelId)}
-              </div>
+                <ScrollLayer settled={active === group.indices[1]} from={0.14} to={0.72} rise={30}>{capabilityButton(group.indices[1], panelId)}</ScrollLayer>
+              </ScrollScene>
             );
           })}
         </div>

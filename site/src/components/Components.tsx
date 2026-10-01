@@ -4,6 +4,10 @@ import { translate as t, type LocaleProps, type Locale } from "@/lib/i18n";
 
 import { useState } from "react";
 import Image from "next/image";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { MagicCard } from "@/components/ui/magic-card";
+import AnimatedText from "@/components/AnimatedText";
+import { ScrollScene, ScrollLayer } from "@/components/ScrollScene";
 import Reveal from "@/components/Reveal";
 
 type KernelComponent = {
@@ -96,6 +100,7 @@ const getComponents = (locale: Locale): KernelComponent[] => [
 ];
 
 function ComponentList({ locale = "zh-CN" }: LocaleProps) {
+  const reducedMotion = useReducedMotion();
   const components = getComponents(locale);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [renderedIndex, setRenderedIndex] = useState(0);
@@ -113,7 +118,7 @@ function ComponentList({ locale = "zh-CN" }: LocaleProps) {
   };
 
   return (
-    <Reveal delay={70}>
+    <ScrollScene>
       <div className="mt-12">
         <div
           role="group"
@@ -124,17 +129,18 @@ function ComponentList({ locale = "zh-CN" }: LocaleProps) {
             const isActive = activeIndex === index;
 
             return (
+              <ScrollLayer key={component.num} settled={isActive} className="min-w-[13.5rem] snap-start md:min-w-0" from={0.06 + index * 0.1} to={0.58 + index * 0.1} rise={34 + index * 8}>
+              <MagicCard className={`transition-transform duration-300 motion-reduce:transition-none md:min-w-0 ${isActive ? "-translate-y-1" : "hover:-translate-y-1"}`}>
               <button
-                key={component.num}
                 id={`kernel-component-control-${component.num}`}
                 type="button"
                 aria-expanded={isActive}
                 aria-controls="kernel-component-panel"
                 onClick={() => toggleComponent(index)}
-                className={`group relative min-h-[10.5rem] min-w-[13.5rem] snap-start scroll-mt-20 overflow-hidden border px-5 py-5 text-left transition-[background-color,border-color,color,transform] duration-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-5px] md:min-w-0 ${
+                className={`group relative w-full min-h-[10.5rem] min-w-[13.5rem] snap-start scroll-mt-20 overflow-hidden border-0 px-5 py-5 text-left transition-[background-color,border-color,color,transform] duration-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-5px] md:min-w-0 ${
                   isActive
-                    ? "-translate-y-1 border-[#168b6d] bg-[#168b6d] text-white focus-visible:outline-white"
-                    : "border-[#101313]/18 bg-white text-[#101313] hover:border-[#168b6d] hover:text-[#168b6d] focus-visible:outline-[#168b6d]"
+                    ? "border-[#168b6d] bg-[#168b6d] text-white focus-visible:outline-white"
+                    : "border-[#101313]/18 bg-transparent text-[#101313] hover:border-[#168b6d] hover:text-[#168b6d] focus-visible:outline-[#168b6d]"
                 }`}
               >
                 {isActive ? (
@@ -174,6 +180,8 @@ function ComponentList({ locale = "zh-CN" }: LocaleProps) {
                   {locale !== "en" && component.titleEn}
                 </span>
               </button>
+              </MagicCard>
+              </ScrollLayer>
             );
           })}
         </div>
@@ -190,9 +198,14 @@ function ComponentList({ locale = "zh-CN" }: LocaleProps) {
           }`}
         >
           <article className="min-h-0 overflow-hidden">
-            <div
+            <AnimatePresence mode="wait" initial={false}>
+            <motion.div
               key={active.num}
-              className="semantix-detail-in flex max-w-5xl flex-col p-6 text-[#101313] md:p-9 lg:px-10 lg:pb-5 lg:pt-11"
+              initial={reducedMotion ? false : { opacity: 0, y: 12, filter: "blur(3px)" }}
+              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+              exit={{ opacity: 0, y: -6, transition: { duration: reducedMotion ? 0 : 0.14 } }}
+              transition={{ duration: reducedMotion ? 0 : 0.4, ease: [0.22, 1, 0.36, 1] }}
+              className=" flex max-w-5xl flex-col p-6 text-[#101313] md:p-9 lg:px-10 lg:pb-5 lg:pt-11"
             >
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
@@ -234,7 +247,8 @@ function ComponentList({ locale = "zh-CN" }: LocaleProps) {
             >
               {active.linkLabel} ↗
             </a>
-            </div>
+            </motion.div>
+            </AnimatePresence>
           </article>
         </div>
 
@@ -245,7 +259,7 @@ function ComponentList({ locale = "zh-CN" }: LocaleProps) {
           }`}
         />
       </div>
-    </Reveal>
+    </ScrollScene>
   );
 }
 
@@ -261,7 +275,7 @@ export default function Components({ locale = "zh-CN" }: LocaleProps) {
             <p className="font-mono text-[10px] font-semibold tracking-[0.24em]">
               {t(locale, "Components 内核组件")}</p>
             <h2 className="font-brand-display mt-4 text-[clamp(2.5rem,3.6vw,4.25rem)] font-black leading-[0.92] tracking-[-0.06em] text-[#101313]">
-              {t(locale, "一个内核，")}<span className="text-[#168b6d]">{t(locale, "四个组件。")}</span>
+              <AnimatedText locale={locale}>{t(locale, "一个内核，")}</AnimatedText><AnimatedText locale={locale} delay={0.18} className="text-[#168b6d]">{t(locale, "四个组件。")}</AnimatedText>
             </h2>
             <p className="mt-6 max-w-3xl text-sm leading-7 text-[#101313]/60 md:text-base">
               {t(locale, "四个组件组把一次会话变成下一次可以复用的经验：先摄取与切片，再检索与复用，同时完成资源编排，最后用验证和反馈守住边界。")}</p>
