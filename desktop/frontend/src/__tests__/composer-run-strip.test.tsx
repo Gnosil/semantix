@@ -186,8 +186,11 @@ console.log("\ncomposer run strip");
   eq(document.querySelector(".composer__btn--stop"), null, "idle composer renders no stop button");
   ok(document.querySelector(".composer__btn--send") !== null, "idle composer keeps the send button");
   eq(document.querySelector(".composer-toolbar--status-only"), null, "floating status pill is gone");
-  const yolo = document.querySelector<HTMLButtonElement>(".composer-modebar__item--yolo");
-  ok(yolo !== null, "approval bar always exposes Yolo alongside Ask and Auto");
+  const permissionTrigger = document.querySelector<HTMLButtonElement>(".composer-permissions-trigger");
+  await act(async () => { permissionTrigger?.click(); await flushTimers(); });
+  const permissionItems = [...document.querySelectorAll<HTMLButtonElement>('.composer-permissions-menu [role="menuitemradio"]')];
+  const yolo = permissionItems[2];
+  ok(permissionItems.length === 3, "permission menu exposes Ask, Auto and Yolo");
   await act(async () => {
     yolo?.click();
     await flushTimers();
@@ -210,13 +213,13 @@ console.log("\ncomposer run strip");
   const profileTrigger = document.querySelector(".composer-profile-trigger") as HTMLButtonElement | null;
   if (!profileTrigger) throw new Error("work mode trigger did not render");
   eq(profileTrigger.textContent?.trim(), "Balanced", "standalone control shows only the current profile");
-  eq(profileTrigger.getAttribute("aria-label"), "Execution setting · Balanced", "execution setting trigger keeps its full accessible name");
-  ok(profileTrigger.querySelector(".lucide-equal") !== null, "balanced work mode uses a simple equal icon");
+  eq(profileTrigger.getAttribute("aria-label"), "Work style · Balanced", "execution setting trigger keeps its full accessible name");
+  ok(profileTrigger.querySelector('[data-semantix-glyph="Equal"]') !== null, "balanced work mode uses a simple equal icon");
   await act(async () => {
     profileTrigger.focus();
     await flushTimers();
   });
-  eq(document.querySelector('[role="tooltip"]')?.textContent, "Execution setting · Balanced: Auto planning, risk-tiered verification", "execution setting tooltip combines category, value, and summary");
+  eq(document.querySelector('[role="tooltip"]')?.textContent, "Work style · Balanced: Auto planning, risk-tiered verification", "execution setting tooltip combines category, value, and summary");
   await act(async () => {
     profileTrigger.blur();
     await flushTimers();
@@ -233,7 +236,7 @@ console.log("\ncomposer run strip");
   const delivery = Array.from(profileMenu?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]') ?? [])
     .find((item) => item.textContent?.includes("Delivery"));
   if (!delivery) throw new Error("delivery work mode option did not render");
-  ok(delivery.querySelector(".lucide-flag") !== null, "delivery work mode uses a simple completion flag");
+  ok(delivery.querySelector('[data-semantix-glyph="Flag"]') !== null, "delivery work mode uses a simple completion flag");
   await act(async () => {
     delivery.click();
     await flushTimers();
@@ -246,7 +249,7 @@ console.log("\ncomposer run strip");
     intentTrigger.click();
     await flushTimers();
   });
-  eq(document.querySelector(".composer-intent-menu")?.textContent?.includes("Work mode"), false, "task-intent menu no longer owns work mode");
+  eq(document.querySelector(".composer-intent-menu")?.textContent?.includes("Work style"), false, "task-intent menu does not include work style profiles");
   eq(document.querySelectorAll('.composer-intent-menu [role="menuitemradio"]').length, 3, "task method menu exposes direct, plan, and goal");
 
   await act(async () => {
@@ -304,11 +307,11 @@ console.log("\ncomposer run strip");
   const { root } = await renderComposer({ disabled: true, goal: "ship it", collaborationMode: "goal" });
   const profile = document.querySelector<HTMLButtonElement>(".composer-profile-trigger");
   const task = document.querySelector<HTMLButtonElement>(".composer-task-mode-trigger");
-  const approvals = Array.from(document.querySelectorAll<HTMLButtonElement>(".composer-modebar--approval button"));
+  const approvalTrigger = document.querySelector<HTMLButtonElement>(".composer-permissions-trigger");
   const send = document.querySelector<HTMLButtonElement>(".composer__btn--send");
   ok(Boolean(profile?.disabled), "runtime transition disables Delivery profile changes");
   ok(Boolean(task?.disabled), "runtime transition disables Goal mode changes");
-  ok(approvals.length === 3 && approvals.every((button) => button.disabled), "runtime transition disables Ask/Auto/Yolo changes");
+  ok(Boolean(approvalTrigger?.disabled), "runtime transition disables opening permission choices");
   ok(Boolean(send?.disabled), "runtime transition disables submit");
 
   await act(async () => {
@@ -359,7 +362,10 @@ console.log("\ncomposer run strip");
   eq(document.querySelector(".composer-card--running"), null, "waiting card hands the running accent off to the prompt card");
   ok(document.querySelector(".composer-card--waiting") !== null, "waiting card takes the waiting modifier");
 
-  const modeButtons = [...document.querySelectorAll(".composer-modebar--approval .composer-modebar__item")] as HTMLButtonElement[];
+  const permissionTrigger = document.querySelector<HTMLButtonElement>(".composer-permissions-trigger");
+  ok(permissionTrigger?.disabled === false, "permission picker remains available during its own approval prompt");
+  await act(async () => { permissionTrigger?.click(); await flushTimers(); });
+  const modeButtons = [...document.querySelectorAll('.composer-permissions-menu [role="menuitemradio"]')] as HTMLButtonElement[];
   ok(modeButtons.length === 3 && modeButtons.every((b) => !b.disabled), "approval bar stays usable while its own prompt disables the composer");
 
   await rerender({ pendingApprovalLabel: null, pendingAsk: true });
@@ -592,6 +598,39 @@ console.log("\ncomposer run strip");
   await act(async () => {
     root.unmount();
   });
+  dom.window.close();
+}
+
+// Progressive disclosure keeps one live composer and never changes permissions.
+{
+  const dom = installDom();
+  const { root, calls, rerender } = await renderComposer({ compactStart: true, sessionKey: "start-a" });
+  const input = document.querySelector("#composer-input");
+  const toggle = document.querySelector<HTMLButtonElement>(".composer-session-options-trigger")!;
+  const options = document.querySelector<HTMLElement>(".composer-session-options")!;
+  ok(options.hidden, "new-chat session controls start folded");
+  eq(toggle.getAttribute("aria-expanded"), "false", "disclosure communicates its folded state");
+  ok(Boolean(document.querySelector(".composer-meta__control--model")), "model remains directly accessible");
+  ok(Boolean(document.querySelector(".composer-content-trigger")), "attachments remain directly accessible");
+  const row = document.querySelector(".composer__input-row")!;
+  ok(Boolean(row.querySelector(".composer-content-trigger")) && Boolean(row.querySelector(".modelsw__trigger")) && Boolean(row.querySelector(".composer-session-options-trigger")), "start controls share the input row");
+  await act(async () => { toggle.click(); await flushTimers(); });
+  ok(!options.hidden, "session controls can be expanded");
+  eq(toggle.getAttribute("aria-expanded"), "true", "expanded controls are announced");
+  ok(Boolean(options.querySelector(".composer-task-mode-trigger")), "existing work mode is available in options");
+  ok(Boolean(options.querySelector(".composer-profile-trigger")), "existing work style is available in options");
+  ok(Boolean(options.querySelector(".composer-permissions-trigger")), "existing permission picker is available in options");
+  eq(document.querySelector("#composer-input"), input, "opening options preserves the live draft input");
+  await act(async () => { toggle.click(); await flushTimers(); });
+  ok(options.hidden, "session controls fold back away");
+  eq(calls.approvalModes.length, 0, "opening and closing options never changes approvals");
+  await act(async () => { toggle.click(); await flushTimers(); });
+  await rerender({ sessionKey: "start-b" });
+  ok(options.hidden, "a different new chat resets the disclosure");
+  await rerender({ compactStart: false });
+  eq(document.querySelector(".composer-session-options-trigger"), null, "conversation restores its regular toolbar");
+  eq(document.querySelector("#composer-input"), input, "starting a conversation preserves the live input instance");
+  await act(async () => root.unmount());
   dom.window.close();
 }
 

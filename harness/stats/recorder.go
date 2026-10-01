@@ -137,6 +137,11 @@ func (r *Recorder) Emit(e event.Event) {
 		r.recordProviderUsage(e.ModelRef, e.Guardian.Usage, nil, "")
 	} else if r != nil && r.writer != nil && e.Kind == event.TurnDone {
 		r.RecordTurnCompletion()
+	} else if r != nil && r.dispatcher != nil && e.Kind == event.ContextMaintenanceEvent && e.Maintenance != nil {
+		m := e.Maintenance
+		if m.Status == "applied" && m.SavedTokens > 0 && m.OperationID != "" {
+			r.dispatcher.enqueue(record{Timestamp: time.Now(), Source: r.source, Kind: "context_reduction", MaintenanceID: m.OperationID, ReducedTokens: m.SavedTokens})
+		}
 	}
 }
 
@@ -214,6 +219,13 @@ func (r *Recorder) RecordOutcomeProgress(sample evidence.OutcomeSample) {
 // RecordMemoryRecall preserves the wrapped sink's audit capability.
 func (r *Recorder) RecordMemoryRecall(a event.MemoryRecallAudit) {
 	event.RecordMemoryRecall(r.inner, a)
+	if r != nil && r.dispatcher != nil {
+		hits := 0
+		if a.Suppressed == "" {
+			hits = len(a.Hits)
+		}
+		r.dispatcher.enqueue(record{Timestamp: time.Now(), Source: r.source, Kind: "memory_recall", MemoryHits: hits})
+	}
 }
 
 // RecordDelegationAdmission preserves the wrapped sink's audit capability.
@@ -245,6 +257,8 @@ func (r *Recorder) recordProviderUsage(modelRef string, usage *provider.Usage, q
 		UsageSource: strings.TrimSpace(usageSource),
 	}
 	if quote != nil {
+		rec.CacheReadDiscounts = append([]billing.Money(nil), quote.CacheReadDiscounts...)
+		rec.CacheReadDiscountComplete = quote.CacheReadDiscountComplete && quote.CostComplete
 		rec.CostAmount = quote.Original.Amount
 		rec.CostCurrency = quote.Original.Currency
 		rec.PricingFingerprint = quote.PricingFingerprint

@@ -1,5 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ChevronDown, ChevronRight, Minus, Plus, RotateCcw, Sparkles, Undo2, UserRound } from "lucide-react";
+import { ArrowLeft, RotateCcw, Sparkles, Undo2, UserRound } from "./SemantixIcons";
+import { ChevronDown, ChevronRight, Minus, Plus } from "./SemantixIcons";
 import { useT } from "../lib/i18n";
 import {
   TYPOGRAPHY_REGIONS,

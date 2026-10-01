@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"semantix/harness/billing"
 	"semantix/harness/filelock"
 	"semantix/harness/usagecatalog"
 )
@@ -38,17 +39,23 @@ const appendLockTimeout = 2 * time.Second
 // record is one line in a daily stats file. TurnDone marks a completed turn so
 // per-day turn counts are available without touching session files.
 type record struct {
-	Timestamp  time.Time `json:"ts"`
-	ModelRef   string    `json:"model,omitempty"`  // canonical "provider/model"
-	Source     string    `json:"source,omitempty"` // desktop | cli | serve | bot | remote
-	Prompt     int       `json:"prompt,omitempty"`
-	Completion int       `json:"completion,omitempty"`
-	Reasoning  int       `json:"reasoning,omitempty"`
-	CacheHit   int       `json:"cache_hit,omitempty"`
-	CacheMiss  int       `json:"cache_miss,omitempty"`
-	Total      int       `json:"total,omitempty"`
-	Requests   int       `json:"requests,omitempty"` // provider requests represented by this row
-	Turn       bool      `json:"turn,omitempty"`     // true for TurnDone marker rows
+	Kind                      string          `json:"kind,omitempty"`
+	CacheReadDiscounts        []billing.Money `json:"cache_read_discounts,omitempty"`
+	CacheReadDiscountComplete bool            `json:"cache_read_discount_complete,omitempty"`
+	MaintenanceID             string          `json:"maintenance_id,omitempty"`
+	ReducedTokens             int             `json:"reduced_tokens,omitempty"`
+	MemoryHits                int             `json:"memory_hits,omitempty"`
+	Timestamp                 time.Time       `json:"ts"`
+	ModelRef                  string          `json:"model,omitempty"`  // canonical "provider/model"
+	Source                    string          `json:"source,omitempty"` // desktop | cli | serve | bot | remote
+	Prompt                    int             `json:"prompt,omitempty"`
+	Completion                int             `json:"completion,omitempty"`
+	Reasoning                 int             `json:"reasoning,omitempty"`
+	CacheHit                  int             `json:"cache_hit,omitempty"`
+	CacheMiss                 int             `json:"cache_miss,omitempty"`
+	Total                     int             `json:"total,omitempty"`
+	Requests                  int             `json:"requests,omitempty"` // provider requests represented by this row
+	Turn                      bool            `json:"turn,omitempty"`     // true for TurnDone marker rows
 	// Cost quote fields (additive; older readers ignore them).
 	UsageSource        string   `json:"usage_source,omitempty"`
 	CostAmount         string   `json:"cost_amount,omitempty"`     // original amount decimal
@@ -139,7 +146,7 @@ func (w *Writer) Append(r record) error {
 	}
 	release()
 	released = true
-	if w.usage != nil {
+	if w.usage != nil && r.Kind == "" {
 		if catalog := w.usage.catalog.Load(); catalog != nil {
 			hash := sha256.Sum256(b)
 			catalog.Enqueue(usagecatalog.AppendReceipt{Path: path, Day: day, Offset: offset, Length: len(line), LineHash: fmtHash(hash[:])}, usageEntry(day, r))

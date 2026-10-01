@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FileText, Folder } from "lucide-react";
+import { FileText, Folder } from "./SemantixIcons";
 import { asArray } from "../lib/array";
 import { filterAtMatches } from "../lib/atMatches";
 import { app } from "../lib/bridge";
