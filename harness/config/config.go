@@ -957,9 +957,9 @@ type SemantixConfig struct {
 	Enabled bool `toml:"enabled"`
 	// Binary is the kernel CLI path; empty defaults to "semantix" on PATH.
 	Binary string `toml:"binary"`
-	// Inject appends the [semantix-reuse] block to the system prompt region.
+	// Inject adds the [semantix-reuse] block as user-role history.
 	Inject bool `toml:"inject"`
-	// Mode controls L2 retrieval: off | shadow | strict. Empty preserves the
+	// Mode controls L2 retrieval: off | shadow | strict | replace. Empty preserves the
 	// legacy Inject boolean; an explicit value takes precedence.
 	Mode string `toml:"mode"`
 	// Budget caps the L2 injection block size in bytes (default 4096).
