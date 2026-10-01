@@ -302,6 +302,7 @@ func build(ctx context.Context, opts Options) (*BuildResult, error) {
 		Budget:      cfg.Semantix.Budget,
 		Playbook:    cfg.Semantix.Playbook,
 		RepoShort:   cfg.Semantix.RepoShort,
+		ProjectDir:  root, // kernel CLI semantics: slices resolve at <workspace>/.semantix/project.db
 		SessionsDir: cfg.Semantix.SessionsDir,
 		CostMissUSD: cfg.Semantix.CostInputPriceUSD,
 		CostHitUSD:  cfg.Semantix.CostCachePriceUSD,
