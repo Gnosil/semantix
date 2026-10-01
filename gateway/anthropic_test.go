@@ -42,8 +42,13 @@ func TestToAnthropicRequestSystemLift(t *testing.T) {
 	if req.MaxTokens != defaultAnthropicMaxTokens {
 		t.Errorf("max_tokens = %d, want default %d (Anthropic requires it)", req.MaxTokens, defaultAnthropicMaxTokens)
 	}
-	if string(req.System) != `"you are helpful"` {
-		t.Errorf("system = %s, want lifted system string", req.System)
+	// P0-a: the lifted system prompt carries the static-prefix breakpoint
+	// (BP1), so it is rendered as a one-element block array.
+	var sys []anthropicBlock
+	if err := json.Unmarshal(req.System, &sys); err != nil || len(sys) != 1 || sys[0].Text != "you are helpful" {
+		t.Errorf("system = %s, want one lifted text block (err %v)", req.System, err)
+	} else if sys[0].CacheControl == nil {
+		t.Errorf("lifted system block missing BP1 cache_control: %s", req.System)
 	}
 	if len(req.Messages) != 3 {
 		t.Fatalf("messages = %d, want 3 (system lifted out)", len(req.Messages))
@@ -76,8 +81,8 @@ func TestToAnthropicRequestToolCalls(t *testing.T) {
 	if len(req.Tools) != 1 || req.Tools[0].Name != "read_file" {
 		t.Fatalf("tools = %#v", req.Tools)
 	}
-	if req.ToolChoice != "auto" {
-		t.Errorf("tool_choice = %v, want auto", req.ToolChoice)
+	if tc, _ := req.ToolChoice.(map[string]any); tc["type"] != "auto" {
+		t.Errorf("tool_choice = %#v, want object {type:auto} (bare strings are a 400)", req.ToolChoice)
 	}
 	// user, assistant(tool_use), user(tool_result) — tool result rides on a
 	// user message, adjacent user messages merged
@@ -101,8 +106,34 @@ func TestToAnthropicRequestToolCalls(t *testing.T) {
 		t.Fatalf("tool result message = %#v", toolResult)
 	}
 	tr := toolResult.Content[0]
-	if tr.Type != "tool_result" || tr.ToolUseID != "call_1" || tr.Input != "file contents" {
+	if tr.Type != "tool_result" || tr.ToolUseID != "call_1" || tr.Content != "file contents" || tr.Input != nil {
 		t.Errorf("tool_result = %#v", tr)
+	}
+	// Wire-level check (P0-a §1): the Messages API tool_result block has
+	// tool_use_id / content, never "input" — the pre-P0-a adapter shipped
+	// the output under "input", which the struct-only assertion above
+	// could not catch.
+	var wire struct {
+		Messages []struct {
+			Content []map[string]any `json:"content"`
+		} `json:"messages"`
+	}
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		t.Fatalf("unmarshal wire: %v", err)
+	}
+	wtr := wire.Messages[2].Content[0]
+	if wtr["content"] != "file contents" {
+		t.Errorf("wire tool_result.content = %#v, want the tool output", wtr["content"])
+	}
+	if _, has := wtr["input"]; has {
+		t.Errorf("wire tool_result must not carry an input key: %#v", wtr)
+	}
+	wtu := wire.Messages[1].Content[0]
+	if _, has := wtu["input"]; !has {
+		t.Errorf("wire tool_use must keep its input key: %#v", wtu)
+	}
+	if _, has := wtu["content"]; has {
+		t.Errorf("wire tool_use must not carry a content key: %#v", wtu)
 	}
 }
 
@@ -124,19 +155,20 @@ func TestToAnthropicRequestCacheControlBreakpoints(t *testing.T) {
 	if err := json.Unmarshal(raw, &req); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	// system becomes a block array with the injection appended and a
-	// cache_control breakpoint on the last text block (design §3.6 / §0.5)
+	// P0-a §3: system is a two-block array — the static prompt with BP1,
+	// then the L2 block WITHOUT a marker, so a block that differs from the
+	// previous request invalidates only itself, never tools + static system.
 	var sys []anthropicBlock
-	if err := json.Unmarshal(req.System, &sys); err != nil || len(sys) != 1 {
-		t.Fatalf("system = %s, want single block array (unmarshal err %v)", req.System, err)
+	if err := json.Unmarshal(req.System, &sys); err != nil || len(sys) != 2 {
+		t.Fatalf("system = %s, want [static, l2] block array (unmarshal err %v)", req.System, err)
 	}
-	if !strings.Contains(sys[0].Text, "[semantix-reuse]") {
-		t.Errorf("system block missing injection text: %q", sys[0].Text)
+	if sys[0].Text != "base sys" || sys[0].CacheControl == nil || sys[0].CacheControl.Type != "ephemeral" {
+		t.Errorf("static system block must carry BP1: %#v", sys[0])
 	}
-	if sys[0].CacheControl == nil || sys[0].CacheControl.Type != "ephemeral" {
-		t.Errorf("system block missing cache_control breakpoint: %#v", sys[0])
+	if !strings.Contains(sys[1].Text, "[semantix-reuse]") || sys[1].CacheControl != nil {
+		t.Errorf("L2 block must follow BP1 without a marker: %#v", sys[1])
 	}
-	// final message tail also gets a breakpoint (≤2 total)
+	// final message tail gets BP2 (≤2 total)
 	if len(req.Messages) == 0 {
 		t.Fatal("no messages")
 	}
@@ -150,19 +182,62 @@ func TestToAnthropicRequestCacheControlBreakpoints(t *testing.T) {
 	if !found {
 		t.Errorf("final message tail missing cache_control breakpoint: %#v", last)
 	}
+	if n := strings.Count(string(raw), `"cache_control"`); n != 2 {
+		t.Errorf("cache_control markers = %d, want exactly 2 (BP1 + BP2)", n)
+	}
 }
 
-func TestToAnthropicRequestNoBlockNoBreakpoints(t *testing.T) {
+// TestToAnthropicRequestNoBlockDefaultStillCaches: P0-a §3 — a request
+// without an L2 block still gets its conversation-tail breakpoint under the
+// default "always" policy (pre-P0-a such requests carried no cache_control
+// at all and were never cached).
+func TestToAnthropicRequestNoBlockDefaultStillCaches(t *testing.T) {
 	body := `{"model":"claude-sonnet","messages":[{"role":"user","content":"hi"}]}`
 	raw, err := toAnthropicRequest([]byte(body), anthropicUp(), nil)
 	if err != nil {
 		t.Fatalf("toAnthropicRequest: %v", err)
 	}
-	if strings.Contains(string(raw), "cache_control") {
-		t.Errorf("no breakpoints expected without an injection block: %s", raw)
+	if n := strings.Count(string(raw), `"cache_control"`); n != 1 {
+		t.Errorf("cache_control markers = %d, want 1 (BP2 only: no system, no tools): %s", n, raw)
 	}
-	if !strings.Contains(string(raw), `"system"`) || strings.Contains(string(raw), `[`) {
-		t.Logf("system without block is a plain string: %s", raw)
+	if strings.Contains(string(raw), `"system"`) {
+		t.Errorf("no system field expected without a system prompt or block: %s", raw)
+	}
+}
+
+// TestToAnthropicRequestL2OnlyPolicy: cache_breakpoints = "l2_only" restores
+// the pre-P0-a trigger (markers only when a block was injected) while
+// keeping the new placement.
+func TestToAnthropicRequestL2OnlyPolicy(t *testing.T) {
+	up := anthropicUp()
+	up.CacheBreakpoints = "l2_only"
+	body := `{"model":"claude-sonnet","messages":[{"role":"system","content":"base sys"},{"role":"user","content":"hi"}]}`
+
+	raw, err := toAnthropicRequest([]byte(body), up, nil)
+	if err != nil {
+		t.Fatalf("toAnthropicRequest: %v", err)
+	}
+	if strings.Contains(string(raw), "cache_control") {
+		t.Errorf("l2_only without a block must emit no markers: %s", raw)
+	}
+	var req anthropicRequest
+	if err := json.Unmarshal(raw, &req); err != nil {
+		t.Fatal(err)
+	}
+	if string(req.System) != `"base sys"` {
+		t.Errorf("system without markers or block must stay a plain string (byte-identical to pre-P0-a): %s", req.System)
+	}
+
+	inj := &inject.Injection{
+		Text:   "[semantix-reuse]\nprior knowledge\n[/semantix-reuse]",
+		Slices: []*slice.Slice{{ID: "s1", Type: slice.Prompt, Scope: slice.Project, Content: []byte("prior knowledge")}},
+	}
+	raw, err = toAnthropicRequest([]byte(body), up, inj)
+	if err != nil {
+		t.Fatalf("toAnthropicRequest: %v", err)
+	}
+	if n := strings.Count(string(raw), `"cache_control"`); n != 2 {
+		t.Errorf("l2_only with a block: markers = %d, want 2: %s", n, raw)
 	}
 }
 
