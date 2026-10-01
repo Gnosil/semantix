@@ -29,6 +29,9 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Test SWE-bench scripts
+        run: python3 -m unittest discover -s scripts/swebench -p 'test_*.py'
+
       - name: Vet
         run: go vet ./...
 
