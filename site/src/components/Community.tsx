@@ -5,6 +5,8 @@ import { translate as t, type LocaleProps, type Locale } from "@/lib/i18n";
 import { useEffect, useState } from "react";
 import Image from "next/image";
 
+import { TextReveal } from "@/components/ui/text-reveal";
+import { ScrollScene, ScrollLayer } from "@/components/ScrollScene";
 import Reveal from "@/components/Reveal";
 import { siteIdentity } from "@/lib/site-identity";
 
@@ -87,11 +89,14 @@ export default function Community({ locale = "zh-CN" }: LocaleProps) {
           </div>
 
           <div className="pt-9 md:pt-11">
-            <div className="mx-auto max-w-[60rem] text-center">
+            <ScrollScene className="mx-auto max-w-[60rem] text-center">
               <h2 className="font-brand-display mx-auto max-w-none text-[clamp(2rem,3.4vw,2.75rem)] font-black leading-[1.08] tracking-[-0.045em] text-[#111411]">
-                {t(locale, "所有贡献，都应留下可复核的路径。")}</h2>
+                <TextReveal by={locale === "en" ? "word" : "character"}>{t(locale, "所有贡献，都应留下可复核的路径。")}</TextReveal></h2>
+              <ScrollLayer from={0.22} to={0.68} rise={24}>
               <p className="mx-auto mt-4 max-w-[38rem] text-sm leading-7 text-[#111411]/62 md:text-base md:leading-8">
                 {t(locale, "Semantix 在 GitHub 公开开发。每个 Issue、PR 与验证结果，都应留下可检查的输入、方法和结论。")}</p>
+              </ScrollLayer>
+              <ScrollLayer from={0.32} to={0.84} rise={18}>
               <nav aria-label={t(locale, "社区参与入口")} className="mt-4">
                 <ul className="flex list-none flex-wrap justify-center gap-x-6 gap-y-1 p-0">
                   {communityLinks.map((link) => (
@@ -108,7 +113,8 @@ export default function Community({ locale = "zh-CN" }: LocaleProps) {
                   ))}
                 </ul>
               </nav>
-            </div>
+              </ScrollLayer>
+            </ScrollScene>
           </div>
         </div>
 
