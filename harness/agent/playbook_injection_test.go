@@ -57,3 +57,22 @@ func TestPlaybookFallbackClearsBlock(t *testing.T) {
 		t.Errorf("empty playbook must leave the message unchanged:\n%s", out[0].Content)
 	}
 }
+
+// harness-shape prompt (no generic rule line): prepend strategy.
+func TestApplyPlaybookMessagesPrependsWhenNoGenericLine(t *testing.T) {
+	base := "Fix the following issue.\n\n--- ISSUE ---\nThe issue body.\n"
+	msgs := []provider.Message{{Role: provider.RoleUser, Content: base}}
+	pb := "--- PRIOR FIXES IN THIS REPO ---\n[p1] fix: X\n--- END PRIOR FIXES ---"
+	rules := "- Use the PRIOR FIXES below.\n- Verify only your own edit."
+	out := applyPlaybookMessages(msgs, pb, rules)
+	got := out[0].Content
+	if !strings.HasPrefix(got, "--- PRIOR FIXES IN THIS REPO ---") {
+		t.Errorf("combined block must be prepended:\n%s", got)
+	}
+	if !strings.Contains(got, "- Verify only your own edit.") {
+		t.Errorf("rules missing:\n%s", got)
+	}
+	if !strings.Contains(got, "--- ISSUE ---") {
+		t.Errorf("original message lost:\n%s", got)
+	}
+}

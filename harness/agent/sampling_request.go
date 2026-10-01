@@ -228,6 +228,17 @@ func prependSystemBlock(msgs []provider.Message, block string) []provider.Messag
 // marker inside that same message. Byte-stable given (block, rules): the
 // provider prefix cache keeps hitting across tool rounds, mirroring the
 // runner simulation that won Round 3.
+// applyPlaybookMessages renders A7 playbook injection onto the message list.
+// Two strategies, tried in order on the FIRST user message:
+//  1. swap: the base prompt contains the generic exploration rule line —
+//     replace it with the economy directives and insert the playbook before
+//     the issue marker (byte-equivalent to the runner simulation).
+//  2. prepend: the message lacks that line (harness prompt shape differs) —
+//     prepend a combined block (playbook + rules) at the top of the message.
+//     Semantically equivalent: the directives still govern the turn, and the
+//     playbook rides at the front where priors belong.
+// Byte-stable given (playbook, rules). Empty playbook = miss-fallback:
+// byte-identical to no-injection.
 func applyPlaybookMessages(msgs []provider.Message, playbook, rules string) []provider.Message {
 	out := make([]provider.Message, len(msgs))
 	copy(out, msgs)
@@ -235,19 +246,21 @@ func applyPlaybookMessages(msgs []provider.Message, playbook, rules string) []pr
 		return out // miss-fallback: byte-identical to no-injection
 	}
 	generic := "- You may read files, search, edit code, and run tests to check your work."
+	combined := playbook + "\n\n" + rules
 	for i := range out {
 		if out[i].Role != provider.RoleUser {
 			continue
 		}
 		c := out[i].Content
-		if !strings.Contains(c, generic) {
-			continue
-		}
-		c = strings.Replace(c, generic, rules, 1)
-		if idx := strings.Index(c, "--- ISSUE ---"); idx >= 0 {
-			c = c[:idx] + playbook + "\n\n" + c[idx:]
+		if strings.Contains(c, generic) {
+			c = strings.Replace(c, generic, rules, 1)
+			if idx := strings.Index(c, "--- ISSUE ---"); idx >= 0 {
+				c = c[:idx] + playbook + "\n\n" + c[idx:]
+			} else {
+				c = c + "\n\n" + playbook
+			}
 		} else {
-			c = c + "\n\n" + playbook
+			c = combined + "\n\n" + c
 		}
 		out[i].Content = c
 		break // first user message only — matches the runner's single swap
