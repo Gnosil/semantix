@@ -271,7 +271,11 @@ func (a *Agent) beginRunTurn(ctx context.Context, input string) (rawInput string
 	if a.budgetCtrl != nil && a.budgetCtrl.Action() == sched.BudgetActionDegradeInject {
 		state.injectBlock = a.semantix.InjectDegraded(ctx, input)
 	} else {
-		state.injectBlock = a.semantix.InjectDetailed(ctx, input).Text
+		if ir := a.semantix.InjectDetailed(ctx, input); true {
+			state.injectBlock = ir.Text
+			state.injectRules = ir.Rules
+			state.injectFallback = ir.Fallback && ir.Text == ""
+		}
 	}
 		// U33/H4a reuse panel: capture the kernel's per-turn reuse summary
 		// (hit slices + incremental cost savings + top source sessions)

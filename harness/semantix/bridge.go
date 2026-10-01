@@ -36,6 +36,15 @@ type Config struct {
 	Inject bool
 	// Budget caps the L2 injection block size in bytes (default 4096).
 	Budget int
+	// Playbook switches injection to A7 distilled-prior rendering (Round3
+	// winner): slices are rendered as a compact playbook instead of the raw
+	// [semantix-reuse] block, and InjectResult.Rules carries the two economy
+	// directives that replace the harness's generic exploration rule. Empty
+	// retrievals set Fallback so the harness serves the plain base prompt.
+	Playbook bool
+	// RepoShort is the repo name for playbook path cutting (e.g. "django");
+	// empty disables repo-relative path extraction.
+	RepoShort string
 	// SessionsDir is where the session JSONL mirror is written; empty uses
 	// <controller session dir>/sessions.
 	SessionsDir string
@@ -94,6 +103,12 @@ func (b *Bridge) AttachEvolution(scheduler, prefetcher EvolutionTuner) {
 type InjectResult struct {
 	Text    string
 	Targets []string
+	// Rules carries the A7 economy directives when Playbook rendering is on;
+	// the harness swaps them for its generic exploration rule. Empty otherwise.
+	Rules string
+	// Fallback reports a playbook-mode retrieval miss: the harness must serve
+	// the plain base prompt (no economy rules, no playbook).
+	Fallback bool
 }
 
 // Events is the in-process kernel event bus shared by the harness and kernel
@@ -194,6 +209,14 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 	}
 	sort.Strings(targets)
 	b.recordInjection(targets, inj.Bytes)
+	if b.cfg.Playbook {
+		inject.SortKept(inj.Slices)
+		pb, rules := inject.RenderPlaybook(inj.Slices, inject.PlaybookOptions{RepoShort: b.cfg.RepoShort})
+		if pb == "" {
+			return InjectResult{Targets: targets, Fallback: true}
+		}
+		return InjectResult{Text: pb, Rules: rules, Targets: targets}
+	}
 	return InjectResult{Text: inj.Text, Targets: targets}
 }
 

@@ -36,6 +36,13 @@ type turnRuntime struct {
 	// the injected prefix stays byte-stable (L1 cache friendly). Empty
 	// disables injection for the turn.
 	injectBlock string
+	// injectRules carries the A7 economy directives paired with a playbook
+	// injectBlock; the sampling layer swaps them for the generic exploration
+	// rule. Empty for classic [semantix-reuse] rendering.
+	injectRules string
+	// injectFallback marks a playbook-mode retrieval miss: the sampling layer
+	// serves the plain base prompt (no block, no rules) for this turn.
+	injectFallback bool
 
 	// reuse is this turn's semantix reuse panel data (U33/H4a): hit slices,
 	// incremental cost savings, and top source sessions, gathered on the

@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"strings"
 	"context"
 	"encoding/json"
 
@@ -107,7 +108,17 @@ func (a *Agent) buildSamplingRequest(ctx context.Context, trigger string) (sampl
 	// fall back to the block warmed during LLM wait time (N12 prefetch).
 	if block := a.turn.injectBlock; block != "" {
 		a.wastePrefetch()
-		requestMessages = prependSystemBlock(requestMessages, block)
+		if a.turn.injectFallback {
+			// A7 playbook-mode retrieval miss: serve the plain base prompt
+			// (byte-identical to no-injection) for this turn.
+			a.turn.injectBlock = ""
+		} else if a.turn.injectRules != "" {
+			// A7 playbook rendering: swap the generic exploration rule for
+			// the economy directives and place the playbook before the issue.
+			requestMessages = applyPlaybookMessages(requestMessages, block, a.turn.injectRules)
+		} else {
+			requestMessages = prependSystemBlock(requestMessages, block)
+		}
 	} else if pb := a.takePrefetch(a.semantixTurn.Load()); pb != nil && pb.Text != "" {
 		requestMessages = prependSystemBlock(requestMessages, pb.Text)
 	}
@@ -206,6 +217,40 @@ func prependSystemBlock(msgs []provider.Message, block string) []provider.Messag
 	}
 	if !inserted {
 		out = append([]provider.Message{{Role: provider.RoleSystem, Content: block}}, out...)
+	}
+	return out
+}
+
+
+// applyPlaybookMessages renders A7 playbook injection onto the message list:
+// the first user message's generic exploration rule line is swapped for the
+// economy directives, and the playbook text is inserted before the issue
+// marker inside that same message. Byte-stable given (block, rules): the
+// provider prefix cache keeps hitting across tool rounds, mirroring the
+// runner simulation that won Round 3.
+func applyPlaybookMessages(msgs []provider.Message, playbook, rules string) []provider.Message {
+	out := make([]provider.Message, len(msgs))
+	copy(out, msgs)
+	if playbook == "" {
+		return out // miss-fallback: byte-identical to no-injection
+	}
+	generic := "- You may read files, search, edit code, and run tests to check your work."
+	for i := range out {
+		if out[i].Role != provider.RoleUser {
+			continue
+		}
+		c := out[i].Content
+		if !strings.Contains(c, generic) {
+			continue
+		}
+		c = strings.Replace(c, generic, rules, 1)
+		if idx := strings.Index(c, "--- ISSUE ---"); idx >= 0 {
+			c = c[:idx] + playbook + "\n\n" + c[idx:]
+		} else {
+			c = c + "\n\n" + playbook
+		}
+		out[i].Content = c
+		break // first user message only — matches the runner's single swap
 	}
 	return out
 }
