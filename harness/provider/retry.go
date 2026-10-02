@@ -17,15 +17,15 @@ import (
 
 // MaxRetries is the number of times SendWithRetry re-attempts the connection +
 // header phase after the initial try (so up to MaxRetries+1 total attempts).
-const MaxRetries = 10
+const MaxRetries = 20
 
-const maxBackoff = 15 * time.Second
+const maxBackoff = 60 * time.Second
 
 // maxRetryAfter bounds a server-supplied Retry-After. Rate-limit windows are
 // routinely longer than our own backoff cap, and clamping to it just spends
 // attempts re-hitting the same closed window; the sleep is cancellable, so a
 // longer honest wait costs nothing the user can't interrupt.
-const maxRetryAfter = 60 * time.Second
+const maxRetryAfter = 300 * time.Second
 
 // errorBodyReadTimeout bounds how long draining a non-OK response body may
 // block. Proxies and gateways under load (502/524 storms) can send headers and
