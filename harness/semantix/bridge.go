@@ -194,26 +194,27 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 		return InjectResult{}
 	}
 	closeSliceStore(store)
-	// Playbook mode: skip zone gating — the distilled rendering is itself the
-	// quality filter (drops prompt noise, dedupes, caps bytes), and tiny seed
-	// libraries score below the absolute BM25 floors (Krites/vCache gating is
-	// calibrated for large corpora). The model self-filters mismatched priors
-	// (observed on GLM econ12: mismatched playbook explicitly ignored).
-	var z zone.Zones
-	useZones := !b.cfg.Playbook
-	if useZones {
-		z = zone.Default()
+	// Playbook mode: skip zone gating and over-fetch — the distilled rendering
+	// is itself the quality filter (drops prompt noise, dedupes, caps bytes),
+	// and tiny seed libraries score below the absolute BM25 floors
+	// (Krites/vCache gating is calibrated for large corpora). The model
+	// self-filters mismatched priors (observed on GLM econ12).
+	if b.cfg.Playbook {
+		in := &inject.Injector{Index: idx, Scope: slice.Project, Budget: budget}
+		pb, rules, pbTargets, err := in.BuildPlaybook(query, b.cfg.RepoShort, 0, 0)
+		b.debugf("injectResult: playbook rendered=%dB rules=%d fallback=%v targets=%d err=%v", len(pb), len(rules), pb == "", len(pbTargets), err)
+		if err != nil || pb == "" {
+			return InjectResult{Targets: pbTargets, Fallback: true}
+		}
+		return InjectResult{Text: pb, Rules: rules, Targets: pbTargets}
 	}
-	zp := &z
-	if !useZones {
-		zp = nil
-	}
+	z := zone.Default()
 	inj, err := (&inject.Injector{
 		Index:  idx,
 		Scope:  slice.Project,
 		K:      5,
 		Budget: budget,
-		Zones:  zp,
+		Zones:  &z,
 	}).Build(query)
 	if err != nil || inj == nil || len(inj.Slices) == 0 {
 		b.debugf("injectResult: build empty (err=%v slices=%d)", err, len(inj.Slices))
@@ -227,15 +228,6 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 	}
 	sort.Strings(targets)
 	b.recordInjection(targets, inj.Bytes)
-	if b.cfg.Playbook {
-		inject.SortKept(inj.Slices)
-		pb, rules := inject.RenderPlaybook(inj.Slices, inject.PlaybookOptions{RepoShort: b.cfg.RepoShort})
-		b.debugf("injectResult: playbook rendered=%d bytes rules=%d fallback=%v", len(pb), len(rules), pb == "")
-		if pb == "" {
-			return InjectResult{Targets: targets, Fallback: true}
-		}
-		return InjectResult{Text: pb, Rules: rules, Targets: targets}
-	}
 	return InjectResult{Text: inj.Text, Targets: targets}
 }
 

@@ -329,3 +329,56 @@ func verifiedBy(text, repoShort string) string {
 func SortKept(kept []*slice.Slice) {
 	sort.Slice(kept, func(i, j int) bool { return kept[i].ID < kept[j].ID })
 }
+
+// playbookOverFetch is how many candidates BuildPlaybook retrieves before
+// distillation: prompt-type slices score highest on same-issue queries (an
+// old episode prompt embeds the issue verbatim), so the raw top-5 is mostly
+// noise and must be over-fetched to surface result/procedure slices.
+const playbookOverFetch = 24
+
+// BuildPlaybook is the playbook-mode entry: over-fetch candidates, drop
+// prompt-type slices, keep the maxEntries best (score order) non-prompt
+// slices, then re-sort the kept set by ID for byte-stable rendering.
+// Zones are honored only when in.Zones is non-nil (playbook callers pass
+// nil — distillation is the quality filter).
+func (in *Injector) BuildPlaybook(query string, repoShort string, maxEntries, maxBytes int) (playbook, rules string, targets []string, err error) {
+	k := playbookOverFetch
+	saved := in.K
+	if k > saved {
+		in.K = k
+	}
+	inj, err := in.Build(query)
+	in.K = saved
+	if err != nil || inj == nil {
+		return "", "", nil, err
+	}
+	// Build returns ID-sorted slices; re-rank by score using the search hits
+	// stashed on the injector is not available, so rank via a fresh Search.
+	hits, err := in.Index.Search(query, in.K, in.Scope)
+	if err != nil {
+		return "", "", nil, err
+	}
+	scoreOf := map[string]float64{}
+	for _, h := range hits {
+		scoreOf[h.Slice.ID] = h.Score
+	}
+	var cands []*slice.Slice
+	for _, sl := range inj.Slices {
+		if sl == nil || sl.Type == slice.Prompt {
+			continue
+		}
+		cands = append(cands, sl)
+	}
+	sort.SliceStable(cands, func(i, j int) bool {
+		return scoreOf[cands[i].ID] > scoreOf[cands[j].ID]
+	})
+	if len(cands) > maxEntries {
+		cands = cands[:maxEntries]
+	}
+	SortKept(cands)
+	playbook, rules = RenderPlaybook(cands, PlaybookOptions{RepoShort: repoShort, MaxEntries: maxEntries, MaxBytes: maxBytes})
+	for _, sl := range cands {
+		targets = append(targets, sl.ID)
+	}
+	return playbook, rules, targets, nil
+}
