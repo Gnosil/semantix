@@ -50,23 +50,37 @@ func NewModelEmbedder(cfg ModelEmbedderConfig) (*ModelEmbedder, error) {
 	return &ModelEmbedder{cfg: cfg, hc: &http.Client{Timeout: cfg.Timeout}}, nil
 }
 
+// Model returns the remote model name, so callers can record which model
+// produced a vector.
+func (m *ModelEmbedder) Model() string {
+	return m.cfg.Model
+}
+
 // Embed asks the remote endpoint for vectors and L2-normalizes them (the
 // VectorIndex contract: cosine == dot product). Any remote failure — HTTP
 // status, transport error, timeout, malformed body, or dimension mismatch —
 // degrades the whole batch to the configured fallback (fail-soft); an error
 // is returned only when the fallback itself fails.
 func (m *ModelEmbedder) Embed(texts []string) ([][]float32, error) {
+	vecs, _, err := m.EmbedReport(texts)
+	return vecs, err
+}
+
+// EmbedReport is Embed plus whether the batch was served by the fallback
+// embedder, so callers can record the true producer of each vector.
+func (m *ModelEmbedder) EmbedReport(texts []string) ([][]float32, bool, error) {
 	if len(texts) == 0 {
-		return [][]float32{}, nil
+		return [][]float32{}, false, nil
 	}
 	vecs, err := m.call(context.Background(), texts)
 	if err != nil {
 		if m.cfg.OnFallback != nil {
 			m.cfg.OnFallback(err)
 		}
-		return m.cfg.Fallback.Embed(texts)
+		fallbackVecs, fallbackErr := m.cfg.Fallback.Embed(texts)
+		return fallbackVecs, true, fallbackErr
 	}
-	return vecs, nil
+	return vecs, false, nil
 }
 
 func (m *ModelEmbedder) call(ctx context.Context, texts []string) ([][]float32, error) {
