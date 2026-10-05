@@ -190,13 +190,26 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 		return InjectResult{}
 	}
 	closeSliceStore(store)
-	z := zone.Default()
+	// Playbook mode: skip zone gating — the distilled rendering is itself the
+	// quality filter (drops prompt noise, dedupes, caps bytes), and tiny seed
+	// libraries score below the absolute BM25 floors (Krites/vCache gating is
+	// calibrated for large corpora). The model self-filters mismatched priors
+	// (observed on GLM econ12: mismatched playbook explicitly ignored).
+	var z zone.Zones
+	useZones := !b.cfg.Playbook
+	if useZones {
+		z = zone.Default()
+	}
+	zp := &z
+	if !useZones {
+		zp = nil
+	}
 	inj, err := (&inject.Injector{
 		Index:  idx,
 		Scope:  slice.Project,
 		K:      5,
 		Budget: budget,
-		Zones:  &z,
+		Zones:  zp,
 	}).Build(query)
 	if err != nil || inj == nil || len(inj.Slices) == 0 {
 		return InjectResult{}
