@@ -550,7 +550,7 @@ func (c *Config) DesktopStatusBarStyle() string {
 	}
 }
 
-var defaultDesktopStatusBarItems = []string{
+var allDesktopStatusBarItems = []string{
 	"model",
 	"workspace",
 	"git_branch",
@@ -569,7 +569,12 @@ var defaultDesktopStatusBarItems = []string{
 	"balance",
 }
 
-var knownDesktopStatusBarItems = desktopStatusBarItemSet(defaultDesktopStatusBarItems)
+// A focused default; preserve every opt-in metric and existing saved order.
+var defaultDesktopStatusBarItems = []string{
+	"model", "workspace", "git_branch", "session_tokens", "cache_avg", "context",
+}
+
+var knownDesktopStatusBarItems = desktopStatusBarItemSet(allDesktopStatusBarItems)
 
 func desktopStatusBarItemSet(items []string) map[string]bool {
 	out := make(map[string]bool, len(items))

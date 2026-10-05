@@ -286,8 +286,8 @@ console.log("\ncomposer goal toggle");
 
   const intentButton = document.querySelector(".composer-task-mode-trigger") as HTMLButtonElement | null;
   if (!intentButton) throw new Error("composer intent button did not render");
-  eq(intentButton.textContent?.trim(), "Standard", "execution method trigger shows only the current method");
-  eq(intentButton.getAttribute("aria-label"), "Execution method · Standard", "execution method trigger keeps its full accessible name");
+  eq(intentButton.textContent?.trim(), "Agent", "execution method trigger shows only the current method");
+  eq(intentButton.getAttribute("aria-label"), "Work mode · Agent", "execution method trigger keeps its full accessible name");
   const intentTooltipTrigger = intentButton.closest(".tooltip-trigger");
   if (!intentTooltipTrigger) throw new Error("composer intent tooltip trigger did not render");
   await act(async () => {
@@ -295,13 +295,19 @@ console.log("\ncomposer goal toggle");
     await flushTimers();
   });
   await waitFor("execution method tooltip", () => document.querySelector('[role="tooltip"]') !== null);
-  eq(document.querySelector('[role="tooltip"]')?.textContent, "Execution method · Standard: Analyze and act as you go", "execution method tooltip combines category, value, and summary");
+  eq(document.querySelector('[role="tooltip"]')?.textContent, "Work mode · Agent: Work through the task and verify the result", "execution method tooltip combines category, value, and summary");
   await act(async () => {
     intentTooltipTrigger.dispatchEvent(new Event("focusout", { bubbles: true }));
     await flushTimers();
   });
 
+  const permissionTrigger = document.querySelector<HTMLButtonElement>(".composer-permissions-trigger");
+  await act(async () => { permissionTrigger?.click(); await flushTimers(); });
+  const askChoice = document.querySelector('.composer-permissions-menu [role="menuitemradio"]');
+  ok(askChoice?.textContent?.includes("Reading and allowed actions continue") === true, "Ask explains that allowed reading continues");
   await act(async () => {
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await flushTimers();
     intentButton.click();
     await flushTimers();
   });
@@ -311,11 +317,8 @@ console.log("\ncomposer goal toggle");
   eq(document.querySelectorAll(".composer-intent-switch").length, 0, "task method menu does not present independent switches");
   const planButton = taskModeItems[1] as HTMLButtonElement | undefined;
   if (!planButton) throw new Error("composer Plan menu item did not render");
-  ok(planButton.textContent?.includes("tool use follows current permissions and sandbox settings") === true, "Plan menu explains that permissions and sandbox still govern tools");
+  ok(planButton.textContent?.includes("Tool use still follows your permissions and sandbox") === true, "Plan menu explains that permissions and sandbox still govern tools");
   ok(planButton.textContent?.toLowerCase().includes("read-only") === false, "Plan menu does not present Plan as a read-only permission mode");
-  const askApprovalButton = document.querySelector(".composer-modebar__item--ask") as HTMLButtonElement | null;
-  if (!askApprovalButton) throw new Error("composer Ask approval button did not render");
-  ok(askApprovalButton.title.includes("Ask is not read-only"), "Ask tooltip distinguishes approval policy from read-only sandboxing");
   const goalButton = taskModeItems[2] as HTMLButtonElement | undefined;
   if (!goalButton) throw new Error("composer goal menu item did not render");
 
@@ -2188,10 +2191,10 @@ console.log("\ncomposer goal toggle");
   ok(Boolean(document.querySelector(".composer-content-menu")), "plus trigger opens the add-content menu");
   const initialContentItems = Array.from(document.querySelectorAll<HTMLButtonElement>(".composer-content-menu__item"));
   eq(initialContentItems.length, 4, "add-content menu exposes four focused actions");
-  const contentItemIcons = initialContentItems.map((item) => item.querySelector("svg")?.getAttribute("class") ?? "");
-  ok(contentItemIcons[0]?.includes("lucide-file-plus"), "attachment action uses the file attachment icon");
-  ok(contentItemIcons[1]?.includes("lucide-at-sign"), "workspace action uses the mention icon");
-  ok(contentItemIcons[2]?.includes("lucide-hash"), "recent-session action uses the history reference icon");
+  const contentItemIcons = initialContentItems.map((item) => item.querySelector("svg")?.getAttribute("data-semantix-glyph") ?? "");
+  ok(contentItemIcons[0] === "FilePlus2", "attachment action uses the file attachment icon");
+  ok(contentItemIcons[1] === "AtSign", "workspace action uses the mention icon");
+  ok(contentItemIcons[2] === "Hash", "recent-session action uses the history reference icon");
   eq(initialContentItems[3]?.querySelector(".composer-content-menu__trigger-icon")?.textContent, "/", "command action uses the literal slash trigger icon");
   ok(!document.querySelector(".composer-content-menu__divider"), "add-content actions remain one unified group without a divider");
   ok(initialContentItems.every((item) => !item.querySelector("kbd")), "add-content actions do not duplicate their trigger icons on the right");
