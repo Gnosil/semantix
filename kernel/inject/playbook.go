@@ -347,7 +347,13 @@ func (in *Injector) BuildPlaybook(query string, repoShort string, maxEntries, ma
 	if k > saved {
 		in.K = k
 	}
+	// Over-fetch needs a generous budget: candidate slices are large, and the
+	// default 4KB would keep only the first (prompt-type) one or two. The
+	// distiller caps the final playbook, so a big input budget is safe.
+	savedBudget := in.Budget
+	in.Budget = 65536
 	inj, err := in.Build(query)
+	in.Budget = savedBudget
 	in.K = saved
 	if err != nil || inj == nil {
 		return "", "", nil, err
