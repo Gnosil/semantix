@@ -4,6 +4,7 @@
 package semantix
 
 import (
+	"fmt"
 	"context"
 	"encoding/json"
 	"os"
@@ -182,11 +183,14 @@ func (b *Bridge) InjectDetailed(ctx context.Context, query string) InjectResult 
 }
 
 func (b *Bridge) injectResult(ctx context.Context, query string, budget int) InjectResult {
+	b.debugf("injectResult: enabled=%v inject=%v playbook=%v repoShort=%q projectDir=%q queryLen=%d",
+		b.Enabled(), b.cfg.Inject, b.cfg.Playbook, b.cfg.RepoShort, b.projectDir(), len(query))
 	if !b.Enabled() || !b.cfg.Inject {
 		return InjectResult{}
 	}
 	store, idx, err := b.kernelIndex()
 	if err != nil {
+		b.debugf("injectResult: kernelIndex error: %v", err)
 		return InjectResult{}
 	}
 	closeSliceStore(store)
@@ -212,6 +216,7 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 		Zones:  zp,
 	}).Build(query)
 	if err != nil || inj == nil || len(inj.Slices) == 0 {
+		b.debugf("injectResult: build empty (err=%v slices=%d)", err, len(inj.Slices))
 		return InjectResult{}
 	}
 	targets := make([]string, 0, len(inj.Slices))
@@ -225,6 +230,7 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 	if b.cfg.Playbook {
 		inject.SortKept(inj.Slices)
 		pb, rules := inject.RenderPlaybook(inj.Slices, inject.PlaybookOptions{RepoShort: b.cfg.RepoShort})
+		b.debugf("injectResult: playbook rendered=%d bytes rules=%d fallback=%v", len(pb), len(rules), pb == "")
 		if pb == "" {
 			return InjectResult{Targets: targets, Fallback: true}
 		}
@@ -358,6 +364,22 @@ func closeSliceStore(store slice.Store) {
 	if closer, ok := store.(interface{ Close() error }); ok {
 		_ = closer.Close()
 	}
+}
+
+// debugf appends to <projectDir>/.semantix/bridge-debug.log when
+// SEMANTIX_BRIDGE_DEBUG is set. Cheap no-op otherwise.
+func (b *Bridge) debugf(format string, args ...any) {
+	if os.Getenv("SEMANTIX_BRIDGE_DEBUG") == "" {
+		return
+	}
+	dir := filepath.Join(b.projectDir(), ".semantix")
+	os.MkdirAll(dir, 0o755)
+	f, err := os.OpenFile(filepath.Join(dir, "bridge-debug.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	fmt.Fprintf(f, time.Now().UTC().Format("15:04:05")+" "+format+"\n", args...)
 }
 
 // projectDir resolves the kernel project directory for in-process store and
