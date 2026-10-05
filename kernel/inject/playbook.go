@@ -19,6 +19,7 @@ package inject
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -94,6 +95,13 @@ func RenderPlaybook(kept []*slice.Slice, opts PlaybookOptions) (playbook string,
 	seenFiles := map[string]bool{}
 
 	for _, sl := range kept {
+		if os.Getenv("SEMANTIX_PLAYBOOK_DEBUG") != "" {
+			id := sl.ID
+			if len(id) > 8 {
+				id = id[:8]
+			}
+			fmt.Fprintf(os.Stderr, "loop slice %s type=%v contentLen=%d\n", id, sl.Type, len(sl.Content))
+		}
 		if len(entries) >= maxEntries {
 			break
 		}
@@ -123,6 +131,13 @@ func RenderPlaybook(kept []*slice.Slice, opts PlaybookOptions) (playbook string,
 			} else {
 				action = scaffoldLines(text)
 			}
+		}
+		if os.Getenv("SEMANTIX_PLAYBOOK_DEBUG") != "" {
+			id := sl.ID
+			if len(id) > 8 {
+				id = id[:8]
+			}
+			fmt.Fprintf(os.Stderr, "playbook slice %s type=%v files=%d action=%q\n", id, sl.Type, len(files), action)
 		}
 		if action == "" && len(files) == 0 {
 			continue
@@ -342,6 +357,12 @@ const playbookOverFetch = 24
 // Zones are honored only when in.Zones is non-nil (playbook callers pass
 // nil — distillation is the quality filter).
 func (in *Injector) BuildPlaybook(query string, repoShort string, maxEntries, maxBytes int) (playbook, rules string, targets []string, err error) {
+	if maxEntries <= 0 {
+		maxEntries = playbookMaxEntries
+	}
+	if maxBytes <= 0 {
+		maxBytes = playbookMaxBytes
+	}
 	k := playbookOverFetch
 	saved := in.K
 	if k > saved {
@@ -369,11 +390,19 @@ func (in *Injector) BuildPlaybook(query string, repoShort string, maxEntries, ma
 		scoreOf[h.Slice.ID] = h.Score
 	}
 	var cands []*slice.Slice
+	dbg := map[slice.SliceType]int{}
 	for _, sl := range inj.Slices {
-		if sl == nil || sl.Type == slice.Prompt {
+		if sl == nil {
+			continue
+		}
+		dbg[sl.Type]++
+		if sl.Type == slice.Prompt {
 			continue
 		}
 		cands = append(cands, sl)
+	}
+	if os.Getenv("SEMANTIX_PLAYBOOK_DEBUG") != "" {
+		fmt.Fprintf(os.Stderr, "playbook debug: retrieved=%d typeCounts=%v cands=%d\n", len(inj.Slices), dbg, len(cands))
 	}
 	sort.SliceStable(cands, func(i, j int) bool {
 		return scoreOf[cands[i].ID] > scoreOf[cands[j].ID]

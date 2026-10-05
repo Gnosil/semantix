@@ -148,7 +148,11 @@ func runInject(args []string, stdout, stderr io.Writer, deps dependencies) error
 		return err
 	}
 	if *renderMode == "playbook" {
-		pb, rules := inject.RenderPlaybook(inj.Slices, inject.PlaybookOptions{RepoShort: *repoShort})
+		in := &inject.Injector{Index: idx, Scope: scope, Budget: 65536}
+		pb, rules, _, err := in.BuildPlaybook(*query, *repoShort, 0, 0)
+		if err != nil {
+			return err
+		}
 		if pb == "" {
 			fmt.Fprintln(stdout, "[semantix-miss]") // caller falls back to the plain base prompt
 			return nil
