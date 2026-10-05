@@ -201,9 +201,70 @@ func TestEmbedItemsBatching(t *testing.T) {
 		t.Fatalf("server called %d times, want 3 (2 full batches + 1 remainder)", calls)
 	}
 	for i, item := range items {
-		if len(item.Embedding) != 2 || item.Meta.EmbedDim != 2 || item.Meta.EmbedModel != "model" {
+		if len(item.Embedding) != 2 || item.Meta.EmbedDim != 2 || item.Meta.EmbedModel != "m" {
 			t.Fatalf("item %d: embedding=%v meta=%+v", i, item.Embedding, item.Meta)
 		}
+	}
+}
+
+// TestEmbedItemsRecordsModelName: provenance must name the model that made
+// the vector, not the --embedder flag value (Issue #512). Two different
+// models must leave different labels, so later retrieval can tell them apart.
+func TestEmbedItemsRecordsModelName(t *testing.T) {
+	for _, model := range []string{"text-embedding-3-small", "text-embedding-3-large"} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				Input []string `json:"input"`
+			}
+			json.NewDecoder(r.Body).Decode(&body)
+			var data []map[string]any
+			for range body.Input {
+				data = append(data, map[string]any{"embedding": []float32{1, 0}})
+			}
+			json.NewEncoder(w).Encode(map[string]any{"data": data})
+		}))
+		emb, err := embed.NewModelEmbedder(embed.ModelEmbedderConfig{
+			BaseURL: srv.URL, Model: model, APIKey: "k",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		items := []*slice.Slice{{ID: "a", Content: []byte("x")}}
+		if err := embedItems(emb, items, "model"); err != nil {
+			t.Fatal(err)
+		}
+		srv.Close()
+		if got := items[0].Meta.EmbedModel; got != model {
+			t.Fatalf("EmbedModel = %q, want %q", got, model)
+		}
+	}
+}
+
+// TestEmbedItemsFallbackRecordsHash: when the remote call fails, the batch
+// holds hash vectors. Provenance must say "hash", not the remote model name,
+// and the dimension must match the vector actually stored.
+func TestEmbedItemsFallbackRecordsHash(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "boom", http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	emb, err := embed.NewModelEmbedder(embed.ModelEmbedderConfig{
+		BaseURL: srv.URL, Model: "text-embedding-3-small", APIKey: "k",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	items := []*slice.Slice{{ID: "a", Content: []byte("hello")}}
+	if err := embedItems(emb, items, "model"); err != nil {
+		t.Fatal(err)
+	}
+	item := items[0]
+	if item.Meta.EmbedModel != "hash" {
+		t.Fatalf("EmbedModel = %q, want \"hash\" for a fallback batch", item.Meta.EmbedModel)
+	}
+	if item.Meta.EmbedDim != len(item.Embedding) || item.Meta.EmbedDim == 0 {
+		t.Fatalf("EmbedDim = %d, stored vector has %d floats", item.Meta.EmbedDim, len(item.Embedding))
 	}
 }
 
