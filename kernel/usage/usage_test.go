@@ -289,3 +289,32 @@ func TestSummarizeL3NegativeObservability(t *testing.T) {
 		t.Fatalf("false hits = %d, want 1", s.L3FalseHits)
 	}
 }
+
+// TestSummarizeCacheWrite: cache writes aggregate globally and per provider
+// (exact events only), and old lines without the field read as zero.
+func TestSummarizeCacheWrite(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "usage.jsonl")
+	r, err := NewRecorder(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range []Event{
+		{Provider: "claude", Exact: true, TokensIn: 1000, CacheHitToken: 600, CacheWriteToken: 350},
+		{Provider: "claude", TokensIn: 500, CacheWriteToken: 999}, // estimated: excluded per provider
+		{Provider: "claude", Exact: true, TokensIn: 100},          // no writes reported
+	} {
+		if err := r.Append(e); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s, err := Summarize(path, DefaultCostMissPerMTok, DefaultCostHitPerMTok)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.CacheWriteTokens != 1349 {
+		t.Errorf("global cache writes = %d, want 1349", s.CacheWriteTokens)
+	}
+	if p := s.ByProvider["claude"]; p == nil || p.CacheWriteTokens != 350 {
+		t.Errorf("per-provider exact cache writes = %+v, want 350", p)
+	}
+}

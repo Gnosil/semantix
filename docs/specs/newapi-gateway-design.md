@@ -79,6 +79,7 @@
 | §4.4 | 方案 B：渠道注入固定 `x-project` header，网关按 header **选 scope 库** | 实现的是 `x-semantix-scope` header，传的是 scope **枚举**（`session`/`project`/`user`）而非项目名；底层始终是**同一个 store 文件**，只切 kernel 的 scope 字段。是方案 B 的接入点，不是多库隔离 |
 | §5 | 「零第三方依赖——`go.mod` 无外部包」 | `go.mod` 有 `github.com/BurntSushi/toml v1.6.0`（早于本设计，由 `kernel/config` 引入，网关沿用它解析 TOML）。§3.1 的「零第三方 **HTTP** 依赖」仍然成立：传输层是标准库 `net/http` + `http.Flusher` |
 | §3.9 | 配置草案的键 | 实现多两个键：`[store] deps_root`（§3.5 所说「deps root 由配置提供」的落点）、`[ingest] usage_log`（§4.3 usage 记录的落点） |
+| §3.11.1 | 「仅注入时打 ≤2 个断点；断点 ① 在 system + 注入块末尾；断点 ② 只打 text block」 | **P0-a 修订**：默认每请求都打；BP1 在静态 system（注入块拆成其后的独立 block，不带标记）；BP2 可落 tool_result / image / tool_use；每上游 `cache_breakpoints` 开关；Anthropic 路径补跑 `sanitizeOutgoing`；`tool_result.input` → `content`。见 [`gateway-anthropic-cache-p0a.md`](gateway-anthropic-cache-p0a.md) |
 
 ### 0.3 未实现
 
@@ -87,7 +88,7 @@
 
 | §  | 条目 | 现状 |
 |---|---|---|
-| §3.8 / §7 M2 | Claude / Anthropic 适配（messages 格式转换 + `cache_control` 断点） | **配置层显式拒绝**：`vendor="anthropic"` 在 `validate()` 直接报错，避免把 Anthropic 流量误发到 OpenAI 式端点。§3.6 对 Claude 打断点同理未做 |
+| §3.8 / §7 M2 | Claude / Anthropic 适配（messages 格式转换 + `cache_control` 断点） | **已实现**（Issue #185，§3.11）；断点策略按 P0-a 修订（§3.11.1，[`gateway-anthropic-cache-p0a.md`](gateway-anthropic-cache-p0a.md)）。本行原记载的「配置层显式拒绝」已过期 |
 | §3.5 | `promote.CascadeInvalidate` 级联失效 | gateway 零引用 `kernel/promote`。上游内容版本变化时不会级联失效下游条目（deps 指纹仍能兜住文件类变更） |
 | §3.9 | `[retrieval] retriever = bm25 \| vector \| hybrid` | **GW6 已接线**（Issue #186）：`gateway/retriever.go` `newRetriever` 按配置构造索引——`bm25` 保持 `kernel/bm25`；`vector` 用 `kernel/embed` HashEmbedder + VectorIndex（cosine）；`hybrid` 双路检索、`kernel/fuse` 融合（Issue #274）：weighted 等权/可配权重（默认，历史行为）或 rrf（倒数排名融合，分数线性标度化到 [0,1]，zone 绝对阈值语义保持）。`vector_dim` 键（默认 256）控制 HashEmbedder 维度；非法 retriever/fusion 值 `validate()` 报错 |
 | §3.4 | 未命中流式：上游不返回 usage 时，网关在 `[DONE]` 前补含注入统计的末块 | 已实现（Issue #187）：完整流且上游无 usage 时，在 `[DONE]` 前补发 OpenAI 格式 usage 事件（含 `prompt_tokens_details.cached_tokens` 注入统计 + `"estimator":"bytes/4"`）；异常断流只补 `[DONE]` 不补 usage（半截流不计量） |
@@ -288,7 +289,7 @@ X-Semantix-Cache: miss
 ### 3.6 L2 注入设计
 
 - 检索：`inject.Injector`（K=5、Budget=4096、Zones 灰度分类默认开）；
-- 注入位置：**system 提示末尾**（= 前缀尾部，保证注入块之后的历史消息字节稳定 → L1 生效）；对 Claude 在注入块边界打 `cache_control` 断点；
+- 注入位置：**system 提示末尾**。原注记「= 前缀尾部，保证注入块之后的历史消息字节稳定 → L1 生效」的推理方向有误：前缀缓存从第一个变化字节起全部失效，注入块逐请求变化时其后整段历史都失配（本地 overlay 实测，见 `gateway-anthropic-cache-p0a.md` 背景）。P0-a 已把 Anthropic 路径的静态 system 与注入块拆成两个 block 并把断点打在静态部分；注入块本身的会话内冻结留待后续阶段；
 - 注入块形态沿用内核：`[semantix-reuse] ... [/semantix-reuse]`，**低权威定位**（内容仅供模型参考，不当作指令）；块内 ID 规范序（内核行为）保证字节稳定；
 - 注入块不改变客户端可见的 model/messages 语义，仅内部改写后转发。
 
@@ -399,12 +400,17 @@ vendor = "deepseek"                       # deepseek | anthropic | openai | moon
 | `tools[].function` | `tools[]{name,description,input_schema}` | `function.parameters` → `input_schema` |
 | `tool_choice` | `tool_choice` | auto→auto、none→none、required→any、`{function:{name}}`→`{type:"tool",name}` |
 
-**cache_control 断点注入（L2 注入块末尾，≤2 个）**：
+**cache_control 断点（P0-a 修订，规格见 [`gateway-anthropic-cache-p0a.md`](gateway-anthropic-cache-p0a.md)）**：
 
-- 仅当本次请求真的注入了切片（`inject.Injection.Slices` 非空；空 marker block 不打断点，避免浪费 prompt-cache 预算）；
-- 断点 ① system 尾：注入块文本追加到合并后的 system 末尾，system 以 block 数组承载，最后一个 text block 带 `cache_control:{type:"ephemeral"}`；
-- 断点 ② 最后消息尾：最后一条消息的最后一个 text block 带 `cache_control:{type:"ephemeral"}`；
-- 与 §3.6「对 Claude 在注入块边界打 cache_control 断点（≤2 断点：system 尾 + 最后消息尾）」一致；断点让注入前缀按缓存价计费（§2.3 Claude 行：$3.00/M → $0.30/M）。
+- 每个上游可配 `cache_breakpoints = "always" | "l2_only" | "off"`（默认 `always`；`strip_cache_control = true` 等价于 `off`）；
+- **BP1 静态前缀**：合并后的静态 system 作为第一个 text block 并带 `cache_control:{type:"ephemeral"}`；**注入块是独立的第二个 system block，放在 BP1 之后且不带标记**，因此注入块逐请求变化时只使自身失配，tools + 静态 system 仍命中。无 system 时 BP1 退到最后一个 tool 定义（tools 位于缓存前缀最前端）；注入块本身永不承载 BP1；
+- **BP2 会话尾**：最后一条消息中最后一个可打标记的 block（text / image / tool_use / **tool_result**；跳过 thinking）。tool loop 末尾通常是 tool_result，旧规则「只打 text」使其没有会话断点；
+- 与 `l2_only` 相比，`always` 让未注入切片的请求也进入缓存（旧实现此类请求不带任何断点、完全不缓存）；
+- 每请求最多 2 个标记（API 上限 4），统一默认 5 分钟 TTL；
+- Anthropic 分支在转换前同样执行 `sanitizeOutgoing`（归因头剥离、tools 按名排序），此前只有 OpenAI 透传路径执行；
+- `tool_result` 的内容字段为 `content`（此前误写为 `input`，Messages API 无该键）。
+
+> 历史（2026-08-17 至 P0-a 前）：只在注入了切片时打断点；断点 ① 打在「system + 注入块」拼接后的末尾，断点 ② 只打 text block。
 
 ### 3.11.2 响应转换（/v1/messages → chat.completion）
 

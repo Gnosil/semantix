@@ -720,10 +720,14 @@ func TestE2EAnthropicNonStreaming(t *testing.T) {
 	if model, _ := last["model"].(string); model != "claude-sonnet-4" {
 		t.Errorf("forwarded model = %q, want upstream model claude-sonnet-4", model)
 	}
-	// system lifted out of messages into the top-level field; user message
-	// carries the query
-	if sys, _ := last["system"].(string); sys != "you are helpful" {
-		t.Errorf("system = %#v, want lifted system string", last["system"])
+	// system lifted out of messages into the top-level field (as the BP1
+	// block, P0-a §3); user message carries the query
+	sys, _ := last["system"].([]any)
+	if len(sys) != 1 {
+		t.Fatalf("system = %#v, want one lifted text block", last["system"])
+	}
+	if block, _ := sys[0].(map[string]any); block["text"] != "you are helpful" || block["cache_control"] == nil {
+		t.Errorf("system block = %#v, want lifted text with BP1", sys[0])
 	}
 	msgs, _ := last["messages"].([]any)
 	if len(msgs) != 1 {
@@ -807,21 +811,29 @@ func TestE2EAnthropicL2Breakpoint(t *testing.T) {
 	if calls != 1 {
 		t.Fatalf("upstream calls = %d, want 1", calls)
 	}
-	sys, ok := last["system"].([]any)
-	if !ok || len(sys) != 1 {
-		t.Fatalf("system = %#v, want block array with one text block", last["system"])
-	}
-	block, ok := sys[0].(map[string]any)
-	if !ok || block["type"] != "text" {
-		t.Fatalf("system block = %#v, want text block", sys[0])
-	}
-	text, _ := block["text"].(string)
+	// chatBody has no system prompt and no tools, so (P0-a §3) the L2 block
+	// is the whole system field, rendered as a plain string with NO marker
+	// on it (the block is the volatile part; BP1 has nowhere static to go),
+	// and the only breakpoint is BP2 on the user message.
+	text, _ := last["system"].(string)
 	if !strings.Contains(text, "[semantix-reuse]") {
-		t.Errorf("injection block not appended to system: %q", text)
+		t.Fatalf("system = %#v, want the injection block as the system string", last["system"])
 	}
-	cc, _ := block["cache_control"].(map[string]any)
+	if strings.Contains(text, "cache_control") {
+		t.Errorf("L2-only system must not carry a breakpoint: %q", text)
+	}
+	msgs, _ := last["messages"].([]any)
+	if len(msgs) != 1 {
+		t.Fatalf("messages = %d, want 1", len(msgs))
+	}
+	content, _ := msgs[0].(map[string]any)["content"].([]any)
+	if len(content) == 0 {
+		t.Fatalf("user message has no content blocks: %#v", msgs[0])
+	}
+	tail, _ := content[len(content)-1].(map[string]any)
+	cc, _ := tail["cache_control"].(map[string]any)
 	if cc == nil || cc["type"] != "ephemeral" {
-		t.Errorf("system tail missing cache_control breakpoint: %#v", block)
+		t.Errorf("conversation tail missing BP2: %#v", tail)
 	}
 }
 

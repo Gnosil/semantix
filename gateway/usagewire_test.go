@@ -78,3 +78,36 @@ func TestParseUsageBody(t *testing.T) {
 		t.Fatal("body without usage must not parse")
 	}
 }
+
+// TestNormalizeUpstreamUsageCacheWrite: cache writes survive normalization
+// from both the raw Anthropic shape and the OpenAI-shape extension the
+// gateway emits for translated Anthropic responses.
+func TestNormalizeUpstreamUsageCacheWrite(t *testing.T) {
+	nu, ok := parseUsageRaw([]byte(`{"input_tokens":10,"output_tokens":5,"cache_creation_input_tokens":300,"cache_read_input_tokens":700}`))
+	if !ok || nu.Prompt != 1010 || nu.CacheHit != 700 || nu.CacheWrite != 300 {
+		t.Errorf("anthropic shape: %+v ok=%v", nu, ok)
+	}
+	nu, ok = parseUsageRaw([]byte(`{"prompt_tokens":1010,"completion_tokens":5,"prompt_tokens_details":{"cached_tokens":700,"cache_creation_tokens":300}}`))
+	if !ok || nu.CacheHit != 700 || nu.CacheWrite != 300 {
+		t.Errorf("openai-shape extension: %+v ok=%v", nu, ok)
+	}
+	nu, ok = parseUsageRaw([]byte(`{"prompt_tokens":100,"completion_tokens":5,"prompt_cache_hit_tokens":60,"prompt_cache_miss_tokens":40}`))
+	if !ok || nu.CacheWrite != 0 {
+		t.Errorf("deepseek shape reports no writes: %+v ok=%v", nu, ok)
+	}
+}
+
+// TestAnthropicResponseCarriesCacheWrite: the translated non-streaming
+// response exposes cache writes, and the gateway's own parser reads them back.
+func TestAnthropicResponseCarriesCacheWrite(t *testing.T) {
+	body := []byte(`{"id":"m","type":"message","role":"assistant","content":[{"type":"text","text":"ok"}],"stop_reason":"end_turn",
+		"usage":{"input_tokens":10,"output_tokens":3,"cache_creation_input_tokens":400,"cache_read_input_tokens":0}}`)
+	out, err := anthropicToOpenAIResponse(body, "m")
+	if err != nil {
+		t.Fatal(err)
+	}
+	nu, ok := parseUsageBody(out)
+	if !ok || nu.Prompt != 410 || nu.CacheWrite != 400 || nu.CacheHit != 0 {
+		t.Errorf("round trip: %+v ok=%v body=%s", nu, ok, out)
+	}
+}

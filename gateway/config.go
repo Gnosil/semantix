@@ -337,7 +337,18 @@ type UpstreamConfig struct {
 	// cache_control without error (glm-spike-week.md §2/§3A.2), so the gateway
 	// forwards it untouched unless a provider is known to reject it.
 	StripCacheControl bool `toml:"strip_cache_control"`
+	// CacheBreakpoints is the prompt-cache breakpoint policy for
+	// vendor="anthropic" upstreams (spec docs/specs/gateway-anthropic-cache-p0a.md
+	// §3): "always" (default, empty) places a static-prefix breakpoint and a
+	// conversation-tail breakpoint on every request; "l2_only" only on
+	// requests that carry an L2 injection block; "off" never. Ignored for
+	// other vendors; strip_cache_control = true implies "off".
+	CacheBreakpoints string `toml:"cache_breakpoints"`
 }
+
+// validCacheBreakpoints lists the accepted cache_breakpoints values ("" =
+// default "always").
+var validCacheBreakpoints = map[string]bool{"": true, "always": true, "l2_only": true, "off": true}
 
 // vendor names accepted by the v1 gateway. anthropic needs message-format
 // conversion + cache_control breakpoints (design §0.5), handled by
@@ -695,6 +706,9 @@ func (c *Config) validate() error {
 		}
 		if !supportedVendors[u.Vendor] {
 			return fmt.Errorf("gateway config: upstreams[%d] (%s): vendor %q is not supported by gateway v1 (supported: deepseek, openai, moonshot, anthropic)", i, u.Name, u.Vendor)
+		}
+		if !validCacheBreakpoints[u.CacheBreakpoints] {
+			return fmt.Errorf("gateway config: upstreams[%d] (%s): cache_breakpoints %q is not valid (always | l2_only | off)", i, u.Name, u.CacheBreakpoints)
 		}
 		for _, alias := range u.ModelAlias {
 			if prev, dup := seenModel[alias]; dup {
