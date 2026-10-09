@@ -319,6 +319,7 @@ stalled_warning_seconds = 900   # warn once per background job after this many q
 [semantix]
 enabled       = true     # mirror session events to the kernel
 binary        = "semantix" # kernel CLI (part of the agent bundle; on PATH after install)
-inject        = true     # append the [semantix-reuse] block to the system prompt
+inject        = true     # add the [semantix-reuse] block as user-role history
+# mode        = "replace" # compact one exact managed-context duplicate; otherwise inject
 budget        = 4096     # L2 injection budget in bytes
 sessions_dir  = ".semantix/sessions"  # session JSONL mirror (feed to: semantix extract -input)
