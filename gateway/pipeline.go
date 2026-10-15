@@ -118,10 +118,13 @@ func (g *Gateway) handleChat(w http.ResponseWriter, r *http.Request, body []byte
 
 	}
 	if up.Vendor == "anthropic" {
-		// Anthropic hop (design §0.5): translate the OpenAI body to the
-		// /v1/messages shape, applying the L2 injection block with
-		// cache_control breakpoints. OpenAI passthrough is untouched.
-		abody, aerr := toAnthropicRequest(body, up, inj)
+		// Anthropic hop (design §0.5): run the same prefix-hygiene
+		// middleware as the OpenAI path (attribution strip, tools sort —
+		// tools render first in the Anthropic cache prefix, so an unsorted
+		// tools array breaks every byte after it), then translate the body
+		// to the /v1/messages shape with the L2 block and cache_control
+		// breakpoints. OpenAI passthrough is untouched.
+		abody, aerr := toAnthropicRequest(g.sanitizeBody(body, up), up, inj)
 		if aerr != nil {
 			writeAPIError(w, http.StatusBadRequest, "invalid_request_error",
 				"anthropic conversion: "+aerr.Error())
@@ -191,11 +194,28 @@ func (g *Gateway) l3Eligible(id, vendor string) bool {
 // alias is mapped to the upstream model name, the prefix-hygiene middleware
 // runs (GLM-P0-2, #290: attribution stripping / tools canonicalization /
 // per-upstream cache_control policy), and (when an injection block was
-// assembled) the block is appended to the first system message (byte-stable
-// prefix tail, L1) or prepended as a new system message. All other request
+// assembled) the block is appended to the last string-content system message
+// (system-prompt tail) or prepended as a new system message. All other request
 // fields pass through untouched. Sanitation operates on the decoded body
 // before injection so both the injected and non-injected paths ship the
 // same sanitized prefix.
+// sanitizeBody applies sanitizeOutgoing to an encoded OpenAI request body
+// and re-encodes it. Both upstream paths call it so the prefix-hygiene
+// middleware is vendor-independent; a body that fails to decode is returned
+// untouched (fail-open, matching rewriteOutgoing).
+func (g *Gateway) sanitizeBody(body []byte, up UpstreamConfig) []byte {
+	var raw map[string]any
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return body
+	}
+	g.sanitizeOutgoing(raw, up)
+	out, err := json.Marshal(raw)
+	if err != nil {
+		return body
+	}
+	return out
+}
+
 func (g *Gateway) rewriteOutgoing(body []byte, req *chatRequest, up UpstreamConfig, inj *inject.Injection) []byte {
 	var raw map[string]any
 	if err := json.Unmarshal(body, &raw); err != nil {
@@ -380,6 +400,7 @@ func (g *Gateway) passthrough(w http.ResponseWriter, resp *http.Response, sessio
 		ev.TokensIn = nu.Prompt
 		ev.TokensOut = nu.Completion
 		ev.CacheHitToken = nu.CacheHit
+		ev.CacheWriteToken = nu.CacheWrite
 		ev.Exact = true
 	}
 	g.recordUsage(ev)
@@ -479,6 +500,7 @@ func (g *Gateway) streamThrough(w http.ResponseWriter, resp *http.Response, sess
 		ev.TokensIn = nu.Prompt
 		ev.TokensOut = nu.Completion
 		ev.CacheHitToken = nu.CacheHit
+		ev.CacheWriteToken = nu.CacheWrite
 		ev.Exact = true
 	}
 	g.recordUsage(ev)

@@ -10,7 +10,8 @@ package gateway
 // Translation rules (design: docs/specs/newapi-gateway-design.md §0.5):
 //   request   chat/completions  ->  POST {base_url}/v1/messages
 //             system            ->  top-level "system" (block array when a
-//                                   cache_control breakpoint is needed)
+//                                   cache_control breakpoint or an L2 block
+//                                   is present; see applyCacheBreakpoints)
 //             assistant tool_calls -> content block {type:"tool_use"}
 //             role=tool         ->  user content block {type:"tool_result"}
 //             adjacent same-role messages merged (Anthropic alternation rule)
@@ -70,14 +71,21 @@ type anthropicBlock struct {
 	// tool_use
 	ID   string `json:"id,omitempty"`
 	Name string `json:"name,omitempty"`
-	// tool_use.input / tool_result.content both ride on Input.
+	// tool_use.input — the parsed function arguments. Never used for
+	// tool_result: the Messages API has no "input" key on that block.
 	Input any `json:"input,omitempty"`
 	// tool_result
 	ToolUseID string `json:"tool_use_id,omitempty"`
+	// tool_result.content — the tool output (string or block array). The
+	// pre-P0-a adapter shipped this under "input", which the Messages API
+	// schema does not define for tool_result (spec:
+	// docs/specs/gateway-anthropic-cache-p0a.md §1).
+	Content any `json:"content,omitempty"`
 	// image source (url or base64)
 	Source *anthropicImageSource `json:"source,omitempty"`
-	// L1 breakpoint (design §3.6: only ever on the block that ends the L2
-	// injection block and the final message tail).
+	// L1 prompt-cache breakpoint. Placement policy: docs/specs/
+	// gateway-anthropic-cache-p0a.md §3 (BP1 static-system tail, BP2 last
+	// cacheable block of the final message).
 	CacheControl *anthropicCacheControl `json:"cache_control,omitempty"`
 }
 
@@ -96,6 +104,10 @@ type anthropicTool struct {
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
 	InputSchema any    `json:"input_schema"`
+	// CacheControl carries the BP1 fallback when the request has no system
+	// prompt: tools render before system in the cache prefix, so the last
+	// tool is the latest static position (spec P0-a §3, BP1′).
+	CacheControl *anthropicCacheControl `json:"cache_control,omitempty"`
 }
 
 // anthropicRequest mirrors the /v1/messages request body the adapter emits.
@@ -134,8 +146,10 @@ type openAIChatBody struct {
 }
 
 // toAnthropicRequest converts an OpenAI chat/completions request body into
-// an Anthropic /v1/messages request body for the given upstream, applying
-// the L2 injection block with cache_control breakpoints when one was built.
+// an Anthropic /v1/messages request body for the given upstream, rendering
+// the L2 injection block (when one was built) as its own system block and
+// placing prompt-cache breakpoints per the upstream's cache_breakpoints
+// policy. The body is expected to have passed sanitizeBody already.
 // Returns the marshaled Anthropic body (nil on conversion error).
 func toAnthropicRequest(body []byte, up UpstreamConfig, inj *inject.Injection) ([]byte, error) {
 	var openAI openAIChatBody
@@ -148,16 +162,8 @@ func toAnthropicRequest(body []byte, up UpstreamConfig, inj *inject.Injection) (
 
 	system, msgs := splitSystem(openAI.Messages)
 	// Only a real injection (retrieved slices, not the empty marker block)
-	// earns cache_control breakpoints — breakpoints cost prompt-cache budget
-	// and an empty marker is meaningless.
+	// is rendered; an empty marker is meaningless.
 	hasBlock := inj != nil && len(inj.Slices) > 0
-	if hasBlock {
-		if system != "" {
-			system += "\n\n" + inj.Text
-		} else {
-			system = inj.Text
-		}
-	}
 
 	out := anthropicRequest{
 		Model:     up.UpstreamModel,
@@ -188,19 +194,7 @@ func toAnthropicRequest(body []byte, up UpstreamConfig, inj *inject.Injection) (
 		out.Thinking = thinking
 	}
 
-	if hasBlock {
-		// L1 breakpoints (design §3.6 / §0.5: ≤2 — system tail + final
-		// message tail), so the injection block and the last message are
-		// cached at the prompt-cache rate.
-		out.System = mustJSON([]anthropicBlock{{
-			Type: "text", Text: system, CacheControl: &anthropicCacheControl{Type: "ephemeral"},
-		}})
-		if len(out.Messages) > 0 {
-			markLastTextBlock(&out.Messages[len(out.Messages)-1])
-		}
-	} else if system != "" {
-		out.System = mustJSON(system)
-	}
+	applyCacheBreakpoints(&out, system, inj, hasBlock, up.cacheBreakpointMode())
 
 	raw, err := json.Marshal(out)
 	if err != nil {
@@ -217,7 +211,9 @@ func splitSystem(messages []chatMessage) (system string, out []anthropicMessage)
 	var sys []string
 	for _, m := range messages {
 		if m.Role == "system" {
-			if t := textParts(m.Content); t != "" {
+			// Whitespace-only system text is dropped: the API rejects blank
+			// text blocks, and BP1 must not land on one.
+			if t := textParts(m.Content); strings.TrimSpace(t) != "" {
 				sys = append(sys, t)
 			}
 			continue
@@ -236,7 +232,12 @@ func splitSystem(messages []chatMessage) (system string, out []anthropicMessage)
 				blocks = append([]anthropicBlock{{Type: "thinking", Thinking: m.ReasoningContent}}, blocks...)
 			}
 		case "tool":
-			tr := anthropicBlock{Type: "tool_result", ToolUseID: m.ToolCallID, Input: textParts(m.Content)}
+			tr := anthropicBlock{Type: "tool_result", ToolUseID: m.ToolCallID}
+			// An empty output omits content (a non-nil "" interface would
+			// survive omitempty and ship an empty text body).
+			if out := textParts(m.Content); out != "" {
+				tr.Content = out
+			}
 			// tool results must ride on a user message that follows the
 			// tool_use; merge consecutive results into one user message.
 			if len(out) > 0 && out[len(out)-1].Role == "user" {
@@ -367,22 +368,24 @@ func mapTools(tools []openAITool) []anthropicTool {
 	return out
 }
 
-// mapToolChoice converts the OpenAI tool_choice value to Anthropic's:
-// auto/auto, none/none, required/any, {function:{name}} -> {type:"tool"}.
+// mapToolChoice converts the OpenAI tool_choice value to Anthropic's
+// object form: auto -> {type:"auto"}, none -> {type:"none"}, required ->
+// {type:"any"}, {function:{name}} -> {type:"tool",name}. The Messages API
+// only accepts objects here; a bare string ("auto") is a 400.
 func mapToolChoice(tc any, nTools int) any {
 	if tc == nil {
 		if nTools == 0 {
 			return nil
 		}
-		return "auto"
+		return map[string]any{"type": "auto"}
 	}
 	switch v := tc.(type) {
 	case string:
 		switch v {
 		case "auto", "none":
-			return v
+			return map[string]any{"type": v}
 		case "required":
-			return "any"
+			return map[string]any{"type": "any"}
 		}
 	case map[string]any:
 		if fn, ok := v["function"].(map[string]any); ok {
@@ -414,11 +417,98 @@ func toStopSequences(v any) ([]string, bool) {
 	return nil, false
 }
 
-// markLastTextBlock attaches a cache_control breakpoint to the last text
-// block of a message (Anthropic only allows it on text/tool_use blocks).
-func markLastTextBlock(m *anthropicMessage) {
+// cacheBreakpointMode is the per-upstream prompt-cache breakpoint policy
+// (spec docs/specs/gateway-anthropic-cache-p0a.md §3).
+type cacheBreakpointMode int
+
+const (
+	// breakpointsAlways: BP1 (static prefix) + BP2 (conversation tail) on
+	// every request, whether or not an L2 block was injected. Default.
+	breakpointsAlways cacheBreakpointMode = iota
+	// breakpointsL2Only: breakpoints only on requests that carry an L2
+	// block (the pre-P0-a trigger, with the new placement).
+	breakpointsL2Only
+	// breakpointsOff: never emit cache_control. Implied by
+	// strip_cache_control = true.
+	breakpointsOff
+)
+
+// cacheBreakpointMode resolves the upstream's cache_breakpoints setting.
+// The value is validated at config load; anything unexpected falls back to
+// the default rather than silently disabling caching.
+func (up UpstreamConfig) cacheBreakpointMode() cacheBreakpointMode {
+	if up.StripCacheControl {
+		return breakpointsOff
+	}
+	switch up.CacheBreakpoints {
+	case "l2_only":
+		return breakpointsL2Only
+	case "off":
+		return breakpointsOff
+	default:
+		return breakpointsAlways
+	}
+}
+
+// applyCacheBreakpoints renders the top-level system field and places the
+// L1 prompt-cache breakpoints (spec P0-a §3):
+//
+//	BP1  last text block of the STATIC system prompt. The L2 block, when
+//	     present, is a separate system block placed AFTER BP1, so a block
+//	     that differs from the previous request only invalidates itself,
+//	     never tools + static system.
+//	BP1′ when there is no static system prompt: the last tool definition
+//	     (tools render before system, so it is the latest static position).
+//	     The L2 block never carries BP1 — it is the volatile part.
+//	BP2  last cacheable block of the final message, any type the API
+//	     accepts a marker on (text / image / tool_use / tool_result). Tool
+//	     loops end in tool_result, so a text-only rule left them without a
+//	     conversation breakpoint.
+//
+// At most two markers are emitted, well under the API limit of four; all
+// use the default 5-minute TTL.
+func applyCacheBreakpoints(out *anthropicRequest, system string, inj *inject.Injection, hasBlock bool, mode cacheBreakpointMode) {
+	want := mode == breakpointsAlways || (mode == breakpointsL2Only && hasBlock)
+	bp := func() *anthropicCacheControl {
+		if !want {
+			return nil
+		}
+		return &anthropicCacheControl{Type: "ephemeral"}
+	}
+
+	var blocks []anthropicBlock
+	if system != "" {
+		blocks = append(blocks, anthropicBlock{Type: "text", Text: system, CacheControl: bp()})
+	} else if want && len(out.Tools) > 0 {
+		out.Tools[len(out.Tools)-1].CacheControl = bp()
+	}
+	if hasBlock {
+		blocks = append(blocks, anthropicBlock{Type: "text", Text: inj.Text})
+	}
+	switch {
+	case len(blocks) == 0:
+		// no system field at all
+	case len(blocks) == 1 && blocks[0].CacheControl == nil:
+		// plain string form: byte-identical to the pre-P0-a no-block request
+		out.System = mustJSON(blocks[0].Text)
+	default:
+		out.System = mustJSON(blocks)
+	}
+
+	if want && len(out.Messages) > 0 {
+		markLastCacheableBlock(&out.Messages[len(out.Messages)-1])
+	}
+}
+
+// markLastCacheableBlock attaches a cache_control breakpoint to the last
+// block of a message that the Messages API accepts a marker on. Every
+// content block type the adapter emits qualifies except thinking, which
+// is skipped so a request ending in a preserved reasoning sequence still
+// gets its conversation breakpoint on the block before it.
+func markLastCacheableBlock(m *anthropicMessage) {
 	for i := len(m.Content) - 1; i >= 0; i-- {
-		if m.Content[i].Type == "text" {
+		switch m.Content[i].Type {
+		case "text", "image", "tool_use", "tool_result":
 			m.Content[i].CacheControl = &anthropicCacheControl{Type: "ephemeral"}
 			return
 		}
@@ -493,8 +583,8 @@ func anthropicToOpenAIResponse(body []byte, model string) ([]byte, error) {
 		"completion_tokens": a.Usage.OutputTokens,
 		"total_tokens":      prompt + a.Usage.OutputTokens,
 	}
-	if a.Usage.CacheReadInputTokens > 0 {
-		usage["prompt_tokens_details"] = map[string]any{"cached_tokens": a.Usage.CacheReadInputTokens}
+	if details := cacheDetails(int64(a.Usage.CacheReadInputTokens), int64(a.Usage.CacheCreationInputTokens)); details != nil {
+		usage["prompt_tokens_details"] = details
 	}
 	out := map[string]any{
 		"id":      a.ID,
@@ -513,6 +603,21 @@ func anthropicToOpenAIResponse(body []byte, model string) ([]byte, error) {
 		return nil, fmt.Errorf("marshal openai response: %w", err)
 	}
 	return raw, nil
+}
+
+// cacheDetails renders the OpenAI-shape prompt_tokens_details for translated
+// Anthropic usage: cached_tokens (reads) plus the semantix extension
+// cache_creation_tokens (writes). nil when both are zero, so responses
+// without cache activity keep their pre-existing shape.
+func cacheDetails(read, write int64) map[string]any {
+	if read == 0 && write == 0 {
+		return nil
+	}
+	d := map[string]any{"cached_tokens": read}
+	if write > 0 {
+		d["cache_creation_tokens"] = write
+	}
+	return d
 }
 
 // anthropicStopReason maps Anthropic stop_reason to OpenAI finish_reason
@@ -716,8 +821,8 @@ func (c *anthropicSSEConverter) writeUsageChunk() {
 		"completion_tokens": nu.Completion,
 		"total_tokens":      nu.Prompt + nu.Completion,
 	}
-	if nu.CacheHit > 0 {
-		usage["prompt_tokens_details"] = map[string]any{"cached_tokens": nu.CacheHit}
+	if details := cacheDetails(nu.CacheHit, nu.CacheWrite); details != nil {
+		usage["prompt_tokens_details"] = details
 	}
 	evt := map[string]any{
 		"id":      c.id,
@@ -898,6 +1003,7 @@ func (g *Gateway) streamThroughAnthropic(w http.ResponseWriter, resp *http.Respo
 		ev.TokensIn = nu.Prompt
 		ev.TokensOut = nu.Completion
 		ev.CacheHitToken = nu.CacheHit
+		ev.CacheWriteToken = nu.CacheWrite
 		ev.Exact = true
 	}
 	g.recordUsage(ev)
