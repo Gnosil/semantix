@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"semantix/harness/fileutil"
 	"semantix/harness/provider"
@@ -473,82 +474,132 @@ func TestDurabilityStaleInFlightCompareAndClear(t *testing.T) {
 	}
 }
 
+func setDisplayReadModelFreshness(t *testing.T, path string, fresh bool) {
+	t.Helper()
+	if err := RepairSessionDisplayReadModel(path); err != nil {
+		t.Fatalf("repair display read model: %v", err)
+	}
+	transcriptInfo, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat repaired transcript: %v", err)
+	}
+	indexPath := store.SessionDisplayIndex(path)
+	indexTime := transcriptInfo.ModTime().Add(-time.Second)
+	if fresh {
+		indexTime = transcriptInfo.ModTime().Add(time.Second)
+	}
+	if err := os.Chtimes(indexPath, indexTime, indexTime); err != nil {
+		t.Fatalf("set display-index mtime: %v", err)
+	}
+	indexInfo, err := os.Stat(indexPath)
+	if err != nil {
+		t.Fatalf("stat display index: %v", err)
+	}
+	indexIsFresh := !indexInfo.ModTime().Before(transcriptInfo.ModTime())
+	if indexIsFresh != fresh {
+		t.Fatalf("display-index mtime state = fresh:%v (index=%s transcript=%s), want fresh:%v",
+			indexIsFresh, indexInfo.ModTime(), transcriptInfo.ModTime(), fresh)
+	}
+}
+
 func TestDurabilityFuzzCrashConsistency(t *testing.T) {
 	if testing.Short() {
 		t.Skip("fuzz sweep skipped in -short")
 	}
 	for seed := int64(1); seed <= 20; seed++ {
 		t.Run(fmt.Sprintf("seed%02d", seed), func(t *testing.T) {
-			rng := rand.New(rand.NewSource(seed))
-			steps := 2 + rng.Intn(5)
-			crashStep := 1 + rng.Intn(steps)
+			for _, fresh := range []bool{true, false} {
+				state := "stale"
+				if fresh {
+					state = "fresh"
+				}
+				t.Run(state, func(t *testing.T) {
+					rng := rand.New(rand.NewSource(seed))
+					steps := 2 + rng.Intn(5)
+					crashStep := 1 + rng.Intn(steps)
 
-			type stepKind int
-			const (
-				kindAppend stepKind = iota
-				kindRewrite
-			)
-			kinds := make([]stepKind, steps)
-			for i := range kinds {
-				if rng.Intn(10) < 8 || i == 0 {
-					kinds[i] = kindAppend
-				} else {
-					kinds[i] = kindRewrite
-				}
-			}
+					type stepKind int
+					const (
+						kindAppend stepKind = iota
+						kindRewrite
+					)
+					kinds := make([]stepKind, steps)
+					for i := range kinds {
+						if rng.Intn(10) < 8 || i == 0 {
+							kinds[i] = kindAppend
+						} else {
+							kinds[i] = kindRewrite
+						}
+					}
 
-			apply := func(s *Session, i int) {
-				switch kinds[i] {
-				case kindAppend:
-					s.Add(provider.Message{Role: provider.RoleUser, Content: fmt.Sprintf("s%d ask %d", seed, i)})
-					s.Add(provider.Message{Role: provider.RoleAssistant, Content: fmt.Sprintf("s%d answer %d", seed, i)})
-				case kindRewrite:
-					keep := 1 + len(s.Messages)/2
-					s.Rewrite(append([]provider.Message(nil), s.Messages[:keep]...), "compact")
-				}
-			}
-			save := func(s *Session, i int, path string) error {
-				if kinds[i] == kindRewrite {
-					return s.SaveRewrite(path)
-				}
-				return s.SaveSnapshot(path)
-			}
+					apply := func(s *Session, i int) {
+						switch kinds[i] {
+						case kindAppend:
+							s.Add(provider.Message{Role: provider.RoleUser, Content: fmt.Sprintf("s%d ask %d", seed, i)})
+							s.Add(provider.Message{Role: provider.RoleAssistant, Content: fmt.Sprintf("s%d answer %d", seed, i)})
+						case kindRewrite:
+							keep := 1 + len(s.Messages)/2
+							s.Rewrite(append([]provider.Message(nil), s.Messages[:keep]...), "compact")
+						}
+					}
+					save := func(s *Session, i int, path string) error {
+						if kinds[i] == kindRewrite {
+							return s.SaveRewrite(path)
+						}
+						return s.SaveSnapshot(path)
+					}
 
-			// Dry run to count the crash step's boundaries.
-			probe := newDurabilityRun(t)
-			ps := NewSession("system prompt")
-			for i := range crashStep - 1 {
-				apply(ps, i)
-				if err := save(ps, i, probe.path); err != nil {
-					t.Fatalf("probe step %d: %v", i, err)
-				}
-			}
-			apply(ps, crashStep-1)
-			ops := probe.countBoundaries(func() { _ = save(ps, crashStep-1, probe.path) })
-			if len(ops) == 0 {
-				t.Skip("crash step crossed no boundaries")
-			}
-			boundary := 1 + rng.Intn(len(ops))
+					// Dry run to count the crash step's boundaries.
+					probe := newDurabilityRun(t)
+					ps := NewSession("system prompt")
+					for i := range crashStep - 1 {
+						apply(ps, i)
+						if err := save(ps, i, probe.path); err != nil {
+							t.Fatalf("probe step %d: %v", i, err)
+						}
+					}
+					if crashStep > 1 {
+						setDisplayReadModelFreshness(t, probe.path, fresh)
+					}
+					apply(ps, crashStep-1)
+					ops := probe.countBoundaries(func() { _ = save(ps, crashStep-1, probe.path) })
+					if len(ops) == 0 {
+						t.Fatal("crash step crossed no boundaries")
+					}
+					if seed == 18 {
+						want := 4
+						if fresh {
+							want = 5
+						}
+						if len(ops) != want {
+							t.Fatalf("seed18 %s display-index path crossed %d boundaries (%v), want %d", state, len(ops), ops, want)
+						}
+					}
+					t.Logf("seed %d display-index=%s boundaries=%v", seed, state, ops)
+					boundary := 1 + rng.Intn(len(ops))
 
-			d := newDurabilityRun(t)
-			s := NewSession("system prompt")
-			for i := range crashStep - 1 {
-				apply(s, i)
-				if err := save(s, i, d.path); err != nil {
-					t.Fatalf("step %d: %v", i, err)
-				}
+					d := newDurabilityRun(t)
+					s := NewSession("system prompt")
+					for i := range crashStep - 1 {
+						apply(s, i)
+						if err := save(s, i, d.path); err != nil {
+							t.Fatalf("step %d: %v", i, err)
+						}
+					}
+					var lastSaved []provider.Message
+					if crashStep > 1 {
+						lastSaved = append(lastSaved, s.Messages...)
+						setDisplayReadModelFreshness(t, d.path, fresh)
+					}
+					apply(s, crashStep-1)
+					pending := append([]provider.Message(nil), s.Messages...)
+					if !d.crashAt(boundary, func() { _ = save(s, crashStep-1, d.path) }) {
+						t.Fatalf("crash at boundary %d/%d did not fire", boundary, len(ops))
+					}
+					d.recoverAndCheck(lastSaved, pending, kinds[crashStep-1] == kindRewrite,
+						fmt.Sprintf("seed %d %s step %d boundary %d/%d (%s)", seed, state, crashStep, boundary, len(ops), ops[boundary-1]))
+				})
 			}
-			var lastSaved []provider.Message
-			if crashStep > 1 {
-				lastSaved = append(lastSaved, s.Messages...)
-			}
-			apply(s, crashStep-1)
-			pending := append([]provider.Message(nil), s.Messages...)
-			if !d.crashAt(boundary, func() { _ = save(s, crashStep-1, d.path) }) {
-				t.Fatalf("crash at boundary %d/%d did not fire", boundary, len(ops))
-			}
-			d.recoverAndCheck(lastSaved, pending, kinds[crashStep-1] == kindRewrite,
-				fmt.Sprintf("seed %d step %d boundary %d/%d (%s)", seed, crashStep, boundary, len(ops), ops[boundary-1]))
 		})
 	}
 }

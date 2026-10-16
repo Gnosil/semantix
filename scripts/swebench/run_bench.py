@@ -394,6 +394,25 @@ context_window = 128000
     def run_instance(self, ws: Path, prompt: str, inst: dict):
         mfile = self.run_dir / "native" / f"{inst['instance_id']}.semantix.json"
         mfile.parent.mkdir(parents=True, exist_ok=True)
+        # A retry reuses the native metrics path, but the child may leave a
+        # partial snapshot (or no output at all). Archive and remove both
+        # previous candidates before launch so this attempt cannot consume
+        # stale evidence. The archive keeps the exact prior bytes available
+        # for post-run diagnosis without guessing identity from timestamps.
+        candidates = (mfile, Path(str(mfile) + ".partial"))
+        previous = [path for path in candidates if path.exists()]
+        if previous:
+            archive_root = mfile.parent / f"{mfile.name}.attempts"
+            archive_root.mkdir(parents=True, exist_ok=True)
+            attempt_number = 1
+            while (archive_root / f"attempt-{attempt_number:04d}").exists():
+                attempt_number += 1
+            archive_attempt = archive_root / f"attempt-{attempt_number:04d}"
+            archive_attempt.mkdir()
+            for path in previous:
+                shutil.copy2(path, archive_attempt / path.name)
+            for path in previous:
+                path.unlink()
         home = self.home / "inst" / inst["instance_id"]
         sessions_dir = home / "kernel-sessions"
         repo = repo_identity(inst) if self.memory_on else ""
@@ -439,9 +458,15 @@ context_window = 128000
         Path(str(stem) + ".stdout.txt").write_text(stdout_text, encoding="utf-8")
         Path(str(stem) + ".stderr.txt").write_text(stderr_text, encoding="utf-8")
         raw = {}
-        for candidate in (mfile, Path(str(mfile) + ".partial")):
-            if candidate.exists():
-                raw = json.loads(candidate.read_text())
+        for candidate in candidates:
+            if not candidate.exists():
+                continue
+            try:
+                parsed = json.loads(candidate.read_text())
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+                continue
+            if isinstance(parsed, dict):
+                raw = parsed
                 break
         if self.memory_on:
             raw["semantix_repo"] = repo
