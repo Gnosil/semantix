@@ -28,6 +28,11 @@ type upstreamUsage struct {
 	// OpenAI style
 	PromptTokensDetails *struct {
 		CachedTokens int `json:"cached_tokens"`
+		// CacheCreationTokens is a semantix extension on the OpenAI shape:
+		// the gateway's Anthropic adapter carries the upstream
+		// cache_creation_input_tokens here so OpenAI-surface clients (and
+		// the gateway's own usage log) can see cache writes.
+		CacheCreationTokens int `json:"cache_creation_tokens"`
 	} `json:"prompt_tokens_details"`
 	// Estimator marks usage synthesized by a semantix gateway (bytes/4).
 	// It must never be re-ingested as exact provider accounting.
@@ -36,11 +41,14 @@ type upstreamUsage struct {
 
 // normUsage is provider usage normalized to one accounting convention:
 // Prompt is the complete input (cache hits included), CacheHit the subset
-// served from the provider prefix cache, Completion the full output.
+// served from the provider prefix cache, CacheWrite the subset written into
+// it (billed at the cache-write premium; 0 when the provider reports none
+// or has no write premium), Completion the full output.
 type normUsage struct {
 	Prompt     int64
 	Completion int64
 	CacheHit   int64
+	CacheWrite int64
 }
 
 // normalizeUpstreamUsage folds one wire usage into normUsage. ok is false
@@ -67,10 +75,14 @@ func normalizeUpstreamUsage(u *upstreamUsage) (normUsage, bool) {
 	if hit == 0 {
 		hit = u.CacheReadInputTokens
 	}
+	write := u.CacheCreationInputTokens
+	if write == 0 && u.PromptTokensDetails != nil {
+		write = u.PromptTokensDetails.CacheCreationTokens
+	}
 	if prompt == 0 && completion == 0 && hit == 0 {
 		return normUsage{}, false
 	}
-	return normUsage{Prompt: int64(prompt), Completion: int64(completion), CacheHit: int64(hit)}, true
+	return normUsage{Prompt: int64(prompt), Completion: int64(completion), CacheHit: int64(hit), CacheWrite: int64(write)}, true
 }
 
 // parseUsageRaw normalizes a bare usage JSON object (e.g. the aggregated

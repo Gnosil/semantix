@@ -81,7 +81,13 @@ base_url = "https://api.deepseek.com/v1"
 api_key = "${DEEPSEEK_API_KEY}"           # 上游 key：只走环境变量
 model_alias = ["deepseek-chat"]           # 客户端可见模型名（New API 渠道模型名）
 upstream_model = "deepseek-chat"          # 上游真实模型名
-vendor = "deepseek"                       # deepseek | openai | moonshot（anthropic 需 M2 格式转换，未支持）
+vendor = "deepseek"                       # deepseek | openai | moonshot | anthropic（anthropic 走 /v1/messages 格式转换）
 # strip_cache_control = false             # per-upstream：剥离 body 内 cache_control 字段。
                                           # 默认透传——双网关实测（glm-spike-week.md §2/§3A.2）
                                           # 均容忍该字段；仅当上游明确报错时开启
+# cache_breakpoints = "always"            # 仅 vendor = "anthropic"：prompt-cache 断点策略
+                                          # always（默认）：每请求打 BP1（静态 system 尾/最后一个 tool）
+                                          #   + BP2（最后一条消息的末块，含 tool_result）
+                                          # l2_only：仅注入了切片的请求打断点（P0-a 之前的触发条件）
+                                          # off：不打；strip_cache_control = true 亦等价于 off
+                                          # 规格：docs/specs/gateway-anthropic-cache-p0a.md

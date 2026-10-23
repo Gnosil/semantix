@@ -38,10 +38,15 @@ type Event struct {
 	// Exact marks token counts relayed from real provider usage accounting;
 	// false means the gateway's bytes/4 estimate (pre-#291 logs are all
 	// estimates and unmarshal to false).
-	Exact         bool    `json:"exact,omitempty"`
-	TokensIn      int64   `json:"tokens_in"`
-	TokensOut     int64   `json:"tokens_out"`
-	CacheHitToken int64   `json:"cache_hit_tokens"`
+	Exact         bool  `json:"exact,omitempty"`
+	TokensIn      int64 `json:"tokens_in"`
+	TokensOut     int64 `json:"tokens_out"`
+	CacheHitToken int64 `json:"cache_hit_tokens"`
+	// CacheWriteToken is the subset of TokensIn written into the provider
+	// prefix cache (billed at the write premium, e.g. 1.25x on Anthropic's
+	// 5-minute TTL). Only providers that report writes fill it; omitted
+	// otherwise, and on logs written before the field existed.
+	CacheWriteToken int64 `json:"cache_write_tokens,omitempty"`
 	// L3Reuse marks a turn fully served by a verified L3 result (no backend
 	// call at all) — its entire cost is saved.
 	L3Reuse bool `json:"l3_reuse,omitempty"`
@@ -61,21 +66,21 @@ type Event struct {
 	JudgeDecisions []JudgeDecision `json:"judge,omitempty"`
 	// L3 negative observability (Issue #262): per-turn L3 decision detail.
 	// All fields are additive — older logs without them read as zero.
-	L3GreyCandidates    int  `json:"l3_grey_candidates,omitempty"`
-	L3JudgeReject       int  `json:"l3_judge_reject,omitempty"`
+	L3GreyCandidates int `json:"l3_grey_candidates,omitempty"`
+	L3JudgeReject    int `json:"l3_judge_reject,omitempty"`
 	// L3JudgeError counts judge calls that FAILED (transport/timeout/parse) —
 	// the judge was unavailable, which is not a verdict (Issue #245). The same
 	// physical incident is also recorded on the Issue #242 channel as a
 	// JudgeDecision with Verdict=="fail_closed"; the two must never be summed.
-	L3JudgeError        int  `json:"l3_judge_error,omitempty"`
-	L3JudgeApproved     int  `json:"l3_judge_approved,omitempty"`
-	L3RulesReject       int  `json:"l3_rules_reject,omitempty"`
-	L3FingerprintReject int  `json:"l3_fingerprint_reject,omitempty"`
-	L3IsolatedReject    int  `json:"l3_isolated_reject,omitempty"`
+	L3JudgeError        int `json:"l3_judge_error,omitempty"`
+	L3JudgeApproved     int `json:"l3_judge_approved,omitempty"`
+	L3RulesReject       int `json:"l3_rules_reject,omitempty"`
+	L3FingerprintReject int `json:"l3_fingerprint_reject,omitempty"`
+	L3IsolatedReject    int `json:"l3_isolated_reject,omitempty"`
 	// L3FalseHit marks a suspected false hit: the user retried a query that
 	// was just served from L3 within the same session (gateway heuristic,
 	// Issue #262 §2.2). The request bypassed L3 and went upstream.
-	L3FalseHit bool `json:"l3_false_hit,omitempty"`
+	L3FalseHit bool  `json:"l3_false_hit,omitempty"`
 	At         int64 `json:"at"` // unix seconds
 }
 
@@ -152,18 +157,19 @@ func (r *Recorder) Append(e Event) error {
 
 // Summary aggregates a usage log.
 type Summary struct {
-	Events          int     // total turns recorded
-	TokensIn        int64   // total input tokens (including cache hits)
-	TokensOut       int64   // total output tokens
-	CacheHitTokens  int64   // tokens served from the provider prefix cache
-	L3Reuses        int     // turns fully served by L3 reuse
-	InjectedTokens  int64   // total L2 injected tokens
-	SliceHits       int     // total slices hit and injected across turns
-	CostPaidUSD     float64 // what the user actually paid
-	CostNoCacheUSD  float64 // what it would cost without any cache
-	SavingsUSD      float64 // CostNoCache - CostPaid, gross of judge cost
-	SavingsRate     float64 // Savings / CostNoCache (0 when no cost)
-	InjectROI       float64 // cache savings per 1M injected tokens (Issue #270 step 1)
+	Events           int     // total turns recorded
+	TokensIn         int64   // total input tokens (including cache hits)
+	TokensOut        int64   // total output tokens
+	CacheHitTokens   int64   // tokens served from the provider prefix cache
+	CacheWriteTokens int64   // tokens written into the provider prefix cache
+	L3Reuses         int     // turns fully served by L3 reuse
+	InjectedTokens   int64   // total L2 injected tokens
+	SliceHits        int     // total slices hit and injected across turns
+	CostPaidUSD      float64 // what the user actually paid
+	CostNoCacheUSD   float64 // what it would cost without any cache
+	SavingsUSD       float64 // CostNoCache - CostPaid, gross of judge cost
+	SavingsRate      float64 // Savings / CostNoCache (0 when no cost)
+	InjectROI        float64 // cache savings per 1M injected tokens (Issue #270 step 1)
 
 	// Grey-zone judge accounting (Issue #242 gap 1). These describe a
 	// different model on a different channel, so they are reported
@@ -179,8 +185,8 @@ type Summary struct {
 	JudgeLatencyMs    int64 // total time spent in judge calls
 
 	// L3 negative observability (Issue #262): sums of the per-turn fields.
-	L3GreyCandidates    int
-	L3JudgeReject       int
+	L3GreyCandidates int
+	L3JudgeReject    int
 	// L3JudgeError counts judge unavailability (Issue #245). NOTE: this and
 	// JudgeFailClosed (Issue #242) count the same events through different
 	// channels — report them separately, never add them together.
@@ -200,12 +206,13 @@ type Summary struct {
 
 // ProviderStats aggregates one upstream endpoint's usage telemetry.
 type ProviderStats struct {
-	Events         int   // turns recorded against this endpoint
-	ExactEvents    int   // of those, ones carrying real provider usage
-	TokensIn       int64 // exact-only input tokens (cache hits included)
-	TokensOut      int64 // exact-only output tokens
-	CacheHitTokens int64 // exact-only prefix-cache-served input tokens
-	L3Reuses       int   // turns served without an upstream call
+	Events           int   // turns recorded against this endpoint
+	ExactEvents      int   // of those, ones carrying real provider usage
+	TokensIn         int64 // exact-only input tokens (cache hits included)
+	TokensOut        int64 // exact-only output tokens
+	CacheHitTokens   int64 // exact-only prefix-cache-served input tokens
+	CacheWriteTokens int64 // exact-only tokens written into the prefix cache
+	L3Reuses         int   // turns served without an upstream call
 }
 
 // L1HitRate is the prefix-cache hit share of exact-metered input tokens.
@@ -264,6 +271,7 @@ func Summarize(path string, costMiss, costHit float64) (*Summary, error) {
 		s.TokensIn += e.TokensIn
 		s.TokensOut += e.TokensOut
 		s.CacheHitTokens += e.CacheHitToken
+		s.CacheWriteTokens += e.CacheWriteToken
 		s.InjectedTokens += e.InjectedTokens
 		s.SliceHits += e.SliceHits
 		p := s.ByProvider[e.Provider]
@@ -283,6 +291,7 @@ func Summarize(path string, costMiss, costHit float64) (*Summary, error) {
 			p.TokensIn += e.TokensIn
 			p.TokensOut += e.TokensOut
 			p.CacheHitTokens += e.CacheHitToken
+			p.CacheWriteTokens += e.CacheWriteToken
 		}
 		if e.L3Reuse {
 			s.L3Reuses++
