@@ -124,15 +124,28 @@ func planPrune(entries map[string]*storedEntry, o PruneOptions) (PruneResult, er
 		if err != nil {
 			return r, err
 		}
-		// Reject symlinked roots as well as symlinked dependency components.
-		if resolved, err := filepath.EvalSymlinks(abs); err != nil || resolved != abs {
+		// The root itself must be a directory, not a symlink. Ancestors may
+		// legitimately be symlinks (for example /var -> /private/var on
+		// macOS); comparing EvalSymlinks(abs) with abs rejects those too.
+		info, err := os.Lstat(abs)
+		if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 			return r, fmt.Errorf("prune: project root must be an existing directory without symlinks")
 		}
-		root, err = os.OpenRoot(abs)
+		resolved, err := filepath.EvalSymlinks(abs)
+		if err != nil {
+			return r, fmt.Errorf("prune: cannot resolve project root")
+		}
+		root, err = os.OpenRoot(resolved)
 		if err != nil {
 			return r, fmt.Errorf("prune: cannot open project root")
 		}
 		defer root.Close()
+		// Detect replacement between validation and opening. Subsequent
+		// dependency lookups remain confined to this directory handle.
+		opened, err := root.Stat(".")
+		if err != nil || !os.SameFile(info, opened) {
+			return r, fmt.Errorf("prune: project root changed while opening")
+		}
 	}
 	var all []*Slice
 	for _, e := range entries {

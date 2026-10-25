@@ -48,3 +48,6 @@ docs/reports/data/.mimosa/
 # Local experiment area (paper data, experiment designs & results live here
 # and never enter the repo — see CLAUDE.md "本地实验区")
 /lab/
+
+# Disposable model-vector backfill caches (may sit beside custom store paths).
+*.embeddings/

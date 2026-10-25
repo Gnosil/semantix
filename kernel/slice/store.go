@@ -47,3 +47,12 @@ func ApplyStats(s Store, deltas map[string]SliceStats) error {
 	}
 	return nil
 }
+
+// EmbeddingCache is an optional lazy vector capability. Ordinary reads keep
+// Embedding nil. Backfills are disposable content-addressed sidecars, never
+// whole-slice writes, so concurrent readers cannot overwrite live slice state.
+type EmbeddingCache interface {
+	ReadEmbedding(id string) ([]byte, error)
+	ReadCachedEmbedding(id, source, contentHash string) ([]byte, error)
+	CacheEmbedding(id string, content []byte, vector []float32, model, source, contentHash string) error
+}

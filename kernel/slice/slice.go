@@ -201,6 +201,10 @@ type SliceMeta struct {
 	// silently skipping dimension-mismatched vectors.
 	EmbedModel string `json:"embed_model,omitempty"`
 	EmbedDim   int    `json:"embed_dim,omitempty"`
+	// EmbedSource binds vectors to the endpoint/model/preprocessing identity.
+	// EmbedContentHash invalidates vectors after in-place content changes.
+	EmbedSource      string `json:"embed_source,omitempty"`
+	EmbedContentHash string `json:"embed_content_hash,omitempty"`
 	// ContextHash records the messages-context fingerprint of the request
 	// that produced this slice (Issue #133 gateway). The L3 gate compares
 	// it against the live request so the same query under a different
@@ -244,7 +248,7 @@ type Slice struct {
 	Content []byte // normalized text (Prompt/Context/Result/Memory) or tool sequence (ToolPattern)
 	// Embedding is persisted only for model-produced vectors (hash vectors
 	// are recomputable from Content and are not stored). Store reads return
-	// nil by contract — nothing in the repo consumes persisted vectors; the
+	// nil by contract; EmbeddingCache provides explicit lazy vector access. The
 	// raw bytes still round-trip through Export and compaction.
 	Embedding []float32 `json:",omitempty"`
 	Stats     SliceStats

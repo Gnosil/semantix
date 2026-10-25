@@ -21,8 +21,7 @@ const embedBatch = 64
 // as the remote model (Issue #512).
 //
 // Hash vectors are not persisted at all: they are deterministic functions of
-// Content (recomputable any time — search's vector/hybrid retrievers already
-// re-embed per query and never read the stored field), so writing them only
+// Content (recomputable any time), so writing them only
 // inflated every library line with 256 floats nothing ever read.
 func embedItems(emb embed.Embedder, items []*slice.Slice, kind string) error {
 	if kind == "hash" {
@@ -42,6 +41,10 @@ func embedItems(emb embed.Embedder, items []*slice.Slice, kind string) error {
 			items[start+j].Embedding = append([]float32(nil), v...)
 			items[start+j].Meta.EmbedModel = label
 			items[start+j].Meta.EmbedDim = len(v)
+			if remote, ok := emb.(*embed.ModelEmbedder); ok && label != "hash" && label == remote.Model() {
+				items[start+j].Meta.EmbedSource = remote.CacheKey()
+				items[start+j].Meta.EmbedContentHash = embeddingContentHash(items[start+j].Content)
+			}
 		}
 	}
 	return nil
