@@ -132,6 +132,8 @@ func (ix *Index) score(doc *document, queryTerms []string, scope slice.Scope, to
 }
 
 // Insert adds s to the index. An existing slice with the same ID is replaced.
+// Tokenless content has no lexical representation: omit it (and remove any old
+// version) rather than letting one legacy row abort an entire index rebuild.
 func (ix *Index) Insert(s *slice.Slice) error {
 	if ix == nil {
 		return errors.New("bm25: nil index")
@@ -145,7 +147,7 @@ func (ix *Index) Insert(s *slice.Slice) error {
 
 	terms := Tokenize(string(s.Content))
 	if len(terms) == 0 {
-		return errors.New("bm25: slice content must contain at least one letter or number")
+		return ix.Remove(s.ID)
 	}
 	doc := &document{
 		value:  cloneSlice(s),

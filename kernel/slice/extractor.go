@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"semantix/kernel/sanitize"
 )
@@ -557,6 +558,15 @@ func dedup(slices []*Slice) []*Slice {
 	seen := make(map[string]bool, len(slices))
 	var out []*Slice
 	for _, s := range slices {
+		// Apply after sanitization, which can erase the last searchable text.
+		// Match BM25's Unicode/CJK/identifier token alphabet without importing
+		// bm25 here (the index already depends on slice).
+		if strings.IndexFunc(string(s.Content), func(r rune) bool {
+			return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' ||
+				unicode.In(r, unicode.Han, unicode.Hiragana, unicode.Katakana, unicode.Hangul)
+		}) < 0 {
+			continue
+		}
 		if !seen[s.ID] {
 			seen[s.ID] = true
 			out = append(out, s)
