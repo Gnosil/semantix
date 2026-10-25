@@ -1,6 +1,30 @@
 package main
 
-import "semantix/kernel/config"
+import (
+	"flag"
+
+	"semantix/kernel/config"
+	"semantix/kernel/slice"
+)
+
+// Explicit path flags beat a pinned store.db; an unset store.db leaves
+// selectDB's scope defaults intact.
+func selectConfiguredDB(flags *flag.FlagSet, cfg *config.Resolved, scope slice.Scope, override, projectDB, userDB string) string {
+	scopeFlag := "project-db"
+	if scope == slice.User {
+		scopeFlag = "user-db"
+	}
+	explicit := false
+	flags.Visit(func(f *flag.Flag) {
+		if f.Name == "db" || f.Name == scopeFlag {
+			explicit = true
+		}
+	})
+	if override == "" && !explicit {
+		override = cfgString(cfg, "store.db", "")
+	}
+	return selectDB(scope, override, projectDB, userDB)
+}
 
 // cfgString / cfgInt / cfgFloat read a resolved config entry (M2-U20) with
 // a fallback for when the config layer is absent (nil) or the key is unset.

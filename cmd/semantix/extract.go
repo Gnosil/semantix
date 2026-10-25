@@ -124,7 +124,7 @@ func runExtract(args []string, stdout, stderr io.Writer, deps dependencies) erro
 		return fmt.Errorf("embed slices: %w", err)
 	}
 
-	dbPath := selectDB(scope, *dbOverride, *projectDB, *userDB)
+	dbPath := selectConfiguredDB(flags, deps.resolved, scope, *dbOverride, *projectDB, *userDB)
 	if dir := filepath.Dir(dbPath); dir != "." {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return fmt.Errorf("create database directory: %w", err)

@@ -221,10 +221,10 @@ func defaultUserDB() string {
 
 func selectDB(scope slice.Scope, override, projectDB, userDB string) string {
 	if override != "" {
-		return override
+		return config.ExpandHome(override)
 	}
 	if scope == slice.User {
-		return userDB
+		return config.ExpandHome(userDB)
 	}
-	return projectDB
+	return config.ExpandHome(projectDB)
 }

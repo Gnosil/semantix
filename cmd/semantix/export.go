@@ -21,7 +21,7 @@ func runExport(args []string, stdout io.Writer, deps dependencies) int {
 	db := fs.String("db", "", "database path override (default: project db)")
 	projectDB := fs.String("project-db", cfgString(deps.resolved, "store.db", defaultProjectDB()), "project/session database path")
 	userDB := fs.String("user-db", defaultUserDB(), "user database path")
-	scopeName := fs.String("scope", "project", "slice scope: session, project, or user")
+	scopeName := fs.String("scope", cfgString(deps.resolved, "store.scope", "project"), "slice scope: session, project, or user")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -34,7 +34,7 @@ func runExport(args []string, stdout io.Writer, deps dependencies) int {
 		fmt.Fprintf(stdout, "export: %v\n", err)
 		return 2
 	}
-	dbPath := selectDB(scope, *db, *projectDB, *userDB)
+	dbPath := selectConfiguredDB(fs, deps.resolved, scope, *db, *projectDB, *userDB)
 	store, err := deps.openStore(dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "export: open store: %v\n", err)

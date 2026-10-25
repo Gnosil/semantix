@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"semantix/kernel/config"
 	"semantix/kernel/inject"
 	"semantix/kernel/lookup"
 	"semantix/kernel/slice"
@@ -177,7 +178,7 @@ func runInject(args []string, stdout, stderr io.Writer, deps dependencies) error
 // storePath resolves the store path for a scope (mirrors search.go).
 func storePath(override, scope string) string {
 	if override != "" {
-		return override
+		return config.ExpandHome(override)
 	}
 	switch scope {
 	case "session":

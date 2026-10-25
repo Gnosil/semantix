@@ -122,7 +122,8 @@ semantix prune --scope project --project owner/repo --project-root /workspace/re
 semantix prune --scope project --apply          # 按执行时的当前状态重新生成并提交计划
 ```
 
-`--db` 显式指定库；project 默认使用 `store.db` 配置，user 默认使用 `~/.semantix/user.db`。
+`--db` 显式指定库；否则使用显式配置的 `store.db`（所有作用域一致）。
+未配置 `store.db` 时，project 默认使用 `.semantix/project.db`，user 默认使用 `~/.semantix/user.db`。
 即使一个文件混有多个 scope，也只清理选定范围。默认保护最近 30 天创建或使用的切片
 （`--recent-days`），年龄清理要求创建和最后使用均早于 90 天（`--older-than-days`）。
 已验证 Result、用户 curated/正向反馈、有用反馈、未知创建时间和缺少使用时间的旧命中记录均保留。
@@ -162,7 +163,23 @@ semantix import --input <archive-path> --db <database-path>
 
 ## 配置
 
-复制 `semantix.example.toml` 为 `semantix.toml` 并按需修改（当前 CLI 参数优先）。
+配置发现顺序为 `--config`（支持该参数的命令）→ `SEMANTIX_CONFIG` →
+当前目录 `semantix.toml` → `~/.semantix/semantix.toml`。显式指定的配置缺失或内容错误会报错。
+字段优先级为 CLI 参数 → 环境变量 → 配置文件 → 内置默认。
+
+不设置 `store.db` 时，读写命令按作用域选择默认库：project/session 使用 `.semantix/project.db`，
+user 使用 `~/.semantix/user.db`。设置 `store.db` 后，提取、检索和维护命令共用该路径，
+也支持 `~/`；相对路径仍相对于命令的当前目录。`--db` 优先于作用域路径参数
+（`--user-db` / `--project-db`），这些显式参数均优先于配置。
+`verify` 未指定或配置库时使用独立的 `.semantix/verify.db`，避免回放训练数据污染日常切片库。
+
+跨 Agent 共享可在 `~/.semantix/semantix.toml` 中设置：
+
+```toml
+[store]
+scope = "user"
+db = "~/.semantix/user.db"
+```
 
 ## 网关部署（Docker）
 

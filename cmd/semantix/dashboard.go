@@ -45,7 +45,7 @@ import (
 func runDashboard(args []string, stdout, stderr io.Writer, deps dependencies) int {
 	fs := flag.NewFlagSet("dashboard", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	configPath := fs.String("config", "", "config file path (default ./semantix.toml)")
+	configPath := fs.String("config", "", "config path (default ./semantix.toml, then ~/.semantix/semantix.toml)")
 	dbOverride := fs.String("db", "", "slice library path override (default: U20 config store.db)")
 	usagePath := fs.String("usage", filepath.Join(".semantix", "usage.jsonl"), "usage log path (default .semantix/usage.jsonl)")
 	jsonOut := fs.Bool("json", false, "write JSON envelope output")
@@ -81,14 +81,7 @@ func runDashboard(args []string, stdout, stderr io.Writer, deps dependencies) in
 		fmt.Fprintf(stderr, "dashboard: %v\n", err)
 		return code
 	}
-	db := *dbOverride
-	if db == "" {
-		if v, _, ok := res.Get("store.db"); ok {
-			if s, ok := v.(string); ok {
-				db = s
-			}
-		}
-	}
+	db := storePath(cfgString(res, "store.db", ""), cfgString(res, "store.scope", "project"))
 
 	data := dashboardPayload{}
 

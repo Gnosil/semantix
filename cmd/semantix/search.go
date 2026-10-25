@@ -102,7 +102,7 @@ func runSearch(args []string, stdout, stderr io.Writer, deps dependencies) error
 	if err != nil {
 		return err
 	}
-	dbPath := selectDB(scope, *dbOverride, *projectDB, *userDB)
+	dbPath := selectConfiguredDB(flags, deps.resolved, scope, *dbOverride, *projectDB, *userDB)
 	store, err := deps.openStore(dbPath)
 	if err != nil {
 		return fmt.Errorf("open store: %w", err)
@@ -223,4 +223,3 @@ func runSearch(args []string, stdout, stderr io.Writer, deps dependencies) error
 	writeHitsSummary(stdout, rows)
 	return nil
 }
-

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"semantix/kernel/config"
 	"semantix/kernel/slice"
 	"semantix/kernel/usage"
 )
@@ -73,7 +74,7 @@ type doctorEnvelope struct {
 func runDoctor(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("doctor", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	configPath := fs.String("config", "", "config file path (default: ./semantix.toml; skipped when absent)")
+	configPath := fs.String("config", "", "config path (default ./semantix.toml, then ~/.semantix/semantix.toml; skipped when absent)")
 	dbFlag := fs.String("db", "", "slice store path (overrides SEMANTIX_DB and [store] db)")
 	usageDB := fs.String("usage-db", filepath.Join(".semantix", "usage.jsonl"), "usage log for the L1 hit-rate check (missing = check skipped)")
 	jsonOutput := fs.Bool("json", false, "write the report as JSON (envelope per cli-v2-architecture §4.2)")
@@ -88,31 +89,23 @@ func runDoctor(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	// Config path: --config > SEMANTIX_CONFIG > default (not found = WARN).
-	cfgPath := *configPath
-	explicit := cfgPath != ""
-	if cfgPath == "" {
-		if v := os.Getenv("SEMANTIX_CONFIG"); v != "" {
-			cfgPath, explicit = v, true
-		} else {
-			cfgPath = "semantix.toml"
-		}
-	}
+	cfgPath, explicit := config.ResolvePath(*configPath)
 	cfgCheck, cfg := checkDoctorConfig(cfgPath, explicit)
-
-	// Store path: --db > SEMANTIX_DB > [store] db > scope default.
-	dbPath := *dbFlag
+	// Keep doctor's tolerant legacy parser for embed/judge diagnostics, but
+	// share config discovery and path expansion with normal commands.
+	dbPath, scope := *dbFlag, os.Getenv("SEMANTIX_SCOPE")
 	if dbPath == "" {
-		if v := os.Getenv("SEMANTIX_DB"); v != "" {
-			dbPath = v
-		} else if cfg != nil && cfg.db != "" {
+		dbPath = os.Getenv("SEMANTIX_DB")
+	}
+	if cfg != nil {
+		if dbPath == "" {
 			dbPath = cfg.db
-		} else if cfg != nil && cfg.scope == "user" {
-			dbPath = defaultUserDB()
-		} else {
-			dbPath = defaultProjectDB()
+		}
+		if scope == "" {
+			scope = cfg.scope
 		}
 	}
+	dbPath = storePath(dbPath, scope)
 
 	report := doctorReport{
 		Config: cfgPath,
@@ -481,7 +474,7 @@ func checkDoctorEmbedder(cfg *doctorConfig) doctorCheck {
 	missing := missingArgs(map[string]string{
 		"SEMANTIX_EMBED_BASE_URL (or [embed] base_url)": baseURL,
 		"SEMANTIX_EMBED_MODEL (or [embed] model)":       model,
-		"SEMANTIX_EMBED_API_KEY":                         key,
+		"SEMANTIX_EMBED_API_KEY":                        key,
 	})
 	switch len(missing) {
 	case 0:
@@ -553,7 +546,7 @@ func checkDoctorJudge(cfg *doctorConfig) doctorCheck {
 	missing := missingArgs(map[string]string{
 		"judge base_url ([judge] base_url)": baseURL,
 		"judge model ([judge] model)":       model,
-		"SEMANTIX_JUDGE_API_KEY":             key,
+		"SEMANTIX_JUDGE_API_KEY":            key,
 	})
 	if len(missing) > 0 {
 		return doctorCheck{

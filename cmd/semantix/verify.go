@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"semantix/kernel/adapt"
+	"semantix/kernel/config"
 	"semantix/kernel/judge"
 	"semantix/kernel/slice"
 	"semantix/kernel/usage"
@@ -426,7 +427,7 @@ func runVerify(args []string, stdout io.Writer, deps dependencies) int {
 	fs := flag.NewFlagSet("verify", flag.ContinueOnError)
 	var opt verifyOptions
 	fs.Var(stringListFlag{&opt.sessions}, "session", "session JSONL file or directory (repeatable)")
-	fs.StringVar(&opt.db, "db", cfgString(deps.resolved, "store.db", ""), "database path override (default: .semantix/project.db)")
+	fs.StringVar(&opt.db, "db", cfgString(deps.resolved, "store.db", ""), "database path override (default: configured store.db or .semantix/verify.db)")
 	fs.StringVar(&opt.project, "project", "", "project slug")
 	fs.Float64Var(&opt.holdout, "holdout", cfgFloat(deps.resolved, "verify.holdout", 0.3), "fraction of latest sessions reserved as replay stream (0-1)")
 	var scopeName string
@@ -475,6 +476,7 @@ func runVerify(args []string, stdout io.Writer, deps dependencies) int {
 		// training slices; keep a dedicated replay database.
 		opt.db = ".semantix/verify.db"
 	}
+	opt.db = config.ExpandHome(opt.db)
 
 	files, err := collectSessionFiles(opt.sessions)
 	if err != nil {
