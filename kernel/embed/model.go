@@ -3,10 +3,13 @@ package embed
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -54,6 +57,14 @@ func NewModelEmbedder(cfg ModelEmbedderConfig) (*ModelEmbedder, error) {
 // produced a vector.
 func (m *ModelEmbedder) Model() string {
 	return m.cfg.Model
+}
+
+// CacheKey binds stored vectors to the configured endpoint and model, without
+// persisting endpoint URLs or credentials. Rotate the model name when replacing
+// a model in place; an unchanged alias cannot reveal changed model weights.
+func (m *ModelEmbedder) CacheKey() string {
+	h := sha256.Sum256([]byte("l2-normalized-v1\x00" + strings.TrimRight(m.cfg.BaseURL, "/") + "\x00" + m.cfg.Model))
+	return hex.EncodeToString(h[:])
 }
 
 // Embed asks the remote endpoint for vectors and L2-normalizes them (the

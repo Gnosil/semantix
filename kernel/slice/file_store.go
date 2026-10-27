@@ -26,7 +26,7 @@ import (
 // compaction — n writes cost O(n) total instead of the old rewrite-per-Put
 // O(n²). State is loaded once at open and served from memory; embedding
 // vectors are kept as raw JSON bytes and never float-decoded on the read path
-// (nothing in the repo reads them — retrieval is BM25 over Content).
+// (vector search decodes them explicitly through EmbeddingCache).
 //
 // Design: docs/specs/slice-store-append-journal.md.
 type fileStore struct {
@@ -851,4 +851,19 @@ func cloneMtimes(m map[string]int64) map[string]int64 {
 		out[k] = v
 	}
 	return out
+}
+
+// ReadEmbedding returns detached raw JSON without changing the lazy List/Get
+// contract. Malformed vectors are validated by the retrieval consumer.
+func (s *fileStore) ReadEmbedding(id string) ([]byte, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return nil, os.ErrClosed
+	}
+	e := s.entries[id]
+	if e == nil {
+		return nil, nil
+	}
+	return append([]byte(nil), e.embRaw...), nil
 }

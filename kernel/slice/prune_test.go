@@ -217,3 +217,68 @@ func TestPruneMetadataOnlyAndRawSize(t *testing.T) {
 		t.Fatal("source not redacted")
 	}
 }
+
+// Simulate macOS's /var -> /private/var ancestor alias on every platform
+// supporting symlinks, while exercising the unchanged dependency safeguards.
+func TestPruneAcceptsSymlinkAncestor(t *testing.T) {
+	parent := t.TempDir()
+	realParent := filepath.Join(parent, "real")
+	root := filepath.Join(realParent, "project")
+	if err := os.MkdirAll(root, 0700); err != nil {
+		t.Fatal(err)
+	}
+	alias := filepath.Join(parent, "alias")
+	if err := os.Symlink(realParent, alias); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	outside := t.TempDir()
+	if err := os.Symlink(outside, filepath.Join(root, "escape")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "present"), []byte("exists"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	missing := pruneSlice("missing", 60)
+	missing.Meta.Deps = map[string]string{"gone": "old"}
+	present := pruneSlice("present", 60)
+	present.Meta.Deps = map[string]string{"present": "old"}
+	linked := pruneSlice("linked", 180)
+	linked.Meta.Deps = map[string]string{"escape/gone": "old"}
+	traversal := pruneSlice("traversal", 180)
+	traversal.Meta.Deps = map[string]string{"../gone": "old"}
+	result := prunePlan(t, PruneOptions{Project: "test/repo", ProjectRoot: filepath.Join(alias, "project")}, missing, present, linked, traversal)
+	if len(result.Candidates) != 1 || result.Candidates[0].ID != "missing" {
+		t.Fatalf("ancestor alias changed dependency containment: %+v", result)
+	}
+	if len(result.SkippedChecks) != 1 || result.SkippedChecks[0].Reason != "ambiguous_dependencies_retained" {
+		t.Fatalf("ambiguous dependencies not reported: %+v", result)
+	}
+}
+
+func TestPruneRejectsInvalidProjectRoot(t *testing.T) {
+	parent := t.TempDir()
+	realRoot := filepath.Join(parent, "real")
+	if err := os.Mkdir(realRoot, 0700); err != nil {
+		t.Fatal(err)
+	}
+	regularFile := filepath.Join(parent, "file")
+	if err := os.WriteFile(regularFile, []byte("file"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	paths := map[string]string{"file": regularFile, "missing": filepath.Join(parent, "missing")}
+	link := filepath.Join(parent, "link")
+	if err := os.Symlink(realRoot, link); err == nil {
+		paths["symlink"] = link
+		paths["symlink_trailing_separator"] = link + string(filepath.Separator)
+	} else {
+		t.Logf("symlink cases unavailable: %v", err)
+	}
+	for name, path := range paths {
+		t.Run(name, func(t *testing.T) {
+			_, err := planPrune(pruneEntries(pruneSlice("old", 180)), PruneOptions{Scope: Project, Project: "test/repo", ProjectRoot: path, Now: pruneNow})
+			if err == nil {
+				t.Fatal("accepted invalid project root")
+			}
+		})
+	}
+}

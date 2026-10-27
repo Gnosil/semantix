@@ -141,23 +141,15 @@ func runSearch(args []string, stdout, stderr io.Writer, deps dependencies) error
 		if err != nil {
 			return err
 		}
-		texts := make([]string, len(items))
-		for i, item := range items {
-			texts[i] = string(item.Content)
-		}
-		vecs, err := emb.Embed(texts)
+		vecs, qvec, err := searchVectors(emb, store, items, query, stderr)
 		if err != nil {
-			return fmt.Errorf("embed slices: %w", err)
+			return err
 		}
 		vi := embed.NewVectorIndex()
 		for i, item := range items {
 			vi.Insert(item.ID, vecs[i])
 		}
-		qvecs, err := emb.Embed([]string{query})
-		if err != nil {
-			return fmt.Errorf("embed query: %w", err)
-		}
-		vhits := vi.Search(qvecs[0], *limit)
+		vhits := vi.Search(qvec, *limit)
 		if *retriever == "vector" {
 			byID := map[string]*slice.Slice{}
 			for _, item := range items {

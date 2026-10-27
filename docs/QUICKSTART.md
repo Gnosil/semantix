@@ -64,6 +64,27 @@ semantix verify --session <会话目录> --project demo > eval.tsv
 # 逐行标 ✅/❌，命中率 = ✅/总行数
 ```
 
+### Model-vector reuse
+
+`search --retriever vector|hybrid --embedder model` reuses persisted vectors only
+when their endpoint/model identity, content hash and dimension match the current
+query embedding. Legacy vectors without complete provenance are recomputed once.
+Missing or corrupt vectors are computed in batches of at most 64 and cached in a
+`<store>.embeddings` sidecar directory (disposable, excluded from slice exports); the first query can therefore cost more than subsequent queries. Cache
+write failures warn but do not prevent retrieval. Normal BM25 and hash searches
+do not populate this cache.
+
+If any remote batch falls back or returns unusable vectors, the whole search uses
+hash vectors and prints a degradation warning. Hash similarity is not equivalent
+to model semantic quality. Fallback vectors are never written into this model
+cache. When replacing model weights behind an unchanged endpoint, change the
+model identifier too: an unchanged alias cannot identify a new vector space.
+The sidecar contains derived vectors, not source text. Cache entries are not
+included in exports and are not currently removed by slice deletion or pruning;
+remove `<store>.embeddings` when enforcing retention or reclaiming disk space.
+Removing it does not delete slices. Treat its vectors as private derived data.
+No provider-side prompt/KV caching is controlled by this feature.
+
 ## 命令参考
 
 命令树按四组组织，`semantix help` 按组列出全部命令；每个子命令
