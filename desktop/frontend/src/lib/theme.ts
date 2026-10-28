@@ -35,7 +35,7 @@ const LEGACY_STYLE_MAP: Record<string, ThemeStyle> = {
 };
 
 const DEFAULT_THEME_STYLE: ThemeStyle = "graphite";
-const DEFAULT_THEME: Theme = "auto";
+const DEFAULT_THEME: Theme = "light";
 
 const THEME_KEY = "semantix-theme";
 const STYLE_KEY = "semantix-theme-style";
@@ -216,10 +216,10 @@ function syncNativeWindowBackground(theme: Theme): void {
   if (!runtime?.WindowSetBackgroundColour) return;
   const resolved = getResolvedTheme(theme);
   if (resolved === "light") {
-    // Light shell: matches graphite --bg (#f4f3ef).
-    runtime.WindowSetBackgroundColour(244, 243, 239, 255);
+    // Light shell: matches the Semantix canvas.
+    runtime.WindowSetBackgroundColour(255, 255, 255, 255);
   } else {
-    // Dark shell: matches :root --bg (#090a0c).
-    runtime.WindowSetBackgroundColour(9, 10, 12, 255);
+    // Dark shell: matches the Semantix canvas.
+    runtime.WindowSetBackgroundColour(19, 24, 22, 255);
   }
 }

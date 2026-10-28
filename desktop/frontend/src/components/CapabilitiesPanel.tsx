@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ChevronDown, ChevronRight, CircleAlert, Folder, Plus, RefreshCw, Search, Server as ServerIcon } from "lucide-react";
+import { ArrowLeft, CircleAlert } from "./SemantixIcons";
+import { ChevronDown, ChevronRight, Folder, Plus, RefreshCw, Search, Server as ServerIcon } from "./SemantixIcons";
 import { asArray } from "../lib/array";
 import { app } from "../lib/bridge";
 import { activeWorkBusyNoticeText, installMCPServer } from "../lib/capabilityMutations";
@@ -1461,12 +1462,14 @@ function SkillRow({
   expanded,
   onToggle,
   onToggleEnabled,
+  onUse,
 }: {
   skill: SkillView;
   busy: boolean;
   expanded: boolean;
   onToggle: () => void;
   onToggleEnabled: (enabled: boolean) => void;
+  onUse?: () => void;
 }) {
   const t = useT();
   const summary = summarizeSkillDescription(skill.description);
@@ -1511,6 +1514,7 @@ function SkillRow({
         </Tooltip>
       </div>
       <div className="cap-skill-card__desc">{expanded ? skill.description : summary}</div>
+      {onUse && <button className="btn btn--small capability-workspace__use" type="button" disabled={busy || !skill.enabled} onClick={onUse}>{t("capability.useSkill")}</button>}
       {canExpand && (
         <button className="cap-skill-card__more" type="button" onClick={onToggle} aria-expanded={expanded}>
           {expanded ? t("common.collapse") : t("common.expand")}
@@ -3315,7 +3319,7 @@ export function MCPServersSettingsPage() {
 
 // SkillsSettingsPage is a self-contained skills management page embedded inside
 // the settings centre.
-export function SkillsSettingsPage({ activeWorkspaceKey = "" }: { activeWorkspaceKey?: string }) {
+export function SkillsSettingsPage({ activeWorkspaceKey = "", onUseSkill }: { activeWorkspaceKey?: string; onUseSkill?: (command: string) => void }) {
 	const t = useT();
 	const [snapshotKey, setSnapshotKey] = useState("");
 	const [view, setView] = useState<SkillsSettingsView | null>(null);
@@ -3387,6 +3391,18 @@ export function SkillsSettingsPage({ activeWorkspaceKey = "" }: { activeWorkspac
 
 	if (!view) return <div className="empty">{t("caps.loading")}</div>;
 	const actionBusy = busy || !snapshotKey;
+	const skillSources = (
+		<SkillSources
+				roots={view.skillRoots ?? []}
+				busy={actionBusy}
+				onAdd={() => mutate(async () => {
+					const path = await app.PickSkillFolder();
+					if (path) await app.AddSkillPath(path);
+				})}
+				onRefresh={() => mutate(() => app.RefreshSkills())}
+				onToggle={(path, enabled) => mutate(() => app.SetSkillPathEnabled(path, enabled))}
+				/>
+	);
 
 	return (
 		<section className="mem-section">
@@ -3400,7 +3416,7 @@ export function SkillsSettingsPage({ activeWorkspaceKey = "" }: { activeWorkspac
 					onChange={(e) => setSkillQuery(e.target.value)}
 				/>
 			</div>
-			<label className="provider-capability-row cap-skill-policy">
+			{!onUseSkill && <label className="provider-capability-row cap-skill-policy">
 				<span className="provider-capability-row__copy">
 					<span className="provider-capability-row__title">{t("caps.skillImplicitInvocation")}</span>
 					<span className="cap-skill-policy__hint">{t("caps.skillImplicitInvocationHint")}</span>
@@ -3413,17 +3429,8 @@ export function SkillsSettingsPage({ activeWorkspaceKey = "" }: { activeWorkspac
 					disabled={actionBusy}
 					onChange={(e) => void mutate(() => app.SetSkillImplicitInvocation(e.target.checked))}
 				/>
-			</label>
-			<SkillSources
-				roots={view.skillRoots ?? []}
-				busy={actionBusy}
-				onAdd={() => mutate(async () => {
-					const path = await app.PickSkillFolder();
-					if (path) await app.AddSkillPath(path);
-				})}
-				onRefresh={() => mutate(() => app.RefreshSkills())}
-				onToggle={(path, enabled) => mutate(() => app.SetSkillPathEnabled(path, enabled))}
-			/>
+			</label>}
+			{onUseSkill ? <details className="capability-workspace__sources"><summary>{t("capability.manageSources")}</summary>{skillSources}</details> : skillSources}
 			<div className="cap-skills-head">
 				<div className="cap-skills-head__copy">
 					<div className="cap-skills-head__title">{t("caps.skills")}</div>
@@ -3444,6 +3451,7 @@ export function SkillsSettingsPage({ activeWorkspaceKey = "" }: { activeWorkspac
 							expanded={expandedSkills.has(sk.name)}
 							onToggle={() => toggleSkill(sk.name)}
 							onToggleEnabled={(enabled) => void mutate(() => app.SetSkillEnabled(sk.name, enabled))}
+							onUse={onUseSkill ? () => onUseSkill(sk.invocation || `/${sk.name}`) : undefined}
 						/>
 					))}
 				</div>

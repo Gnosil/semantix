@@ -17,11 +17,11 @@ const embedBatch = 64
 // and stores them in Slice.Embedding, recording the embedder provenance
 // (model + dimension) in Slice.Meta. A remote failure inside ModelEmbedder
 // degrades to hash vectors (fail-soft), so this only errors when the
-// fallback itself fails.
+// fallback itself fails. A batch that fell back is recorded as "hash", not
+// as the remote model (Issue #512).
 //
 // Hash vectors are not persisted at all: they are deterministic functions of
-// Content (recomputable any time — search's vector/hybrid retrievers already
-// re-embed per query and never read the stored field), so writing them only
+// Content (recomputable any time), so writing them only
 // inflated every library line with 256 floats nothing ever read.
 func embedItems(emb embed.Embedder, items []*slice.Slice, kind string) error {
 	if kind == "hash" {
@@ -33,17 +33,36 @@ func embedItems(emb embed.Embedder, items []*slice.Slice, kind string) error {
 		for _, item := range items[start:end] {
 			texts = append(texts, string(item.Content))
 		}
-		vecs, err := emb.Embed(texts)
+		vecs, label, err := embedTexts(emb, texts, kind)
 		if err != nil {
 			return err
 		}
 		for j, v := range vecs {
 			items[start+j].Embedding = append([]float32(nil), v...)
-			items[start+j].Meta.EmbedModel = kind
+			items[start+j].Meta.EmbedModel = label
 			items[start+j].Meta.EmbedDim = len(v)
+			if remote, ok := emb.(*embed.ModelEmbedder); ok && label != "hash" && label == remote.Model() {
+				items[start+j].Meta.EmbedSource = remote.CacheKey()
+				items[start+j].Meta.EmbedContentHash = embeddingContentHash(items[start+j].Content)
+			}
 		}
 	}
 	return nil
+}
+
+// embedTexts embeds one batch and returns the label naming who produced the
+// vectors: the remote model, or "hash" when the remote call fell back.
+func embedTexts(emb embed.Embedder, texts []string, kind string) ([][]float32, string, error) {
+	remote, ok := emb.(*embed.ModelEmbedder)
+	if !ok {
+		vecs, err := emb.Embed(texts)
+		return vecs, kind, err
+	}
+	vecs, fellBack, err := remote.EmbedReport(texts)
+	if fellBack {
+		return vecs, "hash", err
+	}
+	return vecs, remote.Model(), err
 }
 
 // buildEmbedder constructs the CLI embedder from the --embedder flag.

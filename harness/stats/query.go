@@ -28,6 +28,7 @@ type ModelUsage struct {
 	Provider string  `json:"provider"`
 	Tokens   int64   `json:"tokens"`
 	Percent  float64 `json:"percent"` // 0..100
+	Requests int     `json:"requests,omitempty"`
 }
 
 // ProviderUsage is one provider's aggregate within the range (each provider
@@ -122,6 +123,9 @@ func (w *Writer) queryJSONL(f SourceFilter) (RangeStats, error) {
 		dayCacheMiss := int64(0)
 		dayActive := false
 		for _, rec := range recs {
+			if rec.Kind != "" {
+				continue
+			}
 			if !matchesSource(rec.Source, f.Source) {
 				continue
 			}

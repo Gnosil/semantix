@@ -16,6 +16,11 @@ import { initTypographyPreferences } from "./lib/typographyPreferences";
 import { initTheme } from "./lib/theme";
 import { initConversationWidth } from "./lib/conversationWidth";
 import appShellStylesheetURL from "./styles.css?url";
+import brandStylesheetURL from "./styles/semantix-brand.css?url";
+import composerStylesheetURL from "./styles/composer-polish.css?url";
+import contextStylesheetURL from "./styles/context-polish.css?url";
+import onboardingStylesheetURL from "./styles/onboarding-brand.css?url";
+import usageStylesheetURL from "./styles/usage-overview.css?url";
 
 // Install first so startup/runtime failures paint a useful error instead of a
 // featureless webview background, with the recent console trail attached.
@@ -93,14 +98,16 @@ async function mountApp() {
     await preloadDetectedLocale();
   };
   const stylesResult = await Promise.allSettled([
-    new Promise<void>((resolve, reject) => {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = appShellStylesheetURL;
-      link.onload = () => resolve();
-      link.onerror = () => reject(new Error(`failed to load desktop stylesheet: ${appShellStylesheetURL}`));
-      document.head.appendChild(link);
-    }),
+    Promise.all([appShellStylesheetURL, brandStylesheetURL, composerStylesheetURL, contextStylesheetURL, onboardingStylesheetURL, usageStylesheetURL].map((url) =>
+      new Promise<void>((resolve, reject) => {
+        const link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.href = url;
+        link.onload = () => resolve();
+        link.onerror = () => reject(new Error(`failed to load desktop stylesheet: ${url}`));
+        document.head.appendChild(link);
+      }),
+    )),
     preloadLocaleForMount(),
   ]);
   const [styleResult, localeResult] = stylesResult;

@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
-import { Check, ChevronDown, Play } from "lucide-react";
+import { Play } from "./SemantixIcons";
+import { Check, ChevronDown } from "./SemantixIcons";
 import { AnchoredPopover } from "./AnchoredPopover";
 import { useT } from "../lib/i18n";
 import type { DictKey } from "../lib/i18n";

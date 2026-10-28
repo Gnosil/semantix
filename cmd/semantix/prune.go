@@ -12,7 +12,7 @@ import (
 func runPrune(args []string, stdout, stderr io.Writer, deps dependencies) error {
 	fs := flag.NewFlagSet("prune", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	scope := fs.String("scope", "project", "slice scope: project or user")
+	scope := fs.String("scope", cfgString(deps.resolved, "store.scope", "project"), "slice scope: project or user")
 	apply := fs.Bool("apply", false, "archive and atomically delete candidates (requires all store handles closed)")
 	dryRun := fs.Bool("dry-run", false, "read-only preview (the default)")
 	older := fs.Int("older-than-days", 90, "minimum age and inactivity in days (1..3650000)")
@@ -44,12 +44,10 @@ func runPrune(args []string, stdout, stderr io.Writer, deps dependencies) error 
 		sc = slice.User
 	}
 	path := *db
-	if path == "" && sc == slice.Project {
-		path = cfgString(deps.resolved, "store.db", defaultProjectDB())
-	}
 	if path == "" {
-		path = defaultUserDB()
+		path = cfgString(deps.resolved, "store.db", "")
 	}
+	path = storePath(path, *scope)
 	res, err := slice.PruneFile(path, slice.PruneOptions{Scope: sc, Apply: *apply, OlderThanDays: *older, RecentDays: *recent, Project: *project, ProjectRoot: *root})
 	if err != nil {
 		if *jsonOut {

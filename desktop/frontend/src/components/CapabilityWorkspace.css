@@ -1,0 +1,31 @@
+.chat-pane--conversation[hidden] { display:none !important; }
+.capability-workspace { background:var(--bg); font-family:var(--font-ui); }
+.capability-workspace__bar { flex:none; height:var(--topicbar-height); display:flex; align-items:center; justify-content:space-between; padding:0 24px; border-bottom:1px solid var(--border-soft); --wails-draggable:drag; }
+.capability-workspace__bar button { display:flex; gap:8px; align-items:center; padding:6px 0; background:transparent; border:0; color:var(--fg-dim); font:400 12px var(--font-ui); cursor:pointer; --wails-draggable:no-drag; }
+.capability-workspace__bar button:hover { color:var(--sx-accent); }
+.capability-workspace__bar > span { color:var(--fg-muted); font-size:11px; }
+.capability-workspace__content { min-height:0; overflow:auto; padding:36px clamp(24px,4vw,64px) 60px; }
+.capability-workspace__content > * { max-width:1000px; margin-inline:auto; }
+.capability-workspace__intro { display:flex; align-items:flex-start; gap:16px; margin-bottom:28px; }
+.capability-workspace__intro [data-semantix-art] { flex:none; color:var(--sx-accent); margin-top:3px; }
+.capability-workspace__intro h1 { margin:0; color:var(--fg); font:400 25px/1.2 var(--font-ui); }
+.capability-workspace__intro h1:focus { outline:none; }
+.capability-workspace__intro p { margin:8px 0 0; color:var(--fg-muted); font:400 12px/1.7 var(--font-ui); }
+.capability-workspace__sources { margin:12px 0 22px; }
+.capability-workspace__sources summary { color:var(--sx-accent); font:400 12px/1.6 var(--font-ui); cursor:pointer; width:fit-content; padding:4px 0; margin-bottom:8px; }
+.capability-workspace .cap-skills { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(290px,100%),1fr)); gap:14px; }
+.capability-workspace .cap-skill-card { background:var(--bg); border-radius:4px; box-shadow:none; }
+.capability-workspace .cap-switch input:checked + .cap-switch__track { background:var(--sx-accent); }
+.capability-workspace .cap-skill-badge--project { color:var(--sx-accent); background:var(--bg); border-radius:3px; }
+.capability-workspace .cap-skill-card__command { font:500 13px/1.5 var(--font-ui); color:var(--fg); }
+.capability-workspace .cap-skill-card__desc { font:400 12px/1.7 var(--font-ui); }
+.capability-workspace .bot-channel-manager-card__head { display:none; }
+.capability-workspace :is(.bot-channel-setup-card,.bot-connect-panel,.bot-channel-tab,.cap-mcp-list) { background:var(--bg); border-radius:4px; box-shadow:none; }
+.capability-workspace .bot-channel-tab--active { background:var(--bg); border-color:var(--sx-accent); }
+.capability-workspace .bot-channel-tab--active strong { color:var(--sx-accent); }
+.capability-workspace :is(.bot-channel-tab__icon,.cap-mcp-list-row__icon) { background:transparent; border:0; color:var(--sx-accent); border-radius:0; box-shadow:none; }
+.capability-workspace .bot-connection-warning { background:var(--bg); border-radius:4px; border-color:var(--border); }
+.capability-workspace :is(.bot-channel-tab__dot--online,.cap-mcp-list-row__dot--connected) { background:var(--sx-accent); box-shadow:none; }
+.capability-workspace strong { font-weight:500; }
+.capability-workspace .capability-workspace__use { margin-top:12px; color:var(--sx-accent); border-color:var(--border); background:transparent; border-radius:4px; }
+:root[data-theme-style] .app .sidebar .sidebar__quick-action[aria-current="page"] { color:var(--sx-accent); background:var(--sx-hover); }

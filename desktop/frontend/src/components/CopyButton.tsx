@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy } from "./SemantixIcons";
 import { useT } from "../lib/i18n";
 
 function fallbackCopyText(value: string): boolean {

@@ -342,3 +342,13 @@ freshness 的运行条件与三种版本拒因见 §6.2，后续范围见 §7 / 
 - [x] 批次受影响五包（kernel/slice、kernel/inject、harness/semantix、gateway、cmd/semantix）Windows 串行全绿；vet 通过。
 - [x] Linux 原生 race 已补（当地时间 2026-09-24 晚、UTC 已跨入 09-25；用户授权后在 WSL Ubuntu 24.04 安装 go1.26.5）：`go test -race ./harness/semantix ./kernel/... ./harness/agent -count=1` 于 e7baff6f 全绿（含 invoice e2e 在 Linux 真实 python3 下通过），零数据竞争；输出存 `lab/issue-447-admission-repair-20260924/closure/LINUX-RACE.txt`。同日已移除 Windows python3/python Store 存根并在 D:\python 落位真实 python3.exe，Windows 侧 invoice e2e 亦通过。全量 `go test ./...` 中其余批次外包失败仍维持 pristine BASE 归因结论（symlink 权限/终端类，BASE 同样失败）；gateway e2e 在 Windows 整包模式下另有一类"Close 后文件重建"的 TempDir 清理竞态（断言全过、受害者轮换、复跑即绿、Linux race 下未见），judge 助手侧的 ingestWG join 已补（`04445ce1`），其余记录为存量待查。
 - [x] 协作遗留同步落盘：round-2 测试清理 `204e8d9a`、文档 `5c8f4b7f`（F1/F2/F4 合并提交，S6–S9 提交交错所致，偏离四分步原计划的说明见 VERIFICATION.txt 第六节）。
+
+### 9.11 S10 — Context-only 准入成为 strict 默认（2026-09-28，issue #508）
+
+文件：`harness/semantix/bridge.go`、`harness/config/config.go`、`harness/config/render.go`、`harness/boot/boot.go` 与 `harness/semantix` 测试。
+
+- [x] 依据：#508 预注册判读（评论 5853505820 规则、终判 5855316044）——R1/R2 两轮冻结子集配对复现中 Context-only 臂各 +3 净胜且 resolve 率居首、经济性在 ±10% 内；Memory（plan-skeleton/outcome）卡占注入字节 18% 无 resolve 效应，混合类型臂两轮平价。预注册规则 1 触发，建议落地，用户 2026-09-28 授权。
+- [x] `strictAllowedTypes` 默认收窄为 `Context` 单类；新增 `[semantix] admission_types`（slice wire 名列表）供显式放宽/收窄。未知名剔除、解析后为空回落默认——错字只会收窄或回落，不可能放宽。`result` 显式启用时仍需宿主验证；预算默认维持 4096，与胜臂一致。
+- [x] 隔离下游门禁语义的既有测试（task 标签保留、probation Result、跨动作窗口填充、小库 type/status 链）改为显式 `AdmissionTypes` 选择加入，其判别阻塞仍是各自门禁而非白名单；新增默认值断言（Memory/Result `type_not_allowed`、Context 注入）与错字回落回归。
+- 验收（WSL Ubuntu go1.26.5）：`go test ./kernel/inject ./harness/semantix ./harness/eventwire -count=1`、`go test ./harness/config -count=1`、`go test ./harness/agent -run TestShadowRetrievalKeepsProviderMessagesByteIdenticalToOff -count=1`、`go test ./harness/boot -count=1` 全绿。
+- Commit：`73b6d5cb`（实现）、`d0718aeb`（测试）、本提交（文档）。回退：单 revert `73b6d5cb` 即恢复三类型默认；实验复现口径见报告 §10。

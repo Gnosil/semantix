@@ -29,7 +29,7 @@ func TestLoadDefaults(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 	assertField(t, r, "project.name", "my-project", SourceDefault)
-	assertField(t, r, "store.db", ".semantix/project.db", SourceDefault)
+	assertField(t, r, "store.db", "", SourceDefault)
 	assertField(t, r, "store.scope", "project", SourceDefault)
 	assertField(t, r, "retrieval.retriever", "hybrid", SourceDefault)
 	assertField(t, r, "retrieval.limit", 5, SourceDefault)
@@ -87,7 +87,7 @@ func TestLoadEnvEmptyStringFallsThrough(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	assertField(t, r, "store.db", ".semantix/project.db", SourceDefault)
+	assertField(t, r, "store.db", "", SourceDefault)
 }
 
 func TestLoadFlagOverrides(t *testing.T) {
@@ -175,7 +175,7 @@ func TestLoadDefaultMissingFileSkipped(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	assertField(t, r, "store.db", ".semantix/project.db", SourceDefault)
+	assertField(t, r, "store.db", "", SourceDefault)
 }
 
 func TestLoadZoneThresholdsFromFile(t *testing.T) {

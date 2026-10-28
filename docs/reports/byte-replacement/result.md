@@ -1,0 +1,76 @@
+# GLM-5.3-Flash byte-replacement comparison — 2026-09-28
+
+Three synthetic, explicitly managed project-context questions were run through
+the official GLM Coding Plan Chat Completion endpoint using `glm-5.3-flash`.
+Each question used the same model, system policy, output limit and sampling
+settings in all arms. Arm B adds the actual Semantix L2 block rendered by
+`kernel/inject.Injector.BuildHits`; arm D replaces the bounded source context
+with compact JSON retaining every field and value. The nine requests, answers
+and provider usage records are in `comparison-5.3-flash-plan.jsonl`.
+
+| Arm | Correct | Prompt | Cached prompt | Noncached prompt | Completion | Total |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| A original context | 3/3 | 640 | 256 | 384 | 357 | 997 |
+| B original + L2 injection | 3/3 | 1241 | 448 | 793 | 480 | 1721 |
+| D replacement | 3/3 | 533 | 128 | 405 | 409 | 942 |
+
+D used **57.1% fewer provider-reported input tokens than B** and **16.7%
+fewer than A**. Total input plus output tokens fell 45.3% versus B. The
+cached and noncached input counts and completion count also each fell versus
+B. The provider did not report a monetary charge or Coding Plan point cost,
+so this report does not claim a measured currency or plan-quota saving. Under
+the same nonnegative per-token rates by category, D's aggregate charge would
+be lower than B's; no such conclusion follows versus A because D used more
+noncached input and completion tokens than A.
+
+This is one small structured-context run, not proof that arbitrary prose,
+tool outputs, conflicting facts or multi-turn tasks retain their behavior.
+The runner does not change Semantix production request assembly. A real
+replacement path still needs a managed source block and fail-open handling at
+`context.prepare`, with the saved transcript unchanged.
+
+The earlier attempt on the ordinary API endpoint returned HTTP 429 / code
+1113; its failed request remains in `comparison-5.3-flash.jsonl`. GLM Coding
+Plan uses a separate endpoint. Official model and endpoint references:
+https://docs.bigmodel.cn/cn/guide/models/vlm/glm-5.3-flash and
+https://docs.bigmodel.cn/cn/coding-plan/quick-start.
+
+## Earlier GLM-4.7 pilot
+
+The numbers below came from GLM-4.7 and must not be presented as
+GLM-5.3-Flash results.
+
+Three synthetic, explicitly managed project-context questions were sent through
+the official `open.bigmodel.cn` chat endpoint. Each task used identical model,
+policy, question, output limit and temperature across the three arms. Arm B's
+extra message was assembled by Semantix `kernel/inject.Injector.BuildHits`; arm D
+replaced the bounded source context with compact JSON retaining every field and
+value. Raw requests, answers and provider usage are in `comparison.jsonl`.
+
+| Arm | Correct / 3 | Prompt tokens | Cached | Completion tokens |
+| --- | ---: | ---: | ---: | ---: |
+| A original context | 3 | 619 | 0 | 103 |
+| B original + L2 injection | 3 | 1220 | 0 | 103 |
+| D replacement | 3 | 512 | 0 | 103 |
+
+Replacement reduced provider-reported input tokens by **58.0% versus current
+injection** and **17.3% versus no injection**. This improvement came from
+removing duplicate context and compact serialization, not cache reuse. With
+equal output tokens, no cache hit, and identical model tariff, D is cheaper
+than both A and B. Using the repository's August 2026 official-pricing snapshot
+for this GLM-4.7 length tier (¥2 per million input; ¥8 per million output),
+the estimated total for these three requests is ¥0.003264 (B), ¥0.002062 (A),
+and ¥0.001848 (D): **43.4% less than B, 10.4% less than A**. These are
+conditional tariff estimates, not verified account charges or current tariff.
+
+This result supports the narrow mechanism: an already available, fully
+structured context block can be replaced with the same facts and save tokens.
+It does not show equivalent behavior for arbitrary prose, mixed tool output,
+conflicting facts, or multi-turn work. The script does not modify Semantix's
+production request assembly. Extending it would require a real managed block
+and a fail-open path at `context.prepare`, with the original transcript kept.
+
+Pricing snapshot: `docs/reports/glm-spike-week.md` (section 4). Official API
+reference: https://docs.bigmodel.cn/cn/guide/develop/http/introduction.
+Coding Plan endpoint and tool scope:
+https://docs.bigmodel.cn/cn/coding-plan/quick-start.

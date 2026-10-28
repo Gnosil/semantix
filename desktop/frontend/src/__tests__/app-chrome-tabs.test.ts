@@ -5,6 +5,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createBoundedRefreshCoordinator, sameTabMetaLists, shouldRefreshTabMetaForEvent, tabMetaFallbackDelay } from "../lib/tabMetaRefresh";
 import type { TabMeta } from "../lib/types";
+import { useLayoutStore } from "../store/layout";
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 const appSource = readFileSync(resolve(testDir, "../App.tsx"), "utf8"), workspaceFocusSource = readFileSync(resolve(testDir, "../lib/workspaceRefreshStore.ts"), "utf8");
@@ -18,7 +19,6 @@ const controllerSource = readFileSync(resolve(testDir, "../lib/useController.ts"
 const bridgeSource = readFileSync(resolve(testDir, "../lib/bridge.ts"), "utf8");
 const workspacePanelSource = readFileSync(resolve(testDir, "../components/WorkspacePanel.tsx"), "utf8");
 const rewindCommitSource = readFileSync(resolve(testDir, "../lib/rewindCommit.ts"), "utf8");
-const layoutStoreSource = readFileSync(resolve(testDir, "../store/layout.ts"), "utf8");
 const stylesSource = readFileSync(resolve(testDir, "../styles.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
 
 let passed = 0;
@@ -277,13 +277,7 @@ ok(
   "classic tabbar controls and tab gaps remain interactive no-drag regions",
 );
 
-ok(
-  /workspaceFloatOpen:\s*false/.test(layoutStoreSource) &&
-    /workspaceFloatWidth:\s*loadWorkspaceFloatWidth\(\)/.test(layoutStoreSource) &&
-    /export function saveWorkspaceFloatWidth\(width: number\)/.test(layoutStoreSource) &&
-    !/semantix\.workspacePanel\.open/.test(layoutStoreSource),
-  "floating workspace starts closed on every launch and only persists its width",
-);
+ok(!useLayoutStore.getState().workspacePanelOpen, "right dock starts hidden on launch");
 
 ok(
   finalDeclaration(".app-chrome__tab-strip", "overflow") === "hidden",
@@ -511,7 +505,7 @@ ok(
     /!sidebarImDetailConnection/.test(appSource) &&
     /!transcriptHydrating/.test(appSource) &&
     /!hydratePlaceholderActive/.test(appSource) &&
-    /chat-pane\$\{creationEmptyHero \? " chat-pane--creation-empty" : ""\}/.test(appSource) &&
+    /chat-pane chat-pane--conversation\$\{creationEmptyHero \? " chat-pane--creation-empty" : ""\}/.test(appSource) &&
     /heroMode=\{creationEmptyHero\}/.test(appSource),
   "Creation empty hero waits for hydration and skips IM/Bot detail panels",
 );
@@ -613,6 +607,16 @@ for (const selector of [
   );
 }
 
+for (const selector of [
+  ".app--windows-frameless .app-chrome--native-tabs .app-chrome__panel-toggle--right",
+  ":root[data-theme-style] .app--windows-frameless .app-chrome--native-tabs .app-chrome__panel-toggle--right",
+]) {
+  ok(
+    finalDeclaration(selector, "right") === "calc(var(--windows-frameless-titlebar-tools-offset) + 8px)",
+    `${selector} stays fixed outside the Windows window controls`,
+  );
+}
+
 ok(
   finalDeclaration(".app--windows-frameless:not(.app--workbench):not(.app--creation) .app-chrome--native-tabs .app-chrome__drag-rail", "--wails-draggable") === "drag" &&
     finalDeclaration(".app--windows-frameless:not(.app--workbench):not(.app--creation) .app-chrome--native-tabs .app-chrome__drag-rail", "right")?.includes("--windows-window-controls-safe") &&
@@ -661,8 +665,78 @@ ok(
 );
 
 ok(
-  /@media \(max-width: 820px\) \{[\s\S]*\.app--darwin \.layout--workbench-chrome-hidden \.topicbar\s*\{[\s\S]*padding-left:\s*96px;/.test(stylesSource),
+  finalDeclaration(".app--darwin .layout--workbench-chrome-hidden.layout--workspace-maximized .workbench-dock__tools", "padding-left") === "96px",
+  "macOS maximized workbench dock leaves safe space for inset window controls",
+);
+
+ok(
+  /@media \(max-width: 820px\) \{[\s\S]*\.app--darwin \.layout--workbench-chrome-hidden \.topicbar\s*\{[\s\S]*padding-left:\s*96px;/.test(stylesSource) &&
+    /@media \(max-width: 820px\) \{[\s\S]*\.app--darwin \.layout--workbench-chrome-hidden\.layout--workspace-maximized \.workbench-dock__tools\s*\{[\s\S]*padding-left:\s*96px;/.test(stylesSource),
   "macOS workbench keeps safe space when responsive CSS hides the sidebar",
+);
+
+ok(
+  finalDeclaration(".workbench-dock__tools", "--wails-draggable") === "drag" &&
+    finalDeclaration(".workbench-dock__tabs", "--wails-draggable") === "no-drag" &&
+    finalDeclaration(".workbench-dock__tab", "--wails-draggable") === "no-drag",
+  "maximized workbench dock keeps a draggable title region while tabs remain clickable",
+);
+
+ok(
+  finalDeclaration(":root[data-theme-style] .workbench-dock__tab--active::after", "bottom") === "1px",
+  "active dock underline stays inside the visible dock edge",
+);
+
+for (const selector of [
+  ".app--classic .workbench-dock__tab + .workbench-dock__tab::before",
+  ".app--workbench .workbench-dock__tab + .workbench-dock__tab::before",
+]) {
+  ok(
+    finalDeclaration(selector, "width") === "1px" &&
+      finalDeclaration(selector, "height") === "16px" &&
+      finalDeclaration(selector, "background")?.includes("--border-soft"),
+    `${selector} renders a restrained divider between right-dock tabs`,
+  );
+}
+
+ok(
+  finalDeclaration(".app--creation .workbench-dock__tab + .workbench-dock__tab::before", "content") === undefined,
+  "Creation right-dock tabs keep their equal-column treatment without dividers",
+);
+
+for (const selector of [
+  ".app--windows-frameless.app--workbench .workbench-dock__tools",
+  ":root[data-theme-style] .app--windows-frameless.app--workbench .workbench-dock__tools",
+]) {
+  const padding = finalDeclaration(selector, "padding") ?? "";
+  ok(
+    finalDeclaration(selector, "height") === "calc(40px + var(--windows-window-controls-height))" &&
+      padding === "var(--windows-window-controls-height) 12px 0" &&
+      !padding.includes("--windows-window-controls-safe"),
+    `${selector} keeps dock tabs on a full-width row below Windows controls`,
+  );
+}
+
+for (const selector of [
+  ".app--windows-frameless.app--workbench .workbench-dock__tools::before",
+  ":root[data-theme-style] .app--windows-frameless.app--workbench .workbench-dock__tools::before",
+]) {
+  ok(
+    finalDeclaration(selector, "top") === "calc(var(--windows-window-controls-height) - 1px)" &&
+      finalDeclaration(selector, "height") === "1px",
+    `${selector} separates the Windows title row from the dock tabs`,
+  );
+}
+
+ok(
+  finalDeclaration(".app--windows-frameless:not(.app--workbench) .workbench-dock__tools", "padding-right") === undefined &&
+    finalDeclaration(":root[data-theme-style] .app--windows-frameless:not(.app--workbench) .workbench-dock__tools", "padding-right") === undefined,
+  "classic dock tabs do not reserve native window-control space on their separate chrome row",
+);
+
+ok(
+  /@container \(max-width: 420px\) \{[\s\S]*?\.app--classic \.workbench-dock__tab,[\s\S]*?\.app--workbench \.workbench-dock__tab,[\s\S]*?padding-left:\s*10px;[\s\S]*?padding-right:\s*10px;[\s\S]*?gap:\s*4px;/.test(stylesSource),
+  "classic and workbench share the same compact four-tab spacing at narrow dock widths",
 );
 
 for (const selector of [

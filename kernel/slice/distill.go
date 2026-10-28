@@ -94,8 +94,13 @@ func parseDistillDoc(data []byte) (*distillDoc, error) {
 		}
 		switch {
 		case dl.Role == "user":
-			if doc.userText == "" && strings.TrimSpace(dl.Content) != "" {
-				doc.userText = dl.Content
+			// The host may wrap the task in instructions before handing it
+			// over, in which case `content` is the wrapper and `raw_content`
+			// is what the operator actually asked. Prefer the latter so the
+			// outcome card summarises the task and not the scaffolding
+			// (#536). The extraction path does the same in promptSlice().
+			if text := storedContent(dl); doc.userText == "" && strings.TrimSpace(text) != "" {
+				doc.userText = text
 			}
 		case dl.Role == "assistant":
 			verificationLines = append(verificationLines, dl)

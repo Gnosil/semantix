@@ -89,6 +89,11 @@ type CostQuote struct {
 	IncompleteReason   string `json:"incompleteReason,omitempty"`
 	LegacyEstimate     bool   `json:"legacyEstimate,omitempty"`
 	CatalogSource      string `json:"catalogSource,omitempty"`
+	// CacheReadDiscounts compares cached reads with the same requests billed at
+	// their occurrence-time uncached input rate. It excludes cache write premiums,
+	// context compression and subscription fees; it is not net product savings.
+	CacheReadDiscounts        []Money `json:"cacheReadDiscounts,omitempty"`
+	CacheReadDiscountComplete bool    `json:"cacheReadDiscountComplete,omitempty"`
 }
 
 // Valuation is one currency view of a cost fact.
@@ -194,6 +199,7 @@ func BuildQuote(in QuoteInput) CostQuote {
 		state.addTargetValuation(target)
 	}
 	state.selectDisplay()
+	state.quote.CacheReadDiscounts, state.quote.CacheReadDiscountComplete = cacheReadDiscount(in, state.quote.CostComplete)
 	return state.quote
 }
 
@@ -428,7 +434,9 @@ func AggregateQuotes(quotes []CostQuote, display string) CostQuote {
 	for _, quote := range quotes {
 		accumulator.add(quote)
 	}
-	return accumulator.finish()
+	out := accumulator.finish()
+	out.CacheReadDiscounts, out.CacheReadDiscountComplete = mergeCacheReadDiscounts(quotes...)
+	return out
 }
 
 type quoteAccumulator struct {

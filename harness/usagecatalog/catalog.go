@@ -333,6 +333,7 @@ func insertRecord(ctx context.Context, tx *sql.Tx, receipt AppendReceipt, entry 
 }
 
 type rawRecord struct {
+	Kind       string    `json:"kind"`
 	Timestamp  time.Time `json:"ts"`
 	ModelRef   string    `json:"model"`
 	Source     string    `json:"source"`
@@ -395,7 +396,7 @@ func (c *Catalog) ReconcileFile(ctx context.Context, path, day string) error {
 				var raw rawRecord
 				if json.Unmarshal([]byte(trimmed), &raw) != nil {
 					corrupt++
-				} else {
+				} else if raw.Kind == "" {
 					hash := sha256.Sum256([]byte(trimmed))
 					receipt := AppendReceipt{Path: path, Day: day, Offset: offset, Length: len(line), LineHash: hex.EncodeToString(hash[:])}
 					if err := insertRecord(ctx, tx, receipt, entryFromRaw(day, raw)); err != nil {

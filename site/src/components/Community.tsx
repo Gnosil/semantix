@@ -1,8 +1,12 @@
 "use client";
 
+import { translate as t, type LocaleProps, type Locale } from "@/lib/i18n";
+
 import { useEffect, useState } from "react";
 import Image from "next/image";
 
+import { TextReveal } from "@/components/ui/text-reveal";
+import { ScrollScene, ScrollLayer } from "@/components/ScrollScene";
 import Reveal from "@/components/Reveal";
 import { siteIdentity } from "@/lib/site-identity";
 
@@ -17,17 +21,18 @@ const initialContributors = [
 ];
 const repo = siteIdentity.repositoryUrl;
 
-const communityLinks = [
-  { label: "验证方法", href: `${repo}/blob/main/docs/QUICKSTART.md` },
-  { label: "技术讨论", href: `${repo}/issues` },
+const getCommunityLinks = (locale: Locale) => [
+  { label: t(locale, "验证方法"), href: `${repo}/blob/main/docs/QUICKSTART.md` },
+  { label: t(locale, "技术讨论"), href: `${repo}/issues` },
   {
-    label: "安全边界",
+    label: t(locale, "安全边界"),
     href: `${repo}/blob/main/docs/Security-安全设计.md`,
   },
-  { label: "贡献指南", href: `${repo}/blob/main/CONTRIBUTING.md` },
+  { label: t(locale, "贡献指南"), href: `${repo}/blob/main/CONTRIBUTING.md` },
 ];
 
-export default function Community() {
+export default function Community({ locale = "zh-CN" }: LocaleProps) {
+  const communityLinks = getCommunityLinks(locale);
   const [contributors, setContributors] = useState(initialContributors);
   const [syncStatus, setSyncStatus] = useState<"loading" | "synced" | "unavailable">("loading");
 
@@ -80,20 +85,19 @@ export default function Community() {
         <div>
           <div className="flex items-center justify-between gap-6 pb-4">
             <p className="font-mono text-[10px] font-semibold tracking-[0.24em] text-[#168b6d]">
-              Community 社区
-            </p>
+              {t(locale, "Community 社区")}</p>
           </div>
 
           <div className="pt-9 md:pt-11">
-            <div className="mx-auto max-w-[60rem] text-center">
-              <h2 className="font-brand-display mx-auto max-w-none text-[clamp(2rem,3.4vw,2.75rem)] font-black leading-[1.08] tracking-[-0.045em] text-[#111411] md:whitespace-nowrap">
-                所有贡献，都应留下可复核的路径。
-              </h2>
+            <ScrollScene className="mx-auto max-w-[60rem] text-center">
+              <h2 className="font-brand-display mx-auto max-w-none text-[clamp(2rem,3.4vw,2.75rem)] font-black leading-[1.08] tracking-[-0.045em] text-[#111411]">
+                <TextReveal by={locale === "en" ? "word" : "character"}>{t(locale, "所有贡献，都应留下可复核的路径。")}</TextReveal></h2>
+              <ScrollLayer from={0.22} to={0.68} rise={24}>
               <p className="mx-auto mt-4 max-w-[38rem] text-sm leading-7 text-[#111411]/62 md:text-base md:leading-8">
-                Semantix 在 GitHub 公开开发。每个 Issue、PR
-                与验证结果，都应留下可检查的输入、方法和结论。
-              </p>
-              <nav aria-label="社区参与入口" className="mt-4">
+                {t(locale, "Semantix 在 GitHub 公开开发。每个 Issue、PR 与验证结果，都应留下可检查的输入、方法和结论。")}</p>
+              </ScrollLayer>
+              <ScrollLayer from={0.32} to={0.84} rise={18}>
+              <nav aria-label={t(locale, "社区参与入口")} className="mt-4">
                 <ul className="flex list-none flex-wrap justify-center gap-x-6 gap-y-1 p-0">
                   {communityLinks.map((link) => (
                     <li key={link.href}>
@@ -109,7 +113,8 @@ export default function Community() {
                   ))}
                 </ul>
               </nav>
-            </div>
+              </ScrollLayer>
+            </ScrollScene>
           </div>
         </div>
 
@@ -119,12 +124,11 @@ export default function Community() {
         >
           <div className="mt-12 text-center md:mt-14">
             <p className="font-brand-display text-lg font-black tracking-[-0.035em] md:text-xl">
-              贡献者
-            </p>
+              {t(locale, "贡献者")}</p>
           </div>
 
           <div
-            aria-label="Semantix 历史提交贡献者"
+            aria-label={t(locale, "Semantix 历史提交贡献者")}
             className="mx-auto mt-8 flex max-w-[70rem] flex-wrap justify-center gap-5 md:gap-7"
           >
             {contributors.map((login) => (
@@ -152,10 +156,10 @@ export default function Community() {
 
           <p className="mt-5 text-center text-xs leading-5 text-[#111411]/55">
             {syncStatus === "synced"
-              ? `已同步 GitHub 历史提交贡献者，共 ${contributors.length} 人；打开页面时自动更新。`
+              ? t(locale, "已同步 GitHub 历史提交贡献者，共 {count} 人；打开页面时自动更新。").replace("{count}", String(contributors.length))
               : syncStatus === "loading"
-                ? "正在从 GitHub 同步历史提交贡献者。"
-                : "GitHub 暂时不可用，当前展示预置名单。"}
+                ? t(locale, "正在从 GitHub 同步历史提交贡献者。")
+                : t(locale, "GitHub 暂时不可用，当前展示预置名单。")}
           </p>
 
           <div className="mt-4 flex flex-wrap items-center justify-center gap-5 md:mt-5">
@@ -165,16 +169,14 @@ export default function Community() {
               rel="noopener noreferrer"
               className="inline-flex min-h-10 items-center whitespace-nowrap bg-[#168b6d] px-4 py-2 text-sm font-bold text-[#f8f8f4] transition-[background-color,transform] hover:bg-[#116f58] active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#168b6d] motion-reduce:transform-none"
             >
-              参与贡献 ↗
-            </a>
+              {t(locale, "参与贡献 ↗")}</a>
             <a
               href={`${repo}/graphs/contributors`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex min-h-10 items-center whitespace-nowrap text-sm font-semibold transition-colors hover:text-[#168b6d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#168b6d]"
             >
-              查看贡献记录 ↗
-            </a>
+              {t(locale, "查看贡献记录 ↗")}</a>
           </div>
         </Reveal>
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Command, Search } from "lucide-react";
+import { Command, Search } from "./SemantixIcons";
 import { useT } from "../lib/i18n";
 import { useMountTransition } from "../lib/useMountTransition";
 

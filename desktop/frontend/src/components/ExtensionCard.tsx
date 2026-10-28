@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Puzzle } from "lucide-react";
+import { Puzzle } from "./SemantixIcons";
 import { app } from "../lib/bridge";
 import { useT } from "../lib/i18n";
 import { useToast } from "../lib/toast";

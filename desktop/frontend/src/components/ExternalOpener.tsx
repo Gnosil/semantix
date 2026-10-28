@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, Code2, Folder, SquareTerminal } from "lucide-react";
+import { Code2, SquareTerminal } from "./SemantixIcons";
+import { Check, ChevronDown, Folder } from "./SemantixIcons";
 
 import { app as desktopApp } from "../lib/bridge";
 import { t } from "../lib/i18n";
@@ -106,10 +107,12 @@ export function ExternalOpener({
   tabId,
   dismissSignal,
   bridge = desktopApp,
+  finderOnly = false,
 }: {
   tabId: string;
   dismissSignal: number;
   bridge?: ExternalOpenerBridge;
+  finderOnly?: boolean;
 }) {
   const { showToast } = useToast();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -177,9 +180,9 @@ export function ExternalOpener({
 
   const selected = useMemo(
     () => state.tabId === tabId
-      ? state.openers.find((opener) => opener.id === state.preferred) ?? state.openers[0]
+      ? finderOnly ? state.openers.find((opener) => opener.kind === "file-manager") : state.openers.find((opener) => opener.id === state.preferred) ?? state.openers[0]
       : undefined,
-    [state, tabId],
+    [state, tabId, finderOnly],
   );
 
   const openIn = useCallback(
@@ -238,10 +241,10 @@ export function ExternalOpener({
           aria-label={openLabel}
           onClick={() => void openIn(selected, false)}
         >
-          <OpenerIcon opener={selected} />
+          {finderOnly ? <Folder size={14} /> : <OpenerIcon opener={selected} />}
         </button>
       </Tooltip>
-      <button
+      {!finderOnly && <button
         className="external-opener__menu-trigger"
         type="button"
         disabled={busy}
@@ -255,7 +258,7 @@ export function ExternalOpener({
         }}
       >
         <ChevronDown size={14} />
-      </button>
+      </button>}
       {menuOpen && (
         <div className="external-opener__menu" role="menu" aria-label={t("externalOpener.choose")}>
           {state.openers.map((opener) => (

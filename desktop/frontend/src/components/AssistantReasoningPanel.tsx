@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight } from "./SemantixIcons";
 import { displayReasoningText, STREAMING_REASONING_WINDOW_STEP_CHARS, STREAMING_REASONING_WINDOW_STEP_LINES } from "../lib/reasoningDisplay";
 import { useReasoningDisplayMode } from "../lib/reasoningDisplayPreference";
 import { useCollapseAnimation } from "../lib/useCollapseAnimation";

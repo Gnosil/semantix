@@ -141,10 +141,12 @@ async function renderWorkspace(
           open
           tabId="tab-a"
           cwd="/repo"
+          maximized={false}
           initialViewMode="changed"
           creationMode={options.creationMode}
           completionSummary={options.completionSummary}
           onClose={() => {}}
+          onToggleMaximized={() => {}}
         />
       </LocaleProvider>,
     );
@@ -177,8 +179,10 @@ async function renderFilesWorkspace(methods: Partial<AppBindings>, props: Partia
     open: true,
     tabId: "tab-a",
     cwd: "/repo",
+    maximized: false,
     initialViewMode: "files",
     onClose: () => {},
+    onToggleMaximized: () => {},
     ...props,
   };
   const rerender = async (nextProps: Partial<Parameters<typeof WorkspacePanel>[0]> = {}) => {

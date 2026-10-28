@@ -1,5 +1,5 @@
 import { forwardRef, type ButtonHTMLAttributes } from "react";
-import { X } from "lucide-react";
+import { X } from "./SemantixIcons";
 import { Tooltip } from "./Tooltip";
 
 interface ModalCloseButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {

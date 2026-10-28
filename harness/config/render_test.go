@@ -211,6 +211,7 @@ func TestRenderTOMLRoundTrips(t *testing.T) {
 	orig.Desktop.UpdateChannel = "preview"
 	orig.Desktop.Telemetry = boolPtr(false)
 	orig.Semantix.Mode = "shadow"
+	orig.Semantix.AdmissionTypes = []string{"context", "memory"}
 	orig.Notifications.Enabled = true
 	orig.Notifications.TurnDone = true
 	orig.Notifications.ApprovalRequest = true

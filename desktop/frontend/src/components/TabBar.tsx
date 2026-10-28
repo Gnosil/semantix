@@ -2,7 +2,7 @@
 // open project/global topic, so switching tabs switches the active conversation.
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, DragEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import { FileText, Plus, Search, X } from "lucide-react";
+import { FileText, Plus, Search, X } from "./SemantixIcons";
 import { normalizeCollaborationMode, normalizeMode, normalizeToolApprovalMode, type Mode, type TabMeta } from "../lib/types";
 import { projectColorValue } from "../lib/projectColors";
 import { useT } from "../lib/i18n";

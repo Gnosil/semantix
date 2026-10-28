@@ -1,16 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  AlertCircle,
-  ChevronDown,
-  ChevronRight,
-  Clock,
-  List,
-  Loader2,
-  MessagesSquare,
-  RotateCw,
-  X,
-  XCircle,
-} from "lucide-react";
+import { AlertCircle, Loader2 } from "./SemantixIcons";
+import { ChevronDown, ChevronRight, Clock, List, RotateCw, X, XCircle } from "./SemantixIcons";
 import { app } from "../lib/bridge";
 import { useT } from "../lib/i18n";
 import type { TaskEvent, TaskSnapshot } from "../lib/types";
@@ -122,7 +112,6 @@ export function TaskMonitorPanel({
   initialScope = "session",
   popover = false,
   summaryMode = false,
-  variant,
 }: {
   tabID: string;
   onClose?: () => void;
@@ -131,8 +120,6 @@ export function TaskMonitorPanel({
   initialScope?: "session" | "project" | "all";
   popover?: boolean;
   summaryMode?: boolean;
-  /** Sidebar embed: project-tree-grade rows, session wording. */
-  variant?: "sidebar";
 }) {
   const t = useT();
   const [tasks, setTasks] = useState<CatalogTask[]>([]);
@@ -295,14 +282,10 @@ export function TaskMonitorPanel({
     setActionError(null);
     setActionMessage(null);
     try {
-			if (action === "open" && onOpenSession) {
+			if (action === "open" && onOpenSession && scope === "session") {
         const opened = await onOpenSession(tabID, task.task_id);
-        if (opened) {
-          onClose?.();
-          return;
-        }
-        // The active tab could not resolve this task's session (scope=all
-        // spans projects); fall through to the catalog open below.
+        if (opened) onClose?.();
+        return;
       }
 			const request = { projectKey: task.__projectKey, taskId: task.task_id, expectedVersion: task.version, reason: "desktop request", idempotencyKey: `desktop-${action}-${task.task_id}-${task.version}` };
 			const result = hasTaskCatalogBinding()
@@ -339,20 +322,17 @@ export function TaskMonitorPanel({
   );
 
   return (
-    <div className={`taskmonitor${popover ? " taskmonitor--popover" : ""}${variant === "sidebar" ? " taskmonitor--sidebar" : ""}`}>
+    <div className={`taskmonitor${popover ? " taskmonitor--popover" : ""}`}>
       <div className="taskmonitor__head">
         <button
           className="taskmonitor__toggle"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
-          aria-label={open ? t("taskmonitor.collapseTasks") : t("taskmonitor.expandTasks")}
+          aria-label={open ? "Collapse tasks" : "Expand tasks"}
         >
           {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </button>
-        <span className="taskmonitor__title">
-          {variant === "sidebar" && <MessagesSquare size={13} className="taskmonitor__title-icon" aria-hidden="true" />}
-          {variant === "sidebar" ? t("sidebar.sessions") : summaryMode ? t("summary.session") : t("summary.tasks")}
-        </span>
+        <span className="taskmonitor__title">{summaryMode ? t("summary.session") : t("summary.tasks")}</span>
         <span className="taskmonitor__count">{tasks.length}</span>
         <button
           className="taskmonitor__refresh"
@@ -382,11 +362,11 @@ export function TaskMonitorPanel({
 			{!summaryMode && (
 				<div className="taskmonitor__filters">
 					<select value={scope} onChange={(event) => setScope(event.target.value as "session" | "project" | "all")} aria-label="Task scope">
-						<option value="session">{t("taskmonitor.scopeSession")}</option>
-						<option value="project">{t("taskmonitor.scopeProject")}</option>
-						<option value="all">{t("taskmonitor.scopeAll")}</option>
+						<option value="session">Current session</option>
+						<option value="project">Current project</option>
+						<option value="all">All projects</option>
 					</select>
-					<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("taskmonitor.filterTasks")} aria-label={t("taskmonitor.filterTasks")} />
+					<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter tasks" aria-label="Filter tasks" />
 				</div>
 			)}
 			{indexProgress.partial && <div className="taskmonitor__indexing">Indexing tasks ({indexProgress.indexed}/{indexProgress.total})</div>}
@@ -410,7 +390,7 @@ export function TaskMonitorPanel({
           {!loading && !error && sorted.length === 0 && (
             <div className="taskmonitor__state taskmonitor__state--empty">
               <Clock size={16} />
-              <span>{variant === "sidebar" ? t("sidebar.sessionsEmpty") : t("summary.noTasks")}</span>
+              <span>{t("summary.noTasks")}</span>
             </div>
           )}
 

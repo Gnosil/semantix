@@ -5,7 +5,34 @@ import (
 
 	"semantix/harness/config"
 	"semantix/harness/control"
+	"semantix/harness/sessioncatalog"
 )
+
+func TestSidebarTopicTitlesFollowLocaleAndPreserveManualTitles(t *testing.T) {
+	app := &App{}
+	for _, source := range []string{topicTitleSourceAuto, topicTitleSourceManual} {
+		app.tabs = map[string]*WorkspaceTab{
+			"active": {Scope: "global", TopicID: "topic", TopicTitle: defaultTopicTitle, topicTitleSource: source},
+		}
+		for _, locale := range []string{"en", "zh-CN", "zh-TW"} {
+			app.setDesktopLocale(locale)
+			want := defaultTopicTitle
+			if source == topicTitleSourceAuto {
+				want = app.localizedDefaultTopicTitle()
+			}
+			node, visible := app.projectNodeFromCatalogTopic(sessioncatalog.TopicRecord{
+				Scope: "global", TopicID: "topic", Title: defaultTopicTitle, TitleSource: source,
+			}, nil, nil)
+			if !visible || node.Label != want {
+				t.Fatalf("catalog source=%s locale=%s: label=%q visible=%v, want %q", source, locale, node.Label, visible, want)
+			}
+			nodes := app.runtimeOnlyProjectTopics("global", "")
+			if len(nodes) != 1 || nodes[0].Label != want {
+				t.Fatalf("runtime source=%s locale=%s: nodes=%+v, want %q", source, locale, nodes, want)
+			}
+		}
+	}
+}
 
 func TestDefaultTopicTitleLocalizesAtAPIBoundary(t *testing.T) {
 	app := &App{}

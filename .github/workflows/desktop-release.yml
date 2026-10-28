@@ -11,7 +11,7 @@ name: Desktop Release
 # Asset names follow the in-app updater's contract (desktop/updater.go
 # `requiredDesktopDownloadAssets`): the human-download group expects exactly
 # `Semantix-darwin-universal.dmg` and `Semantix-windows-amd64.zip`, and the
-# Windows installer matches the updater's `Semantix-windows-amd64-installer.exe`.
+# Windows portable package is the manual download offered by the website.
 # Keeping the names now means auto-update (latest.json) can be wired later
 # without re-cutting assets.
 #
@@ -143,13 +143,13 @@ jobs:
           fi
           shasum -a 256 "$OUT"
 
-      - name: Build Windows app + NSIS installer
+      - name: Build Windows portable app
         if: runner.os == 'Windows'
         working-directory: desktop
         shell: bash
         run: |
           set -euo pipefail
-          wails build -clean -platform windows/amd64 -nsis \
+          wails build -clean -platform windows/amd64 \
             -ldflags "-X main.version=${{ steps.ver.outputs.tag }} -X main.channel=stable"
           ls -R build/bin
 
@@ -159,24 +159,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # NSIS output is <outputfilename>-<arch>-installer.exe; rename to the
-          # updater's contract name. Glob so a wails naming tweak doesn't break us.
-          installer="$(ls build/bin/*installer.exe | head -1)"
-          cp "$installer" "Semantix-windows-amd64-installer.exe"
           # Portable download: zip the raw app exe (the updater's downloads-group
           # Semantix-windows-amd64.zip).
           portable="$(ls build/bin/*.exe | grep -v installer | head -1)"
           7z a "Semantix-windows-amd64.zip" "$portable"
-          certutil -hashfile "Semantix-windows-amd64-installer.exe" SHA256 || true
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ runner.os }}
-          if-no-files-found: ignore
+          if-no-files-found: error
           path: |
             desktop/Semantix-darwin-universal.dmg
-            desktop/Semantix-windows-amd64-installer.exe
             desktop/Semantix-windows-amd64.zip
 
   publish:
@@ -190,8 +184,10 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - name: List assets
-        run: ls -R dist
+      - name: Verify download assets
+        run: |
+          test -s dist/Semantix-darwin-universal.dmg
+          test -s dist/Semantix-windows-amd64.zip
 
       - name: Create the release
         env:
@@ -202,7 +198,7 @@ jobs:
 
             ## 下载
             - **macOS**（Intel + Apple Silicon 通用）：`Semantix-darwin-universal.dmg`
-            - **Windows 10/11**（x64）：`Semantix-windows-amd64-installer.exe`（安装器）或 `Semantix-windows-amd64.zip`（免安装）
+            - **Windows 10/11**（x64）：`Semantix-windows-amd64.zip`（免安装）
 
             ## 首次打开
             - **macOS**：未签名/未公证，首次打开被 Gatekeeper 拦时右键 App →「打开」，或终端 `xattr -cr /Applications/Semantix.app`。

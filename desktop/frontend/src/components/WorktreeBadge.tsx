@@ -1,4 +1,4 @@
-import { GitBranch } from "lucide-react";
+import { GitBranch } from "./SemantixIcons";
 import { useT } from "../lib/i18n";
 
 // Adapted from the lightweight worktree identity affordance proposed in #6119.

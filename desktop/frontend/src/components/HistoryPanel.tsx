@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { Archive, Pencil, Search, Trash2, RotateCcw } from "lucide-react";
+import { RotateCcw } from "./SemantixIcons";
+import { Archive, Pencil, Search, Trash2 } from "./SemantixIcons";
 import { app } from "../lib/bridge";
 import { t, useT } from "../lib/i18n";
 import { historySessionDisplayTitle, sessionActivityTime } from "../lib/session";

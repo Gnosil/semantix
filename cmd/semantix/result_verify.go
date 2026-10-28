@@ -20,7 +20,7 @@ func runVerifyResult(args []string, stdout io.Writer, deps dependencies) int {
 	db := fs.String("db", "", "database path override (default: project db)")
 	projectDB := fs.String("project-db", cfgString(deps.resolved, "store.db", defaultProjectDB()), "project/session database path")
 	userDB := fs.String("user-db", defaultUserDB(), "user database path")
-	scopeName := fs.String("scope", "project", "slice scope: session, project, or user")
+	scopeName := fs.String("scope", cfgString(deps.resolved, "store.scope", "project"), "slice scope: session, project, or user")
 	method := fs.String("method", "", "evidence channel: command, official, or user")
 	evidence := fs.String("evidence", "", "verification command, evaluator result, or confirmation reference")
 	auditDB := fs.String("audit-db", filepath.Join(".semantix", "audit.jsonl"), "audit log path")
@@ -48,7 +48,7 @@ func runVerifyResult(args []string, stdout io.Writer, deps dependencies) int {
 		fmt.Fprintln(stdout, "verify-result:", err)
 		return 2
 	}
-	store, err := deps.openStore(selectDB(scope, *db, *projectDB, *userDB))
+	store, err := deps.openStore(selectConfiguredDB(fs, deps.resolved, scope, *db, *projectDB, *userDB))
 	if err != nil || store == nil {
 		fmt.Fprintln(os.Stderr, "verify-result: open store:", err)
 		return 1

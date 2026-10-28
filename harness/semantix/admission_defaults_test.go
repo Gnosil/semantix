@@ -89,7 +89,11 @@ func TestBridgeTaskLabelsAreDescriptive(t *testing.T) {
 				t.Run(fmt.Sprintf("%s/%s/degraded=%t", tc.name, mode, degraded), func(t *testing.T) {
 					card := &slice.Slice{ID: "history", Type: tc.typ, Scope: slice.Project, Content: []byte(tc.body),
 						Meta: slice.SliceMeta{SourceSession: "prior-task", Origin: slice.OriginSessionAuto, BaseCommit: tc.oldCommit}}
-					b := NewBridge(Config{Enabled: true, Mode: mode, Budget: 4096, ProjectDir: writeKernelDir(t, []*slice.Slice{card}, nil)})
+					// The table spans Memory and Result cards: admit both types
+					// so the discriminating blockers stay task-lexical,
+					// freshness and probation — not the Context-only default.
+					b := NewBridge(Config{Enabled: true, Mode: mode, Budget: 4096, ProjectDir: writeKernelDir(t, []*slice.Slice{card}, nil),
+						AdmissionTypes: []string{"context", "memory", "result"}})
 					defer b.Close()
 					call, budget := b.InjectDetailed, 4096
 					if degraded {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown } from "./SemantixIcons";
 
 import { app } from "../lib/bridge";
 import { asArray } from "../lib/array";

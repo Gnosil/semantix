@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -35,7 +36,7 @@ type File struct {
 	Project   fileProject   `toml:"project"`
 	Store     fileStore     `toml:"store"`
 	Retrieval fileRetrieval `toml:"retrieval"`
-	Slice    fileSlice      `toml:"slice"`
+	Slice     fileSlice     `toml:"slice"`
 	Inject    fileInject    `toml:"inject"`
 	Score     fileScore     `toml:"score"`
 	Verify    fileVerify    `toml:"verify"`
@@ -171,13 +172,13 @@ func (r *Resolved) Get(key string) (any, Source, bool) {
 
 // Options carries explicit CLI overrides (the flag layer). Empty means unset.
 type Options struct {
-	ConfigPath string // --config; falls back to SEMANTIX_CONFIG env, then ./semantix.toml
+	ConfigPath string // --config > SEMANTIX_CONFIG > ./semantix.toml > ~/.semantix/semantix.toml
 	DB         string // --db
 }
 
 // Load resolves the effective configuration.
 func Load(opts Options) (*Resolved, error) {
-	path, explicit := configPath(opts.ConfigPath)
+	path, explicit := ResolvePath(opts.ConfigPath)
 
 	var file File
 	if b, err := os.ReadFile(path); err == nil {
@@ -195,6 +196,9 @@ func Load(opts Options) (*Resolved, error) {
 		if err != nil {
 			return invalidErr(err)
 		}
+		if f.Key == "store.db" {
+			f.Value = ExpandHome(f.Value.(string))
+		}
 		r.Fields = append(r.Fields, f)
 		return nil
 	}
@@ -207,7 +211,7 @@ func Load(opts Options) (*Resolved, error) {
 	if err := add(mergePtr("project.name", "my-project", "", file.Project.Name, (*string)(nil))); err != nil {
 		return nil, err
 	}
-	if err := add(mergePtr("store.db", ".semantix/project.db", "SEMANTIX_DB", file.Store.DB, dbFlag)); err != nil {
+	if err := add(mergePtr("store.db", "", "SEMANTIX_DB", file.Store.DB, dbFlag)); err != nil {
 		return nil, err
 	}
 	if err := add(mergePtr("store.scope", "project", "SEMANTIX_SCOPE", file.Store.Scope, (*string)(nil))); err != nil {
@@ -366,16 +370,40 @@ func sourceOf(fromFile bool) Source {
 	return SourceDefault
 }
 
-// configPath resolves the config file path and whether it was explicitly
+// ResolvePath resolves the config file path and whether it was explicitly
 // requested (an explicit but missing file is an error, unlike the default).
-func configPath(flagPath string) (string, bool) {
+func ResolvePath(flagPath string) (string, bool) {
 	if flagPath != "" {
-		return flagPath, true
+		return ExpandHome(flagPath), true
 	}
 	if p := os.Getenv("SEMANTIX_CONFIG"); p != "" {
-		return p, true
+		return ExpandHome(p), true
 	}
-	return "semantix.toml", false
+	const local = "semantix.toml"
+	if _, err := os.Stat(local); !os.IsNotExist(err) {
+		return local, false
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		path := filepath.Join(home, ".semantix", local)
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			return path, false
+		}
+	}
+	return local, false
+}
+
+// ExpandHome expands only a leading ~ or ~/ (also ~\ on Windows).
+// Other relative paths retain their existing working-directory semantics.
+func ExpandHome(path string) string {
+	if path == "~" || strings.HasPrefix(path, "~/") || strings.HasPrefix(path, "~\\") {
+		if home, err := os.UserHomeDir(); err == nil {
+			if path == "~" {
+				return home
+			}
+			return filepath.Join(home, path[2:])
+		}
+	}
+	return path
 }
 
 // mergePtr resolves one field: flag > env > file > default. A nil pointer

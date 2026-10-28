@@ -283,8 +283,12 @@ func TestMemoryFlowCorroboratingResultAndOutcomeToProvider(t *testing.T) {
 // No synthetic injection wrapper or retrieval implementation participates.
 func memoryFlowRun(t *testing.T, repo, mode, query string) (provider.Request, string, *event.RetrievalDiagnostics) {
 	t.Helper()
+	// These runs verify the four-layer delivery contract for verified Result
+	// and outcome Memory slices; the production default admits Context only
+	// (#508 R1/R2), so the run opts the legacy full set back in explicitly.
 	bridge := semantixbridge.NewBridge(semantixbridge.Config{Enabled: true, Inject: true, Mode: mode,
-		ProjectDir: repo, WorkspaceDir: repo, SessionsDir: filepath.Join(repo, "later-mirrors")})
+		ProjectDir: repo, WorkspaceDir: repo, SessionsDir: filepath.Join(repo, "later-mirrors"),
+		AdmissionTypes: []string{"context", "memory", "result"}})
 	defer bridge.Close()
 	observed := make(chan *event.RetrievalDiagnostics, 8)
 	sink := bridge.Sink(event.FuncSink(func(e event.Event) {

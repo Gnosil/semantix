@@ -233,3 +233,41 @@ func TestDistillRespectsPresetTaskType(t *testing.T) {
 		}
 	}
 }
+
+// A host that wraps the task in its own instructions puts them in `content` and
+// the operator's request in `raw_content`. The outcome card must summarise the
+// request, not the scaffolding (#536).
+func TestDistillOutcomePrefersRawContentOverHostWrapper(t *testing.T) {
+	session := strings.Join([]string{
+		`{"role":"user","content":"<reasoning-language>\n必须使用简体中文书写全部可见思考。\n</reasoning-language>\n\n修复字幕偏移","raw_content":"修复字幕偏移"}`,
+		`{"role":"assistant","tool_calls":[{"id":"edit","name":"edit_file","arguments":{"path":"subtitle.go"}}]}`,
+		`{"role":"tool","tool_call_id":"edit","name":"edit_file","content":"edited subtitle.go","workspace_mutation":true}`,
+		`{"role":"assistant","content":"已修复字幕偏移"}`,
+	}, "\n")
+
+	slices, err := Distill([]byte(session), SliceMeta{SourceSession: "s1"})
+	if err != nil {
+		t.Fatalf("Distill: %v", err)
+	}
+	var outcome *Slice
+	for _, s := range slices {
+		if strings.HasPrefix(string(s.Content), "Task outcome") {
+			outcome = s
+			break
+		}
+	}
+	if outcome == nil {
+		t.Fatal("missing outcome card")
+	}
+	got := string(outcome.Content)
+	if !strings.Contains(got, "修复字幕偏移") {
+		t.Errorf("outcome missing the operator's task:\n%s", got)
+	}
+	if strings.Contains(got, "reasoning-language") || strings.Contains(got, "必须使用简体中文书写全部可见思考") {
+		t.Errorf("outcome kept the host wrapper:\n%s", got)
+	}
+	// The edit receipt still lands, so the card stays a usable locator.
+	if !strings.Contains(got, "subtitle.go") {
+		t.Errorf("outcome missing edited files:\n%s", got)
+	}
+}

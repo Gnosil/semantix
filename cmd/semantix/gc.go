@@ -74,7 +74,7 @@ func runGC(args []string, stdout, stderr io.Writer, deps dependencies) error {
 		params = p
 	}
 
-	db := storePath(*dbOverride, "project")
+	db := storePath(*dbOverride, cfgString(deps.resolved, "store.scope", "project"))
 	store, err := deps.openStore(db)
 	if err != nil {
 		if *jsonOutput {

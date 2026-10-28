@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, Copy, Images, LockKeyhole, Minus, Plus, RotateCcw } from "lucide-react";
+import { Images, LockKeyhole, RotateCcw } from "./SemantixIcons";
+import { Check, Copy, Minus, Plus } from "./SemantixIcons";
 import { app } from "../lib/bridge";
 import { useT, type DictKey } from "../lib/i18n";
 import { THEME_STYLES, type Theme, type ThemeStyle, isThemeStyle } from "../lib/theme";
@@ -289,9 +290,9 @@ export function AppearanceOverview({
 
   return (
     <div className="appearance-overview">
-      <header className="appearance-overview__header">
-        <h2 className="appearance-overview__title">{t("settings.appearance")}</h2>
-        <p className="appearance-overview__sub">{t("settings.appearanceMeta")}</p>
+      <header className="settings-page__header">
+        <h2 className="settings-page__title">{t("settings.appearance")}</h2>
+        <p className="settings-page__desc">{t("settings.pageDesc.appearance")}</p>
       </header>
 
       <section className="appearance-overview__current" aria-labelledby="appearance-current-label">

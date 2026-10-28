@@ -5,8 +5,9 @@
 name = "my-project"          # 项目 slug（切片 scope=project 的聚合键）
 
 [store]
-# 切片库路径（extract/lookup/inject/verify 的 --db 默认值）
-db = ".semantix/project.db"
+# 不设置 db 时按 scope 选库：project/session → .semantix/project.db，user → ~/.semantix/user.db。
+# 显式设置后，所有作用域都使用此库；全局配置建议使用绝对路径或 ~/ 路径。
+# db = "~/.semantix/shared.db"
 scope = "project"           # 默认切片作用域：session | project | user
 max_slices = 5000           # 库条目上限（超限按价值评分归档到 <db>.archive.jsonl；0 = 不限）
 

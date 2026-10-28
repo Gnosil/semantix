@@ -23,7 +23,7 @@ func runImport(args []string, stdout io.Writer, deps dependencies) int {
 	db := fs.String("db", "", "database path override (default: project db)")
 	projectDB := fs.String("project-db", cfgString(deps.resolved, "store.db", defaultProjectDB()), "project/session database path")
 	userDB := fs.String("user-db", defaultUserDB(), "user database path")
-	scopeName := fs.String("scope", "project", "slice scope: session, project, or user")
+	scopeName := fs.String("scope", cfgString(deps.resolved, "store.scope", "project"), "slice scope: session, project, or user")
 	trust := fs.Bool("trust", false, "stamp imported slices as user-curated (import + trust in one action)")
 	auditDB := fs.String("audit-db", filepath.Join(".semantix", "audit.jsonl"), "audit log path")
 	jsonOut := fs.Bool("json", false, "output as JSON envelope")
@@ -50,7 +50,7 @@ func runImport(args []string, stdout io.Writer, deps dependencies) int {
 		fmt.Fprintf(stdout, "import: %v\n", err)
 		return 2
 	}
-	dbPath := selectDB(scope, *db, *projectDB, *userDB)
+	dbPath := selectConfiguredDB(fs, deps.resolved, scope, *db, *projectDB, *userDB)
 	store, err := deps.openStore(dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "import: open store: %v\n", err)

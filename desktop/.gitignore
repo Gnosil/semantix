@@ -9,6 +9,7 @@
 # (Each `!` un-ignore needs its parent dir un-ignored first.)
 !/build/windows
 /build/windows/*
+!/build/windows/icon.ico
 !/build/windows/installer
 /build/windows/installer/*
 !/build/windows/installer/project.nsi

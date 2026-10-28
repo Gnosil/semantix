@@ -96,3 +96,79 @@ func TestExtractResultVerifiedOnlyAfterLatestMutation(t *testing.T) {
 		t.Fatalf("post-verification mutation status = %+v, want probation", result)
 	}
 }
+
+// Issue #536: the harness writes the user-authored text in raw_content while
+// content carries host-injected wrapper blocks (<reasoning-language>,
+// <execution-policy>). Extraction must prefer raw_content; the wrapper tags
+// are runtime metadata and must not reach the slice store.
+func TestExtractPrefersRawContentOverWrappedContent(t *testing.T) {
+	transcript := []byte(`{"role":"user","content":"<reasoning-language>\n必须使用简体中文书写全部可见思考/推理文本。\n</reasoning-language>\n\n帮我把字幕对齐\n\n<execution-policy preset=\"balanced\" version=\"1\">\nroute=direct risk=low verify=targeted review=none\n</execution-policy>","raw_content":"帮我把字幕对齐"}` + "\n" +
+		`{"role":"assistant","content":"好的"}`)
+	items, err := NewExtractor().Extract(transcript, SliceMeta{SourceSession: "s1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	prompt := sliceOfType(items, Prompt)
+	if prompt == nil {
+		t.Fatal("prompt slice missing")
+	}
+	content := string(prompt.Content)
+	if strings.Contains(content, "<reasoning-language>") || strings.Contains(content, "<execution-policy>") {
+		t.Fatalf("host-injected wrapper tags reached the slice: %q", content)
+	}
+	if !strings.Contains(content, "帮我把字幕对齐") {
+		t.Fatalf("clean raw_content not stored: %q", content)
+	}
+}
+
+// A line without raw_content keeps the historical behavior (content is used
+// as-is); a whitespace-only raw_content is not "usable" and also falls back.
+func TestExtractRawContentFallback(t *testing.T) {
+	transcript := []byte(`{"role":"user","content":"修复 go 测试失败需要先跑 go vet"}` + "\n" +
+		`{"role":"user","content":"有原始文本","raw_content":"   "}` + "\n" +
+		`{"role":"assistant","content":"done"}`)
+	items, err := NewExtractor().Extract(transcript, SliceMeta{SourceSession: "s1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := 0
+	for _, item := range items {
+		if item.Type != Prompt {
+			continue
+		}
+		found++
+		content := string(item.Content)
+		if found == 1 && !strings.Contains(content, "修复 go 测试失败") {
+			t.Fatalf("content-only line broken: %q", content)
+		}
+		if found == 2 && !strings.Contains(content, "有原始文本") {
+			t.Fatalf("whitespace raw_content must fall back to content: %q", content)
+		}
+	}
+	if found != 2 {
+		t.Fatalf("prompt slices = %d, want 2", found)
+	}
+}
+
+// The final Result slice follows the same preference: an assistant line
+// carrying a bounded first-visible content plus the full raw_content stores
+// the full original.
+func TestExtractResultPrefersRawContent(t *testing.T) {
+	transcript := []byte(`{"role":"user","content":"对齐字幕"}` + "\n" +
+		`{"role":"assistant","content":"<system-reminder>截断</system-reminder>对齐完成，偏移已写回。","raw_content":"对齐完成，偏移已写回，共 12 条。"}`)
+	items, err := NewExtractor().Extract(transcript, SliceMeta{SourceSession: "s1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res := sliceOfType(items, Result)
+	if res == nil {
+		t.Fatal("result slice missing")
+	}
+	content := string(res.Content)
+	if strings.Contains(content, "<system-reminder>") {
+		t.Fatalf("wrapper tag reached the result slice: %q", content)
+	}
+	if !strings.Contains(content, "共 12 条") {
+		t.Fatalf("raw_content not stored: %q", content)
+	}
+}

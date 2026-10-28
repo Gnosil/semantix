@@ -4,10 +4,15 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  WORKSPACE_FLOAT_DEFAULT_WIDTH,
+  availableWorkspacePanelWidth,
+  resolveLiveWorkspacePanelWidth,
+  resolveWorkspacePanelWidth,
+  workspacePanelAriaMinWidth,
+} from "../lib/workspaceLayout";
+import {
   clampTerminalHeight,
-  clampWorkspaceFloatWidth,
   terminalMaxHeight,
+  useLayoutStore,
 } from "../store/layout";
 
 let passed = 0;
@@ -28,61 +33,137 @@ function eq(a: unknown, b: unknown, label: string) {
   }
 }
 
-console.log("\nfloating workspace layout");
+const CHAT_MIN_WIDTH = 400;
+const SIDEBAR_WIDTH = 264;
+const RESIZER_WIDTH = 8;
+const PREVIEW_MIN_WIDTH = 420;
+const PREVIEW_DEFAULT_WIDTH = 660;
+const CHAT_COMFORT_MIN_WIDTH = 560;
 
-eq(clampWorkspaceFloatWidth(100), 320, "floating panel width clamps to its minimum");
-eq(clampWorkspaceFloatWidth(5000), 860, "floating panel width clamps to its maximum");
-eq(WORKSPACE_FLOAT_DEFAULT_WIDTH, 420, "floating panel opens at the compact default width");
+console.log("\nworkspace dock layout");
+
+const expandedAvailable = availableWorkspacePanelWidth({
+  viewportWidth: 1280,
+  sidebarCollapsed: false,
+  sidebarWidth: SIDEBAR_WIDTH,
+  chatMinWidth: CHAT_MIN_WIDTH,
+  resizerWidth: RESIZER_WIDTH,
+});
+eq(expandedAvailable, 608, "1280px viewport leaves room for an expanded-sidebar dock");
 eq(
-  /const openWorkspaceFloat = useCallback\([\s\S]*?setWorkspaceFloatMode\(mode\);[\s\S]*?setWorkspaceFloatOpen\(true\);/.test(appSource),
-  true,
-  "opening a capsule selects its view and shows the floating panel",
+  resolveWorkspacePanelWidth({
+    open: true,
+    maximized: false,
+    preferredWidth: PREVIEW_DEFAULT_WIDTH,
+    minWidth: PREVIEW_MIN_WIDTH,
+    availableWidth: expandedAvailable,
+  }),
+  608,
+  "expanded-sidebar preview clamps to available width instead of overflowing",
+);
+
+const collapsedAvailable = availableWorkspacePanelWidth({
+  viewportWidth: 1280,
+  sidebarCollapsed: true,
+  sidebarWidth: SIDEBAR_WIDTH,
+  chatMinWidth: CHAT_MIN_WIDTH,
+  resizerWidth: RESIZER_WIDTH,
+});
+eq(collapsedAvailable, 872, "collapsed sidebar restores workspace room");
+eq(
+  resolveWorkspacePanelWidth({
+    open: true,
+    maximized: false,
+    preferredWidth: PREVIEW_DEFAULT_WIDTH,
+    minWidth: PREVIEW_MIN_WIDTH,
+    availableWidth: collapsedAvailable,
+  }),
+  PREVIEW_DEFAULT_WIDTH,
+  "wide-enough collapsed layout keeps the preferred preview width",
+);
+
+const narrowAvailable = availableWorkspacePanelWidth({
+  viewportWidth: 900,
+  sidebarCollapsed: false,
+  sidebarWidth: SIDEBAR_WIDTH,
+  chatMinWidth: CHAT_MIN_WIDTH,
+  resizerWidth: RESIZER_WIDTH,
+});
+const narrowRendered = resolveWorkspacePanelWidth({
+  open: true,
+  maximized: false,
+  preferredWidth: PREVIEW_DEFAULT_WIDTH,
+  minWidth: PREVIEW_MIN_WIDTH,
+  availableWidth: narrowAvailable,
+});
+eq(narrowAvailable, 228, "very narrow viewports may leave less than the nominal dock minimum");
+eq(narrowRendered, 228, "very narrow dock still stays inside the viewport");
+eq(workspacePanelAriaMinWidth(PREVIEW_MIN_WIDTH, narrowRendered), 228, "ARIA minimum follows constrained rendered width");
+
+eq(
+  resolveWorkspacePanelWidth({
+    open: false,
+    maximized: false,
+    preferredWidth: PREVIEW_DEFAULT_WIDTH,
+    minWidth: PREVIEW_MIN_WIDTH,
+    availableWidth: 0,
+  }),
+  PREVIEW_DEFAULT_WIDTH,
+  "closed panel preserves the saved preferred width",
 );
 eq(
-  /const toggleWorkspaceCapsule = useCallback\([\s\S]*?openWorkspaceFloat\(mode\);/.test(appSource),
-  true,
-  "capsules open their view (the panel header owns switching once open)",
+  resolveWorkspacePanelWidth({
+    open: true,
+    maximized: true,
+    preferredWidth: PREVIEW_DEFAULT_WIDTH,
+    minWidth: PREVIEW_MIN_WIDTH,
+    availableWidth: 228,
+  }),
+  PREVIEW_DEFAULT_WIDTH,
+  "maximized panel preserves the saved preferred width",
 );
+
 eq(
-  /const ensureWorkspaceFloatWidth = useCallback\([\s\S]*?if \(width <= workspaceFloatWidth\) return;/.test(appSource),
-  true,
-  "panel width requests only ever grow the floating panel",
+  resolveLiveWorkspacePanelWidth({
+    viewportWidth: 1268,
+    sidebarCollapsed: false,
+    sidebarWidth: 400,
+    chatMinWidth: CHAT_COMFORT_MIN_WIDTH,
+    resizerWidth: RESIZER_WIDTH,
+    open: true,
+    maximized: false,
+    preferredWidth: PREVIEW_MIN_WIDTH,
+    minWidth: PREVIEW_MIN_WIDTH,
+  }),
+  300,
+  "live dock drag clamps the hard minimum to the available dock width",
 );
+
 eq(
-  /<section className=\{`chat-pane[\s\S]*?!workspaceFloatOpen && \([\s\S]*?<WorkspaceCapsules[\s\S]*?onToggle=\{toggleWorkspaceCapsule\}/.test(appSource),
-  true,
-  "capsules render inside the chat pane only while the panel is closed",
-);
-eq(
-  /<WorkspaceFloat[\s\S]*?onModeChange=\{setWorkspaceFloatMode\}[\s\S]*?onRenderWidth=\{setWorkspaceFloatRenderWidthPx\}[\s\S]*?<WorkspacePanel[\s\S]*?panelWidth=\{workspaceFloatRenderWidthPx\}[\s\S]*?onRequestPanelWidth=\{ensureWorkspaceFloatWidth\}[\s\S]*?<\/WorkspaceFloat>[\s\S]*?<\/section>/.test(appSource),
-  true,
-  "the floating panel hosts the view tabs and WorkspacePanel inside the chat pane",
-);
-eq(
-  !/workbench-dock|layout--workspace-open|workspace-panel-resizer|rightDockMode|workspacePanelMaximized/.test(appSource),
-  true,
-  "no docked workspace column remains in the app shell",
-);
-eq(
-  /\.workspace-float \{[\s\S]*?position: absolute;[\s\S]*?width: min\(var\(--workspace-float-width, 420px\), calc\(100% - 16px\)\);/.test(stylesSource)
-    && /\.workspace-float__tab--active \{/.test(stylesSource),
-  true,
-  "floating panel overlays the pane, clamps to it; its header owns the view tabs",
-);
-eq(
-  /:root\[data-theme-style\] \.chat-pane > \.banner \{\s*padding-right: 200px;/.test(stylesSource),
-  true,
-  "top-of-pane banners keep their actions clear of the capsule cluster",
-);
-eq(
-  !/\.workbench-dock|--workspace-width:|layout--workspace-open|\.workspace-panel-resizer/.test(stylesSource),
-  true,
-  "dock grid column, resizer and tab strip styles are gone",
+  resolveLiveWorkspacePanelWidth({
+    viewportWidth: 1280,
+    sidebarCollapsed: false,
+    sidebarWidth: 500,
+    chatMinWidth: CHAT_COMFORT_MIN_WIDTH,
+    resizerWidth: RESIZER_WIDTH,
+    open: true,
+    maximized: false,
+    preferredWidth: PREVIEW_DEFAULT_WIDTH,
+    minWidth: PREVIEW_MIN_WIDTH,
+  }),
+  212,
+  "live sidebar drag recomputes dock width from the dragged sidebar width",
 );
 eq(terminalMaxHeight(480), 240, "terminal maximum follows half of the current viewport height");
 eq(terminalMaxHeight(180), 120, "terminal maximum never falls below the accessible minimum");
 eq(clampTerminalHeight(680, 480), 240, "restored terminal height clamps after the window shrinks");
 eq(clampTerminalHeight(80, 720), 120, "terminal height clamps to its minimum");
+useLayoutStore.getState().syncWorkspaceDisclosure("layout-test", 0);
+useLayoutStore.getState().setWorkspacePanelOpen(true);
+eq(useLayoutStore.getState().workspacePanelOpen, true, "users can open the dock manually");
+useLayoutStore.getState().setWorkspacePanelOpen(false);
+useLayoutStore.getState().syncWorkspaceDisclosure("layout-test", 1);
+eq(useLayoutStore.getState().workspacePanelOpen, false, "work respects the user's collapsed choice");
 eq(
   /terminalPanelOpen[\s\S]*?terminal-drawer/.test(appSource),
   true,
@@ -144,10 +225,13 @@ eq(
   true,
   "workbench sidebar does not reserve the docked status bar twice",
 );
+const workspaceDockTabsSource = appSource.match(/<div className="workbench-dock__tabs"[\s\S]*?<div className="workbench-dock__body">/)?.[0] ?? "";
 eq(
-  /className="topicbar__action-btn topicbar__action-btn--icon topicbar__action-btn--utility"[\s\S]*?onClick=\{toggleTerminalPanel\}/.test(appSource),
+  workspaceDockTabsSource.length > 0
+    && !/rightDock\.terminal|terminalPanelOpen|toggleTerminalPanel/.test(workspaceDockTabsSource)
+    && /className="topicbar__action-btn topicbar__action-btn--icon topicbar__action-btn--utility"[\s\S]*?aria-label=\{t\("rightDock\.terminal"\)\}[\s\S]*?onClick=\{toggleTerminalPanel\}/.test(appSource),
   true,
-  "the topic bar keeps the terminal drawer action",
+  "workspace dock omits the terminal view while the topic bar keeps the terminal drawer action",
 );
 eq(
   /\.topicbar \{\s*position: relative;\s*z-index: var\(--z-inline-sticky\);/.test(stylesSource)

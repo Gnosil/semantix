@@ -121,7 +121,9 @@ func TestPruneCLIScopeAndDBSelection(t *testing.T) {
 		want  int
 	}{
 		{nil, "project", 2},
-		{[]string{"--scope", "user"}, "user", 2},
+		// A pinned store.db applies to every scope, just like other commands.
+		{[]string{"--scope", "user"}, "user", 0},
+		{[]string{"--scope", "user", "--db", userDB}, "user", 2},
 		{[]string{"--scope", "user", "--db", override}, "user", 2},
 		{[]string{"--scope", "project", "--db", override}, "project", 0},
 	} {

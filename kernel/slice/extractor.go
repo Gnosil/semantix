@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"semantix/kernel/sanitize"
 )
@@ -28,6 +29,7 @@ type transcriptLine struct {
 	Role              string `json:"role"`
 	Type              string `json:"type,omitempty"`
 	Content           string `json:"content"`
+	RawContent        string `json:"raw_content,omitempty"`
 	Name              string `json:"name,omitempty"`
 	ToolCall          string `json:"tool_call_id,omitempty"`
 	Verification      string `json:"verification,omitempty"`
@@ -318,6 +320,20 @@ func writeContextSection(b *strings.Builder, title string, entries []contextEntr
 	}
 }
 
+// storedContent returns the text a slice should be built from. The harness
+// contract (harness/provider Message.RawContent) keeps the user-authored text
+// in raw_content when it differs from Content, which carries host-injected
+// context blocks (reasoning-language, execution-policy, system-reminder
+// wrapper tags). Those blocks are runtime metadata, not conversation content,
+// so extraction prefers raw_content and falls back to Content when the line
+// carries no usable one (Issue #536).
+func storedContent(l transcriptLine) string {
+	if strings.TrimSpace(l.RawContent) != "" {
+		return l.RawContent
+	}
+	return l.Content
+}
+
 func parseTranscript(data []byte) ([]transcriptLine, error) {
 	var out []transcriptLine
 	sc := bufio.NewScanner(bytes.NewReader(data))
@@ -347,11 +363,12 @@ func parseTranscript(data []byte) ([]transcriptLine, error) {
 func promptSlice(turn []transcriptLine, meta SliceMeta) *Slice {
 	for _, l := range turn {
 		if l.Role == "user" {
-			content := compressText(l.Content, maxPromptLen)
+			text := storedContent(l)
+			content := compressText(text, maxPromptLen)
 			if len(content) == 0 {
 				return nil
 			}
-			return newSlice(Prompt, Project, content, compressionMeta(meta, l.Content, content))
+			return newSlice(Prompt, Project, content, compressionMeta(meta, text, content))
 		}
 	}
 	return nil
@@ -442,11 +459,12 @@ func finalResultSlice(lines []transcriptLine, meta SliceMeta) *Slice {
 	for i := len(lines) - 1; i >= 0; i-- {
 		l := lines[i]
 		if l.Role == "assistant" && len(l.ToolCalls) == 0 {
-			content := compressText(l.Content, maxResultLen)
+			text := storedContent(l)
+			content := compressText(text, maxResultLen)
 			if len(content) == 0 {
 				return nil
 			}
-			return newSlice(Result, Project, content, compressionMeta(meta, l.Content, content))
+			return newSlice(Result, Project, content, compressionMeta(meta, text, content))
 		}
 	}
 	return nil
@@ -557,6 +575,15 @@ func dedup(slices []*Slice) []*Slice {
 	seen := make(map[string]bool, len(slices))
 	var out []*Slice
 	for _, s := range slices {
+		// Apply after sanitization, which can erase the last searchable text.
+		// Match BM25's Unicode/CJK/identifier token alphabet without importing
+		// bm25 here (the index already depends on slice).
+		if strings.IndexFunc(string(s.Content), func(r rune) bool {
+			return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' ||
+				unicode.In(r, unicode.Han, unicode.Hiragana, unicode.Katakana, unicode.Hangul)
+		}) < 0 {
+			continue
+		}
 		if !seen[s.ID] {
 			seen[s.ID] = true
 			out = append(out, s)

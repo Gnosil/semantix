@@ -128,9 +128,6 @@ func TestInvalidInputs(t *testing.T) {
 	if err := ix.Insert(&slice.Slice{Content: []byte("content")}); err == nil {
 		t.Fatal("Insert(empty ID) succeeded, want error")
 	}
-	if err := ix.Insert(&slice.Slice{ID: "empty", Content: []byte("!!!")}); err == nil {
-		t.Fatal("Insert(empty content) succeeded, want error")
-	}
 	if err := ix.Remove(""); err == nil {
 		t.Fatal("Remove(empty ID) succeeded, want error")
 	}

@@ -10,7 +10,7 @@ test("homepage copy does not promise unverified universal gains", async () => {
     "components/BrandIntroOverlay.tsx",
     "components/Features.tsx",
     "lib/faq-items.ts",
-    "app/layout.tsx",
+    "components/SiteDocument.tsx",
     "lib/site-identity.ts",
   ];
   const source = (await Promise.all(files.map((file) => readFile(path.join(srcRoot, file), "utf8")))).join("\n");

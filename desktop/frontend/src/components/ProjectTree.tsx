@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CSSProperties, DragEvent as ReactDragEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import { Archive, ArrowDown, Pencil, Plus, Folder, FolderPlus, Search, BriefcaseBusiness, Copy, FolderOpen, XCircle, Check, ListCollapse, ListRestart, MessageSquare, MessagesSquare, Clock, Pin, MoreHorizontal, Minimize2, Maximize2, GitBranch } from "lucide-react";
+import { Archive, ArrowDown, Pencil, Plus, Folder, FolderPlus, Search, BriefcaseBusiness, Copy, FolderOpen, XCircle, Check, ListCollapse, ListRestart, MessageSquare, Clock, Pin, MoreHorizontal, Minimize2, Maximize2, GitBranch } from "./SemantixIcons";
 import { asArray } from "../lib/array";
 import { useToast } from "../lib/toast";
 import { app } from "../lib/bridge";
@@ -29,8 +29,6 @@ interface ProjectTreeProps {
   activeSessionPath?: string;
   imTopicSources?: Record<string, ProjectTreeImTopicSource>;
   variant?: ProjectTreeVariant;
-  /** "sessions" renders one flat recency list across all projects instead of the folder tree. */
-  layout?: "tree" | "sessions";
   onOpenTopic: (scope: string, workspaceRoot: string, topicId: string, sessionPath?: string) => Promise<void> | void;
   onAddProject: () => Promise<void>;
   onCreateTopic?: (scope: string, workspaceRoot: string) => Promise<void> | void;
@@ -45,6 +43,7 @@ interface ProjectTreeProps {
   showShortcutBadges?: boolean;
   shortcutPlatform?: ShortcutPlatform;
   onVisibleTopicsChange?: (topics: TopicShortcutEntry[]) => void;
+  onWorkspaceLabelsChange?: (labels: ReadonlyMap<string, string>) => void;
 }
 
 type ProjectTreeImTopicSource = {
@@ -74,7 +73,7 @@ type PinnedTreeSections = {
   projects: ProjectNode[];
 };
 
-const GLOBAL_PROJECT_ORDER_KEY = "__global__";
+export const GLOBAL_PROJECT_ORDER_KEY = "__global__";
 const WORKBENCH_ORGANIZE_KEY = "projectTree:workbenchOrganize";
 // Shared by classic and workbench; key string kept for existing saved choices.
 const WORKBENCH_SORT_KEY = "projectTree:workbenchSort";
@@ -375,7 +374,6 @@ export function ProjectTree({
   activeSessionPath,
   imTopicSources = {},
   variant = "classic",
-  layout = "tree",
   onOpenTopic,
   onAddProject,
   onCreateTopic,
@@ -390,11 +388,11 @@ export function ProjectTree({
   showShortcutBadges = false,
   shortcutPlatform,
   onVisibleTopicsChange,
+  onWorkspaceLabelsChange,
 }: ProjectTreeProps) {
   const t = useT();
   const { showToast } = useToast();
   const compactTopics = variant === "workbench";
-  const sessionsLayout = layout === "sessions";
   const creationTopics = variant === "creation";
   const [tree, setTree] = useState<ProjectNode[]>([]);
   const treeRef = useRef<ProjectNode[]>([]);
@@ -573,10 +571,10 @@ export function ProjectTree({
     const affected = asArray(event.roots);
     for (const project of treeRef.current) {
       const key = projectNodeKey(project, 0);
-      if (!sessionsLayout && !expanded.has(key)) continue;
+      if (!expanded.has(key)) continue;
       if (projectTreeEventAffectsFolder(project, affected)) void loadProjectTopics(project);
     }
-  }), [expanded, loadProjectTopics, refresh, sessionsLayout]);
+  }), [expanded, loadProjectTopics, refresh]);
 
   // Debounce query/timeFilter reloads so typing does not stampede the catalog.
   // Expansion and tree shell arrival still load on the same path after the delay.
@@ -585,11 +583,11 @@ export function ProjectTree({
     const timer = setTimeout(() => {
       for (const project of treeRef.current) {
         const key = projectNodeKey(project, 0);
-        if (filtering || sessionsLayout || expanded.has(key)) void loadProjectTopics(project);
+        if (filtering || expanded.has(key)) void loadProjectTopics(project);
       }
     }, 200);
     return () => clearTimeout(timer);
-  }, [expanded, loadProjectTopics, query, timeFilter, sessionsLayout, tree]);
+  }, [expanded, loadProjectTopics, query, timeFilter, tree]);
 
   // Following the active topic is a view concern over the tree already held.
   useEffect(() => {
@@ -1051,22 +1049,6 @@ export function ProjectTree({
     return splitPinnedProjectTree(visibleTree, workbenchSortMode, compactTopics);
   }, [compactTopics, creationTopics, visibleTree, workbenchSortMode]);
 
-  // Sessions layout: one flat recency list across every project folder, built
-  // from the same arranged/filtered tree so search and the time filter apply.
-  const flatSessionNodes = useMemo<ProjectNode[]>(() => {
-    if (!sessionsLayout) return [];
-    const merged: ProjectNode[] = [];
-    for (const project of visibleTree) {
-      for (const child of asArray(project.children)) {
-        if (isTopicNode(child) || isRuntimeSessionNode(child)) merged.push(child);
-      }
-    }
-    return merged.sort((a, b) => {
-      if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
-      return topicSortValue(b, workbenchSortMode) - topicSortValue(a, workbenchSortMode);
-    });
-  }, [sessionsLayout, visibleTree, workbenchSortMode]);
-
   const classicTopics = !compactTopics && !creationTopics;
   const classicTruncationActive = classicTopics && query.trim() === "" && timeFilter === "all";
 
@@ -1079,6 +1061,8 @@ export function ProjectTree({
     }
     return map;
   }, [tree]);
+
+  useEffect(() => { onWorkspaceLabelsChange?.(projectLabelByRoot); }, [onWorkspaceLabelsChange, projectLabelByRoot]);
 
   const scheduleHoverCard = useCallback((element: HTMLElement, rowKey: string, node: ProjectNode) => {
     if (hoverCardTimerRef.current !== null) window.clearTimeout(hoverCardTimerRef.current);
@@ -2061,18 +2045,16 @@ export function ProjectTree({
     );
   };
 
-  const renderProjectHeader = (mode: "classic" | "workbench", sessions = false) => (
+  const renderProjectHeader = (mode: "classic" | "workbench") => (
     <div className="project-tree__header">
       <span className="project-tree__header-title">
-        {sessions ? <MessagesSquare className="project-tree__header-icon" size={13} /> : <BriefcaseBusiness className="project-tree__header-icon" size={13} />}
-        {sessions ? t("sidebar.sessions") : t("projectTree.workspaceTitle")}
+        <BriefcaseBusiness className="project-tree__header-icon" size={13} />
+        {t("projectTree.workspaceTitle")}
       </span>
       <span className="project-tree__header-actions">
         {mode === "workbench" ? (
           <>
             {renderTimeFilterControl("workbench")}
-            {!sessions && (
-              <>
             <Tooltip label={workbenchCollapseToggleLabel} className="project-tree__header-action-slot">
               <button
                 type="button"
@@ -2133,14 +2115,10 @@ export function ProjectTree({
                 onClose={closeMenu}
               />
             </span>
-              </>
-            )}
           </>
         ) : (
           <>
             {renderTimeFilterControl("classic")}
-            {!sessions && (
-              <>
             <Tooltip label={collapseToggleLabel} className="project-tree__action-slot project-tree__header-action-slot project-tree__action-slot--collapse">
               <button
                 type="button"
@@ -2164,8 +2142,6 @@ export function ProjectTree({
                 <FolderPlus size={14} />
               </button>
             </Tooltip>
-              </>
-            )}
           </>
         )}
       </span>
@@ -2173,7 +2149,6 @@ export function ProjectTree({
   );
 
   const renderEmptyState = () => {
-    if (sessionsLayout) return <div className="project-tree__empty">{t("sidebar.sessionsEmpty")}</div>;
     if (query.trim()) return <div className="project-tree__empty">{t("projectTree.emptyNoMatch")}</div>;
     if (timeFilter !== "all") {
       return (
@@ -2234,28 +2209,24 @@ export function ProjectTree({
           {t("projectTree.indexingProgress", { done: catalogStatus.indexed, total: catalogStatus.total || "?" })}
         </div>
       )}
+      {!creationTopics && (
+        <section className="project-tree__section project-tree__section--pinned" aria-label={t("projectTree.pinnedTitle")}>
+          <div className="project-tree__section-title"><Pin size={13} className="project-tree__section-icon" aria-hidden="true" />{t("projectTree.pinnedTitle")}</div>
+          {pinnedTreeSections.pinned.length ? (
+            <div className="project-tree__pinned-items">
+              {pinnedTreeSections.pinned.map((node) => renderNode(node, compactTopics ? 0 : 1, "pinned"))}
+            </div>
+          ) : <p className="project-tree__pinned-empty">{t("projectTree.pinnedEmpty")}</p>}
+        </section>
+      )}
       {compactTopics ? (
         <>
-          {renderProjectHeader("workbench", sessionsLayout)}
+          {renderProjectHeader("workbench")}
           <div className="project-tree__list project-tree__list--workbench">
-            {sessionsLayout ? (
-              flatSessionNodes.length === 0 ? (
-                renderEmptyState()
-              ) : (
-                <div className="project-tree__section project-tree__section--flat">
-                  {flatSessionNodes.map((node) => renderNode(node, 0, "projects"))}
-                </div>
-              )
-            ) : !hasTreeRows ? (
+            {!hasTreeRows ? (
               renderEmptyState()
             ) : (
               <>
-                {pinnedTreeSections.pinned.length > 0 && (
-                  <div className="project-tree__section project-tree__section--pinned">
-                    <div className="project-tree__section-title">{t("projectTree.pinnedTitle")}</div>
-                    {pinnedTreeSections.pinned.map((node) => renderNode(node, 0, "pinned"))}
-                  </div>
-                )}
                 <div className="project-tree__section project-tree__section--projects">
                   {pinnedTreeSections.projects.map((node) => renderNode(node, 0, "projects"))}
                 </div>
@@ -2265,26 +2236,12 @@ export function ProjectTree({
         </>
       ) : (
         <>
-          {renderProjectHeader("classic", sessionsLayout)}
+          {renderProjectHeader("classic")}
           <div className="project-tree__list" onScroll={cancelHoverCard}>
-            {sessionsLayout ? (
-              flatSessionNodes.length === 0 ? (
-                renderEmptyState()
-              ) : (
-                <div className="project-tree__section project-tree__section--flat">
-                  {flatSessionNodes.map((node) => renderNode(node, 0, "projects"))}
-                </div>
-              )
-            ) : !hasTreeRows ? (
+            {!hasTreeRows ? (
               renderEmptyState()
             ) : (
               <>
-                {pinnedTreeSections.pinned.length > 0 && (
-                  <div className="project-tree__section project-tree__section--pinned">
-                    <div className="project-tree__section-title">{t("projectTree.pinnedTitle")}</div>
-                    {pinnedTreeSections.pinned.map((node) => renderNode(node, 1, "pinned"))}
-                  </div>
-                )}
                 <div className="project-tree__section project-tree__section--projects">
                   {pinnedTreeSections.projects.map((node) => renderNode(node, 0, "projects"))}
                 </div>

@@ -18,14 +18,15 @@ fail() { echo "SELFTEST FAIL: $1" >&2; exit 1; }
 cat > "$TMP/sA.jsonl" <<'EOF'
 {"role":"user","content":"我办案喜欢先用模板，再补细节"}
 {"role":"assistant","content":"好的，已记录"}
+{"role":"user","content":"处理案件时我一般先套模板，再补细节"}
+{"role":"assistant","content":"明白"}
 EOF
 "$SEMANTIX" extract --input "$TMP/sA.jsonl" --scope user --project selftest --db "$TMP/mem.db" >/dev/null \
   || fail "extract failed"
 
-# --- lookup must find the preference slice (hit or grey; grey still proves the
-# retrieval loop works — zone semantics, Issue #7) ---
+# --- lookup must find a hit; grey is not eligible for default injection ---
 LOOKUP="$("$SEMANTIX" lookup --query "办案偏好" --scope user --db "$TMP/mem.db" --json 2>/dev/null || true)"
-echo "$LOOKUP" | grep -Eq '"zone": "(hit|grey)"' || fail "lookup returned no hit/grey zone: $LOOKUP"
+echo "$LOOKUP" | grep -q '"zone": "hit"' || fail "lookup returned no hit zone: $LOOKUP"
 
 # --- inject must return a non-empty [semantix-reuse] block ---
 INJECT="$("$SEMANTIX" inject --query "处理案件" --scope user --db "$TMP/mem.db" 2>/dev/null || true)"

@@ -1,8 +1,12 @@
 "use client";
 
+import { translate as t, type LocaleProps } from "@/lib/i18n";
+
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { homeLink } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import {
   INTRO_COMPLETION_EVENT,
@@ -20,16 +24,16 @@ const links: NavLink[] = [
   { label: "安装", labelEn: "Install", href: "/#start" },
 ];
 
-function NavLabel({ label, labelEn }: Pick<NavLink, "label" | "labelEn">) {
+function NavLabel({ label, labelEn, locale }: Pick<NavLink, "label" | "labelEn"> & LocaleProps) {
   return (
     <span className="inline-flex items-baseline gap-1.5">
       <span>{labelEn}</span>
-      <span>{label}</span>
+      {locale !== "en" && <span>{label}</span>}
     </span>
   );
 }
 
-export default function Nav() {
+export default function Nav({ locale = "zh-CN" }: LocaleProps) {
   const [visible, setVisible] = useState(false);
   const [bloomActive, setBloomActive] = useState(false);
   const [open, setOpen] = useState(false);
@@ -89,7 +93,7 @@ export default function Nav() {
           href={siteIdentity.operator.url}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label="访问 EnsureOK 官网"
+          aria-label={t(locale, "访问 EnsureOK 官网")}
           className="block shrink-0 transition-opacity hover:opacity-65"
         >
           <span className="flex flex-col items-center gap-0.5 text-[#050505]">
@@ -112,16 +116,17 @@ export default function Nav() {
           {links.map((link) => (
             <Link
               key={link.href}
-              href={link.href}
+              href={homeLink(locale, link.href)}
               className="font-brand-display shrink-0 whitespace-nowrap text-xs font-bold tracking-[0.025em] text-muted-foreground transition-colors hover:text-accent 2xl:text-sm"
             >
-              <NavLabel label={link.label} labelEn={link.labelEn} />
+              <NavLabel locale={locale} label={link.label} labelEn={link.labelEn} />
             </Link>
           ))}
         </nav>
 
         {/* 右侧操作区 */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <LanguageSwitcher locale={locale} />
           <a
             href="https://github.com/Gnosil/semantix"
             target="_blank"
@@ -138,19 +143,18 @@ export default function Nav() {
             GitHub <span aria-hidden="true">↗</span>
           </a>
           <Link
-            href="/#start"
+            href={homeLink(locale, "/#start")}
             className="font-brand-display rounded-md bg-accent px-3 py-1.5 text-sm font-bold text-white transition-opacity hover:opacity-90"
           >
-            Install 安装
-          </Link>
+            {t(locale, "Install 安装")}</Link>
 
           {/* 汉堡按钮（移动端） */}
           <button
             type="button"
-            aria-label={open ? "关闭菜单" : "打开菜单"}
+            aria-label={open ? t(locale, "关闭菜单") : t(locale, "打开菜单")}
             aria-expanded={open}
             onClick={() => setOpen((v) => !v)}
-            className="flex size-9 items-center justify-center rounded-md border border-border text-foreground xl:hidden"
+            className="flex size-11 items-center justify-center rounded-md border border-border text-foreground xl:hidden"
           >
             <span className="flex flex-col gap-[5px]">
               <span
@@ -180,18 +184,18 @@ export default function Nav() {
       <div
         className={cn(
           "absolute inset-x-0 top-16 z-40 h-[calc(100vh-4rem)] overflow-y-auto bg-white/95 backdrop-blur transition-opacity duration-200 xl:hidden",
-          open ? "opacity-100" : "pointer-events-none opacity-0",
+          open ? "visible opacity-100" : "invisible pointer-events-none opacity-0",
         )}
       >
         <nav className="wrap flex flex-col gap-2 py-6">
           {links.map((link) => (
             <Link
               key={link.href}
-              href={link.href}
+              href={homeLink(locale, link.href)}
               onClick={() => setOpen(false)}
               className="font-brand-display rounded-lg px-3 py-4 text-lg font-bold tracking-[0.025em] text-foreground transition-colors hover:bg-muted"
             >
-              <NavLabel label={link.label} labelEn={link.labelEn} />
+              <NavLabel locale={locale} label={link.label} labelEn={link.labelEn} />
             </Link>
           ))}
           <a
