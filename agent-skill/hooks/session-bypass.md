@@ -28,6 +28,10 @@ semantix extract --input ~/.semantix/sessions/<sessionID>.jsonl --scope user --p
 
 （也可加 `--fingerprint <模板/案卷路径>`：这些文件一变，相关记忆自动失效。）
 
+**MiniMax Code (MCode)** 的会话存储在 SQLite，不是每会话一个 JSONL 文件。
+先使用 [MCode 转换示例](mcode.md)中的标准库 Python 导出器，再进入此提取路径；
+示例同时支持独立的用户偏好文件和增量水位。
+
 ### B. 事件旁路（实时，semantix-agent 参考实现）
 
 Semantix Agent 已在 H1 挂载 `HarnessSink`

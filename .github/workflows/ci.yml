@@ -36,6 +36,7 @@ jobs:
         run: |
           go build -o "$RUNNER_TEMP/semantix" ./cmd/semantix
           SEMANTIX_BIN="$RUNNER_TEMP/semantix" bash agent-skill/scripts/selftest.sh
+          SEMANTIX_BIN="$RUNNER_TEMP/semantix" python3 -m unittest discover -s agent-skill/scripts -p 'test_*.py'
 
       - name: Vet
         run: go vet ./...
