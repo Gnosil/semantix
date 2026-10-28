@@ -27,6 +27,24 @@ const maxBackoff = 15 * time.Second
 // longer honest wait costs nothing the user can't interrupt.
 const maxRetryAfter = 60 * time.Second
 
+// Rate-limit windows on metered plans (e.g. coding-plan token buckets) routinely
+// outlast the generic 10×15s ≈ 2.5min patience: the frozen-subset campaigns
+// (#521) measured 10 of 25 failures dying to 429 after all generic retries
+// drained while ~12min of the task's wall budget remained. A long coding task
+// should outlast a refill window, so 429 gets its own budget: a higher backoff
+// cap, a higher Retry-After clamp, and a cumulative-wait ceiling instead of an
+// attempt count. The ceiling is the product trade-off — beyond it the user is
+// better off seeing the error than waiting — and a var so tests can shrink it.
+const (
+	maxRateLimitBackoff    = 60 * time.Second
+	maxRateLimitRetryAfter = 90 * time.Second
+	maxRateLimitAttempts   = 40
+)
+
+// maxRateLimitWait is the cumulative-wait ceiling for one request's 429
+// backoffs. A var, not a const, so tests can shrink it.
+var maxRateLimitWait = 6 * time.Minute
+
 // errorBodyReadTimeout bounds how long draining a non-OK response body may
 // block. Proxies and gateways under load (502/524 storms) can send headers and
 // then stall the body on a half-open connection; http.Client has no Timeout
@@ -146,6 +164,10 @@ func UsageWithRequestAttemptCount(ctx context.Context, usage *Usage) *Usage {
 	return &result
 }
 
+// retrySleep is the backoff wait seam; a var so tests run budget scenarios
+// without real sleeps. Production uses time.After (cancellable via ctx below).
+var retrySleep = time.After
+
 func recordRequestAttempt(ctx context.Context) {
 	if ctx == nil {
 		return
@@ -229,6 +251,21 @@ func backoffDelay(attempt int, retryAfter time.Duration) time.Duration {
 	return d + time.Duration(rand.Intn(250))*time.Millisecond
 }
 
+// rateLimitDelay is the 429-specific backoff: honor Retry-After up to the
+// higher rate-limit clamp, otherwise exponential capped at
+// maxRateLimitBackoff with wider jitter (a metered plan's window is seconds
+// to minutes, not milliseconds, so sub-second precision buys nothing).
+func rateLimitDelay(attempt int, retryAfter time.Duration) time.Duration {
+	if retryAfter > 0 {
+		return min(retryAfter, maxRateLimitRetryAfter)
+	}
+	d := maxRateLimitBackoff
+	if attempt < 8 {
+		d = time.Duration(1<<(attempt-1)) * 500 * time.Millisecond
+	}
+	return d + time.Duration(rand.Intn(2000))*time.Millisecond
+}
+
 func parseRetryAfter(resp *http.Response) time.Duration {
 	v := strings.TrimSpace(resp.Header.Get("Retry-After"))
 	if v == "" {
@@ -276,22 +313,50 @@ func readErrorBody(resp *http.Response) []byte {
 // statuses become *APIError. A RetryNotify in ctx fires before each sleep.
 // Retries cover only the header phase — once the body streams, mid-stream
 // failures are not retried (the model has already emitted tokens).
+//
+// 429 is budgeted separately from the generic attempt count: its waits
+// accumulate toward maxRateLimitWait (and maxRateLimitAttempts as a spin
+// ceiling), because a metered plan's refill window routinely outlasts the
+// generic patience. Other statuses keep counting against MaxRetries even when
+// interleaved with 429s, so an alternating 429/500 peer cannot extend the run
+// unboundedly.
 func SendWithRetry(ctx context.Context, httpClient *http.Client, opts SendOptions, newReq func(context.Context) (*http.Request, error)) (*http.Response, error) {
 	notify := retryNotifyFromContext(ctx)
 	var lastErr error
 	var retryAfter time.Duration
+	var rateWait time.Duration
+	attempts := 0
+	rateAttempts := 0
 	authRetries := 0
+	lastRateLimited := false
 
-	for attempt := 0; attempt <= MaxRetries; attempt++ {
-		if attempt > 0 {
-			delay := backoffDelay(attempt, retryAfter)
+	for iter := 0; ; iter++ {
+		if iter > 0 {
+			// Check before sleeping, and clamp the final 429 wait to the
+			// remaining budget. A rejected retry must not spend another wait.
+			if lastRateLimited {
+				if rateWait >= maxRateLimitWait || rateAttempts >= maxRateLimitAttempts {
+					return nil, lastErr
+				}
+			} else if attempts > MaxRetries {
+				return nil, lastErr
+			}
+			delay := backoffDelay(max(attempts, 1), retryAfter)
+			retryAttempt, retryMax := attempts, MaxRetries
+			if lastRateLimited {
+				// First rate-limit wait uses attempt 1 (500ms ramp start).
+				delay = min(rateLimitDelay(rateAttempts+1, retryAfter), maxRateLimitWait-rateWait)
+				rateAttempts++
+				rateWait += delay
+				retryAttempt, retryMax = rateAttempts, maxRateLimitAttempts
+			}
 			if notify != nil {
-				notify(RetryInfo{Attempt: attempt, Max: MaxRetries, Delay: delay, Err: lastErr})
+				notify(RetryInfo{Attempt: retryAttempt, Max: retryMax, Delay: delay, Err: lastErr})
 			}
 			select {
 			case <-ctx.Done():
 				return nil, ctx.Err()
-			case <-time.After(delay):
+			case <-retrySleep(delay):
 			}
 		}
 		retryAfter = 0
@@ -307,6 +372,8 @@ func SendWithRetry(ctx context.Context, httpClient *http.Client, opts SendOption
 				return nil, fmt.Errorf("%s: request failed: %w", opts.Provider, err)
 			}
 			lastErr = fmt.Errorf("%s: request failed: %w", opts.Provider, err)
+			attempts++
+			lastRateLimited = false
 			continue
 		}
 		if resp.StatusCode == http.StatusOK {
@@ -321,6 +388,8 @@ func SendWithRetry(ctx context.Context, httpClient *http.Client, opts SendOption
 			if opts.RetryAuth && authRetries < maxAuthRetries {
 				authRetries++
 				lastErr = authErr
+				attempts++
+				lastRateLimited = false
 				continue
 			}
 			return nil, authErr
@@ -335,8 +404,13 @@ func SendWithRetry(ctx context.Context, httpClient *http.Client, opts SendOption
 			return nil, apiErr
 		}
 		lastErr = apiErr
+		if resp.StatusCode == http.StatusTooManyRequests {
+			lastRateLimited = true
+		} else {
+			attempts++
+			lastRateLimited = false
+		}
 	}
-	return nil, lastErr
 }
 
 func responseTraceID(header http.Header) string {

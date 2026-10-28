@@ -307,3 +307,131 @@ func TestRequestAttemptCountSurvivesRetriesThenTerminalFailure(t *testing.T) {
 		t.Fatalf("failed request usage = %+v, want tokens=0 requests=3", usage)
 	}
 }
+
+// A metered plan's refill window outlasts the generic 10×15s patience (#521:
+// 10 of 25 frozen-subset failures died to 429 with wall budget remaining). The
+// 429 budget is cumulative-wait based, so a window shorter than the ceiling is
+// ridden out and the request succeeds.
+func TestSendWithRetryRidesOutRateLimitWindow(t *testing.T) {
+	oldWait, oldSleep := maxRateLimitWait, retrySleep
+	maxRateLimitWait, retrySleep = 100*time.Second, func(time.Duration) <-chan time.Time { return time.After(0) }
+	defer func() { maxRateLimitWait, retrySleep = oldWait, oldSleep }()
+
+	calls := 0
+	cl := &http.Client{Transport: rtFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		if calls <= 6 {
+			return statusResp(http.StatusTooManyRequests, nil), nil
+		}
+		return statusResp(200, nil), nil
+	})}
+
+	resp, err := SendWithRetry(context.Background(), cl, SendOptions{Provider: "p"}, newDummyReq)
+	if err != nil {
+		t.Fatalf("should ride out the 429 window: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK || calls != 7 {
+		t.Fatalf("status=%d calls=%d, want 200 after 7 calls", resp.StatusCode, calls)
+	}
+}
+
+// Once the cumulative 429 wait crosses the ceiling the loop gives up and
+// returns the last APIError — patience is bounded, not infinite.
+func TestSendWithRetryRateLimitPatienceIsBounded(t *testing.T) {
+	oldWait, oldSleep := maxRateLimitWait, retrySleep
+	maxRateLimitWait, retrySleep = time.Nanosecond, func(time.Duration) <-chan time.Time { return time.After(0) }
+	defer func() { maxRateLimitWait, retrySleep = oldWait, oldSleep }()
+
+	calls := 0
+	cl := &http.Client{Transport: rtFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		return statusResp(http.StatusTooManyRequests, nil), nil
+	})}
+
+	_, err := SendWithRetry(context.Background(), cl, SendOptions{Provider: "p"}, newDummyReq)
+	apiErr, ok := err.(*APIError)
+	if !ok || apiErr.Status != http.StatusTooManyRequests {
+		t.Fatalf("err = %v, want *APIError 429", err)
+	}
+	if calls > maxRateLimitAttempts {
+		t.Fatalf("calls = %d, exceeded the spin ceiling", calls)
+	}
+}
+
+// A 429 Retry-After is honored up to the higher rate-limit clamp; generic
+// statuses keep the original clamp and attempt budget.
+func TestRateLimitDelayHonorsRetryAfterUpToHigherCap(t *testing.T) {
+	if got := rateLimitDelay(maxRateLimitAttempts, 0); got < maxRateLimitBackoff || got >= maxRateLimitBackoff+2*time.Second {
+		t.Fatalf("late rate-limit backoff = %v, want [60s, 62s)", got)
+	}
+	if got := rateLimitDelay(1, 75*time.Second); got != 75*time.Second {
+		t.Fatalf("75s Retry-After = %v, want honored under the 90s clamp", got)
+	}
+	if got := rateLimitDelay(1, 200*time.Second); got != maxRateLimitRetryAfter {
+		t.Fatalf("200s Retry-After = %v, want clamped to %v", got, maxRateLimitRetryAfter)
+	}
+	if got := backoffDelay(1, 75*time.Second); got != maxRetryAfter {
+		t.Fatalf("generic 75s Retry-After = %v, want clamped to %v", got, maxRetryAfter)
+	}
+}
+
+// A 429 does not consume the generic attempt budget: one 429 followed by
+// persistent 502s still ends after MaxRetries generic attempts with the 502.
+// (Under alternation, whichever budget exhausts last decides the returned
+// status — the rate path returns after a 429, the generic path after a 5xx.)
+func TestSendWithRetry429DoesNotConsumeGenericBudget(t *testing.T) {
+	oldWait, oldSleep := maxRateLimitWait, retrySleep
+	maxRateLimitWait, retrySleep = 100*time.Second, func(time.Duration) <-chan time.Time { return time.After(0) }
+	defer func() { maxRateLimitWait, retrySleep = oldWait, oldSleep }()
+
+	calls := 0
+	cl := &http.Client{Transport: rtFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		if calls == 1 {
+			return statusResp(http.StatusTooManyRequests, nil), nil
+		}
+		return statusResp(http.StatusBadGateway, nil), nil
+	})}
+
+	ctx := WithRetryNotify(context.Background(), func(info RetryInfo) {
+		wantMax := MaxRetries
+		if calls == 1 {
+			wantMax = maxRateLimitAttempts
+		}
+		if info.Max != wantMax || info.Attempt < 1 || info.Attempt > info.Max {
+			t.Errorf("retry notification = %+v, want max %d", info, wantMax)
+		}
+	})
+	_, err := SendWithRetry(ctx, cl, SendOptions{Provider: "p"}, newDummyReq)
+	apiErr, ok := err.(*APIError)
+	if !ok || apiErr.Status != http.StatusBadGateway {
+		t.Fatalf("err = %v, want *APIError 502 after generic budget drained", err)
+	}
+	if calls != MaxRetries+2 {
+		t.Fatalf("calls = %d, want 1 rate-limit try + %d generic attempts", calls, MaxRetries+1)
+	}
+}
+
+func TestSendWithRetryDoesNotSleepPastRateLimitBudget(t *testing.T) {
+	oldWait, oldSleep := maxRateLimitWait, retrySleep
+	maxRateLimitWait = 100 * time.Second
+	var slept time.Duration
+	retrySleep = func(d time.Duration) <-chan time.Time {
+		slept += d
+		return time.After(0)
+	}
+	defer func() { maxRateLimitWait, retrySleep = oldWait, oldSleep }()
+
+	calls := 0
+	cl := &http.Client{Transport: rtFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		return statusResp(http.StatusTooManyRequests, map[string]string{"Retry-After": "90"}), nil
+	})}
+	_, err := SendWithRetry(context.Background(), cl, SendOptions{Provider: "p"}, newDummyReq)
+	if apiErr, ok := err.(*APIError); !ok || apiErr.Status != http.StatusTooManyRequests {
+		t.Fatalf("err = %v, want *APIError 429", err)
+	}
+	if slept != maxRateLimitWait || calls != 3 {
+		t.Fatalf("slept=%v calls=%d, want 100s and 3 requests", slept, calls)
+	}
+}
