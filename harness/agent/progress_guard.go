@@ -183,6 +183,7 @@ func (a *Agent) armLoopGuardPass(receiptMark int) {
 	}
 	targets := append([]string(nil), a.turn.injectTargets...)
 	a.turn.injectBlock = ""
+	a.turn.injectReference = ""
 	a.turn.injectionFused = true
 	if a.semantix != nil && a.turn.injectionDelivered {
 		a.semantix.RecordInjectionReject(targets, "loop_guard")

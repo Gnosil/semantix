@@ -2,38 +2,151 @@
 
 Three synthetic, explicitly managed project-context questions were run through
 the official GLM Coding Plan Chat Completion endpoint using `glm-5.3-flash`.
-Each question used the same model, system policy, output limit and sampling
-settings in all arms. Arm B adds the actual Semantix L2 block rendered by
-`kernel/inject.Injector.BuildHits`; arm D replaces the bounded source context
-with compact JSON retaining every field and value. The nine requests, answers
-and provider usage records are in `comparison-5.3-flash-plan.jsonl`.
+Each question used the same model, output limit and sampling settings in all
+arms. The policy text was the same, but its experiment prefix included the arm
+name; this small prompt difference means the earlier A/B/D comparison was not
+perfectly controlled. Arm B adds the actual Semantix L2 block rendered by
+`kernel/inject.Injector.BuildHits`; arm D is constructed by the Python runner,
+which compacts the bounded source JSON and omits L2. It does not call the Go
+`buildSamplingRequest` replacement branch. The nine requests, answers
+and provider usage records are in `comparison-5.3-flash-plan-aligned.jsonl`.
+The earlier `comparison-5.3-flash-plan.jsonl` used `project="demo"` in the
+managed message but `project="replacement-experiment"` in L2 provenance. The
+aligned report fixes that prerequisite, but neither live report exercises the
+Go runtime gate; a separate focused Go check covers that branch.
+
+The runner now uses the same system message for all arms of a case. Its first
+rerun request returned HTTP 429 / code 1302, before any comparable results
+were collected; the one-row attempt is in
+`comparison-5.3-flash-plan-same-prompt-attempt.jsonl`. The token table below
+still reports the earlier arm-labeled run and should not be treated as a
+same-prompt result.
+
+A separate `run_runtime.py` now captures A/B/D requests through actual
+`Agent.Run` calls with a recording provider before sending them to GLM. Its
+three-case dry run confirmed all nine request shapes, including strict L2 and
+the Go replacement branch, with the same system message and current question
+within each case. No live model result has been collected from these captured
+requests in the dry run. The current Go branch preserves the slice provenance in a short
+reference while omitting the duplicate body; the earlier 56.8% token figure
+was measured on the Python arm that removed the entire L2 block, so it is not
+an estimate for this revised runtime behavior. Across the three dry-run cases,
+the captured message content totals 6,081 bytes in strict mode and 4,154
+bytes in replace mode (**31.7% fewer bytes**); off mode totals 3,476 bytes.
+These are UTF-8 request-content bytes, not provider token counts or charges.
 
 | Arm | Correct | Prompt | Cached prompt | Noncached prompt | Completion | Total |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| A original context | 3/3 | 640 | 256 | 384 | 357 | 997 |
-| B original + L2 injection | 3/3 | 1241 | 448 | 793 | 480 | 1721 |
-| D replacement | 3/3 | 533 | 128 | 405 | 409 | 942 |
+| A original context | 3/3 | 646 | 64 | 582 | 304 | 950 |
+| B original + L2 injection | 3/3 | 1253 | 64 | 1189 | 354 | 1607 |
+| D replacement | 3/3 | 541 | 64 | 477 | 326 | 867 |
 
-D used **57.1% fewer provider-reported input tokens than B** and **16.7%
-fewer than A**. Total input plus output tokens fell 45.3% versus B. The
-cached and noncached input counts and completion count also each fell versus
-B. The provider did not report a monetary charge or Coding Plan point cost,
+D used **56.8% fewer provider-reported input tokens than B** and **16.3%
+fewer than A**. Total input plus output tokens fell 46.0% versus B. The
+noncached input and completion counts also fell versus B; cached input was
+equal. The provider did not report a monetary charge or Coding Plan point cost,
 so this report does not claim a measured currency or plan-quota saving. Under
 the same nonnegative per-token rates by category, D's aggregate charge would
 be lower than B's; no such conclusion follows versus A because D used more
-noncached input and completion tokens than A.
+completion tokens than A.
 
 This is one small structured-context run, not proof that arbitrary prose,
 tool outputs, conflicting facts or multi-turn tasks retain their behavior.
-The runner does not change Semantix production request assembly. A real
-replacement path still needs a managed source block and fail-open handling at
-`context.prepare`, with the saved transcript unchanged.
+The runner does not execute an ordinary Semantix agent session. PR #518 adds a
+provider-request replacement path for a matching managed source block, but
+no production source currently emits that block automatically. The saved
+transcript remains unchanged.
+
+The harness writes a session mirror, while slice extraction into the L2
+project library is a separate step. The SWE-bench runner performs that step
+after each instance before the next one in the same repository. A request
+against an empty library cannot measure replacement opportunities. The older
+10-instance SWE-bench pilot did exercise real cross-instance injection and
+reported 6,932,300 input tokens and $0.0980 with memory on, versus 4,353,870
+and $0.0544 with memory off (`docs/reports/swe-pilot-two-arm.md`). That is
+evidence that the former injection setup could increase cost, not a
+GLM-5.3-Flash baseline or an estimate for today's stricter admission rules.
 
 The earlier attempt on the ordinary API endpoint returned HTTP 429 / code
 1113; its failed request remains in `comparison-5.3-flash.jsonl`. GLM Coding
 Plan uses a separate endpoint. Official model and endpoint references:
 https://docs.bigmodel.cn/cn/guide/models/vlm/glm-5.3-flash and
 https://docs.bigmodel.cn/cn/coding-plan/quick-start.
+
+## Runtime-captured GLM-5.3-Flash partial result
+
+The first case from `run_runtime.py` completed on the Coding Plan endpoint.
+All three arms returned the expected facts from requests captured through
+`Agent.Run` with the same system message and current question:
+
+| Arm | Correct | Prompt | Cached prompt | Completion | Total |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| A off | 1/1 | 318 | 64 | 159 | 477 |
+| B strict | 1/1 | 592 | 0 | 126 | 718 |
+| D replace | 1/1 | 375 | 0 | 141 | 516 |
+
+D used **36.7% fewer input tokens** and **28.1% fewer total tokens** than B
+for this one case. It used more input and total tokens than A. The fourth call
+returned HTTP 429 / code 1302, and a later retry did too. The full nine
+provider requests and three successful responses are saved in
+`comparison-5.3-flash-plan-runtime.jsonl`; the first interrupted attempt is
+saved separately in `comparison-5.3-flash-plan-runtime-first-attempt.jsonl`.
+The runner retains each case's captured requests on resume. No result is
+available for cases 1 and 2, so this one-case observation does not establish
+answer equivalence or measured charges for the runtime mode.
+
+## Existing session mirror census
+
+The read-only `probe_local.go` tool inspected 544 local Semantix SWE coding
+session mirrors from 85 DeepSeek-v4-Flash experiment variants. One session
+could not be extracted because its record exceeded the extractor's line limit;
+the remaining sessions yielded 537 Context and 404 Result slices. The probe
+compared each slice body with every non-system message in its own session, an
+upper bound on exact duplicate opportunities rather than a runtime hit rate.
+Context matched **0/537** messages. Result matched **394/404**, but **0/404**
+were marked verified by the current extraction rule, so none would pass the
+current L2 Result admission gate. None of the 42,491 rows contained the
+`verification` or `workspace_mutation` host fields; the zero verified count
+reflects missing host evidence, not proof that no task ran a successful test.
+Broadening the comparison from whole-message equality to an exact substring
+anywhere in a non-system message did not add hits: Context remained 0/537 and
+Result remained 394/404. This is still only an offline opportunity count,
+not a provider-request or admitted-L2 hit rate.
+
+The separate `slice.Distill` path produced 495 additional Context cards and
+1,054 Memory cards from the analyzable mirrors. **None** of those 1,549 card
+bodies occurred as an exact substring of a non-system message in its source
+session. This rules out the simplest exact-text substitution for the natural
+distilled cards in this older corpus; it does not measure semantic overlap or
+prove that current-format sessions have no opportunities.
+No managed-context marker occurred in any message. The corpus uses an older
+model and session format, not GLM-5.3-Flash, and does not establish answer
+quality or cost.
+
+This rules out treating the controlled JSON saving as an observed benefit on
+that corpus. A broader replacement must first locate an admitted slice that
+duplicates provider-visible content and preserve its untrusted provenance;
+otherwise the existing injection should remain.
+
+The repository's `harness/agent/memory_flow_e2e_test.go` exercises the real
+agent request path with verified history from earlier sessions. Its new session
+does not contain the historical command in the `off` or `shadow` provider
+request; `strict` adds that knowledge through L2. Thus a blanket removal of
+L2 would lose information in this concrete workflow. Replacement can preserve
+the available facts only when the provider request already holds the same
+source content, or when a shorter host-owned representation demonstrably
+retains what the task needs. The controlled JSON case establishes only the
+first, explicitly constructed condition.
+
+The agent already has a separate checkpoint replacement path:
+`compactToProjection` folds older assistant/tool messages into a structured
+summary while keeping selected user turns and the recent tail, then accepts
+the projection only if it reduces estimated tokens. Its summary prompt asks
+for standing constraints, decisions, edits, errors and pending work.
+`slice.Distill` cards capture narrower repo operations, plan stages and task
+outcomes, so substituting one card for an arbitrary compaction fold would not
+preserve those fields by construction. Reusing the existing checkpoint
+machinery would require a completeness check on real continuation tasks.
 
 ## Earlier GLM-4.7 pilot
 

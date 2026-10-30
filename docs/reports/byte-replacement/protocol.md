@@ -1,6 +1,6 @@
 # Byte replacement experiment
 
-Status: research in progress, based on Semantix main `f527fd7`.
+Status: research in progress; runtime prototype in PR #518.
 
 The existing agent appends L2 content before the latest user message; it does
 not remove original context. `kernel/inject.Injector.BuildHits` supplies the
@@ -19,11 +19,41 @@ unknown fields. Invalid or ambiguous blocks are left unchanged. It never edits
 system instructions or the current user question. This is a small structured
 context experiment; it does not prove arbitrary prose equivalence.
 
-The report records each request, answer and provider-reported usage. Compare
-actual prompt tokens and answer facts first; Coding Plan point or monetary
-cost cannot be inferred from tokens alone. Three synthetic tasks show the
-structured replacement route is promising but cannot establish production-wide
-quality or savings. The next step is real Semantix workloads.
+The provenance-aligned report is `comparison-5.3-flash-plan-aligned.jsonl`.
+The earlier Plan report has a mismatched project tag. Both live reports render
+the L2 block through Go but construct the D request in Python, so neither
+executes the Go runtime replacement gate; its focused check is separate. The
+report records each request, answer and provider-reported usage. The aligned
+run also used an arm-specific experiment
+prefix in its system message, so it is not a perfectly same-prompt comparison.
+The runner now uses one system message per case across all arms, but its first
+rerun call returned HTTP 429 / code 1302; the one-row attempt is recorded in
+`comparison-5.3-flash-plan-same-prompt-attempt.jsonl`. Compare actual prompt
+tokens and answer facts first;
+Coding Plan point or monetary cost cannot be inferred from tokens alone. Three
+synthetic tasks show the structured replacement route is promising but cannot
+establish production-wide quality or savings. The next step is real Semantix
+workloads.
+
+The opt-in runtime mode `semantix.mode = "replace"` handles only a single
+admitted Context slice whose content exactly matches one earlier, uniquely
+bounded `<semantix-managed-context project="..." revision="...">` user
+message. Its project and revision must match the slice provenance. It removes
+insignificant whitespace from the JSON object and replaces the duplicate L2
+body with a short reference that retains the original slice provenance in the
+provider request copy; the saved message is untouched. All
+other cases retain the existing injection behavior.
+
+`scripts/experiments/byte_replacement/run_runtime.py` is the next live
+comparison entry point. Its Go helper creates an isolated Git project and one
+admitted L2 slice per case, runs the real agent with a recording provider in
+`off`, `strict`, and `replace` modes, and passes those captured provider
+messages to GLM. A three-case dry run produced all nine requests and checked
+identical system/current messages across arms, unchanged source in A/B, and
+the expected full L2 versus provenance-only reference difference. Its first
+live case has 3/3 correct answers and 36.7% fewer input tokens in D than B;
+the remaining two cases are pending after HTTP 429 / code 1302. No measured
+monetary or Coding Plan point cost is available.
 
 The earlier GLM-4.7 preflight established connectivity only; its model differs
 from the requested GLM-5.3-Flash. The GLM-5.3-Flash attempt on the ordinary
