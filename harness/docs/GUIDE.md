@@ -19,6 +19,7 @@
 - [Reasoning language](./REASONING_LANGUAGE.md)
 - [Task contracts and pause policy](./TASK_CONTRACT.md)
 - [Custom OpenAI-compatible providers](#custom-openai-compatible-providers)
+- [Client-side web search](#client-side-web-search)
 - [Desktop hooks](#desktop-hooks)
 - [Keyboard shortcuts](#keyboard-shortcuts)
 - [Permissions & sandbox](#permissions--sandbox)
@@ -85,6 +86,9 @@ enabled = []   # omit/empty = all built-ins
 bash_timeout_seconds = 120   # foreground safety cap; set 0 for no tool-local cap
 mcp_startup_timeout_seconds = 30   # background initialize + tools/list safety cap
 mcp_call_timeout_seconds = 300   # default MCP call safety cap; per-plugin/tool overrides may raise it
+
+# [tools.web_search]      # opt-in client-side web_search for models without provider-side search; off by default
+# provider = "keenable"   # see "Client-side web search" for data sent, rate limits, and failures
 
 [environment]
 enabled = true   # inject a stable startup summary of OS, shell, and common tools
@@ -509,6 +513,66 @@ extra_body  = { enable_thinking = true }
 `extra_body` is merged into the chat JSON request body. Semantix keeps core
 fields such as `model`, `messages`, `tools`, `stream`, and `thinking` under its
 own control.
+
+## Client-side web search
+
+Provider-side `web_search` (`web_search = true` on a `[[providers]]` entry) works
+only on endpoints that run the search themselves. For other models, Semantix can
+register a client-side `web_search` tool backed by a search service you choose.
+It is off by default: no tool is registered and no search request is made until
+`[tools.web_search]` names a backend.
+
+```toml
+[tools.web_search]
+provider = "keenable"                 # registered backends: keenable
+# api_key_env = "KEENABLE_API_KEY"    # optional; this is the default name
+```
+
+- The model reaches the tool through `use_capability` as `tool:web_search`, the
+  same way it reaches `web_fetch`. The tool never enters the provider request
+  schema, so it cannot collide with provider-side `web_search`, which is
+  unchanged.
+- When `[tools] enabled` is not empty, it must list `web_search`.
+- An unknown `provider` prints a startup warning and leaves the tool
+  unregistered; the session starts normally.
+- Arguments: `query` (required) and `max_results` (1-10, default 5). Each result
+  is a title, a URL, and a page excerpt with whitespace collapsed, capped at 600
+  characters.
+
+### Keenable backend
+
+**What is sent.** Each call makes one HTTPS `POST` to
+`https://api.keenable.ai/v1/search/public` with the JSON body
+`{"query": "...", "max_results": N}` and the header `X-Keenable-Title: Semantix`.
+When the variable named by `api_key_env` (default `KEENABLE_API_KEY`) is set,
+the request goes to `/v1/search` instead and carries the key in an `X-API-Key`
+header. Nothing else from the session (messages, files, paths) is sent, but the
+query is written by the model and can contain details from the conversation.
+Requests use the `[network]` proxy settings.
+
+**Key.** Optional. Semantix reads the variable on every call from its process
+environment, which includes the values saved in Semantix's global `.env`. The
+key is never written to config or to tool output.
+
+**Keyless rate limits.** 10 requests per second and 1,000 requests per hour per
+IP address. A key lifts these limits.
+
+### Failure behavior
+
+A failed search does not stop the session. The tool returns an error result to
+the model, `error: web_search (keenable): <reason>`, and the turn continues.
+Semantix does not retry; interrupting the turn cancels the request.
+
+| Case | `<reason>` |
+| --- | --- |
+| No response within 15 seconds | `no response within 15s` |
+| HTTP 429 | `status 429 Too Many Requests: <response body>`; without a key it adds `(keyless rate limit; set KEENABLE_API_KEY for higher limits)` |
+| Any other non-200 status, such as 5xx or a 3xx redirect (redirects are never followed, so the query and key stay on api.keenable.ai) | `status <code>: <first 300 bytes of the response body>` |
+| Network failure (DNS, connection refused, TLS) | the transport error |
+| Response that is not valid JSON | `decode response: ...` |
+
+An empty `query` returns `error: query is required` without sending a request.
+No results is not an error: the tool returns `no results for "<query>"`.
 
 ## Desktop hooks
 

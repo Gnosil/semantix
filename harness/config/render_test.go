@@ -229,6 +229,7 @@ func TestRenderTOMLRoundTrips(t *testing.T) {
 	orig.Tools.BackgroundJobs.StalledWarningSeconds = intPtr(30)
 	orig.Tools.Shell.Prefer = "bash"
 	orig.Tools.Shell.Path = "/usr/local/bin/bash"
+	orig.Tools.WebSearch = WebSearchToolConfig{Provider: "keenable", APIKeyEnv: "MY_KEENABLE_KEY"}
 	orig.Permissions = PermissionsConfig{
 		Mode:             "deny",
 		Deny:             []string{"Bash(rm -rf*)"},
@@ -486,6 +487,9 @@ func TestRenderTOMLRoundTrips(t *testing.T) {
 	}
 	if got.Tools.Shell.Path != "/usr/local/bin/bash" {
 		t.Errorf("tools.shell.path = %q, want /usr/local/bin/bash", got.Tools.Shell.Path)
+	}
+	if got.Tools.WebSearch != orig.Tools.WebSearch {
+		t.Errorf("tools.web_search = %+v, want %+v", got.Tools.WebSearch, orig.Tools.WebSearch)
 	}
 	if g, _ := got.Provider("mimo-pro"); g == nil || g.BaseURL != "http://localhost:8000/v1" || g.ChatURL != "http://localhost:8000/v1/chat/completions" || g.RequestURL != "http://localhost:8000/custom/chat/completions/?token=1" || g.ModelsURL != "http://localhost:8000/v1/models" || g.ReasoningProtocol != "openai" {
 		t.Errorf("mimo-pro endpoint fields not preserved: %+v", g)
@@ -910,6 +914,31 @@ func TestProjectDeltaRendersToolsShellOverrides(t *testing.T) {
 	}
 	if got.Tools.Shell.Prefer != "bash" || got.Tools.Shell.Path != "/usr/local/bin/bash" {
 		t.Fatalf("tools.shell = %+v, want bash with path", got.Tools.Shell)
+	}
+}
+
+func TestWebSearchToolConfigIsOptInAndRendersWhenSet(t *testing.T) {
+	if got := Default().Tools.WebSearch; got != (WebSearchToolConfig{}) {
+		t.Fatalf("default tools.web_search = %+v, want empty (off)", got)
+	}
+	if out := RenderTOML(Default()); strings.Contains(out, "[tools.web_search]") {
+		t.Fatalf("default render should not emit [tools.web_search]:\n%s", out)
+	}
+
+	c := Default()
+	c.Tools.WebSearch.Provider = "keenable"
+	delta := RenderTOMLProjectDelta(c)
+	for _, want := range []string{"[tools.web_search]", `provider = "keenable"`} {
+		if !strings.Contains(delta, want) {
+			t.Fatalf("project delta missing %q:\n%s", want, delta)
+		}
+	}
+	got := Default()
+	if _, err := toml.Decode(delta, got); err != nil {
+		t.Fatalf("decode project delta: %v\n%s", err, delta)
+	}
+	if got.Tools.WebSearch != c.Tools.WebSearch {
+		t.Fatalf("tools.web_search = %+v, want %+v", got.Tools.WebSearch, c.Tools.WebSearch)
 	}
 }
 
