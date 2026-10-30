@@ -567,7 +567,7 @@ Semantix does not retry; interrupting the turn cancels the request.
 | --- | --- |
 | No response within 15 seconds | `no response within 15s` |
 | HTTP 429 | `status 429 Too Many Requests: <response body>`; without a key it adds `(keyless rate limit; set KEENABLE_API_KEY for higher limits)` |
-| Any other non-200 status, such as 5xx | `status <code>: <first 300 bytes of the response body>` |
+| Any other non-200 status, such as 5xx or a 3xx redirect (redirects are never followed, so the query and key stay on api.keenable.ai) | `status <code>: <first 300 bytes of the response body>` |
 | Network failure (DNS, connection refused, TLS) | the transport error |
 | Response that is not valid JSON | `decode response: ...` |
 

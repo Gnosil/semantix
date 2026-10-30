@@ -3,9 +3,11 @@ package builtin
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -131,6 +133,44 @@ func TestKeenableErrorMapping(t *testing.T) {
 				t.Fatalf("error %q leaks the key", err)
 			}
 		})
+	}
+}
+
+// The production client must not follow a redirect from the search endpoint,
+// keyed or keyless: the destination (plain HTTP here, behind an HTTPS source)
+// is never contacted, and the 3xx comes back as an error.
+func TestKeenableNeverFollowsRedirects(t *testing.T) {
+	for _, status := range []int{http.StatusMovedPermanently, http.StatusFound, http.StatusSeeOther, http.StatusTemporaryRedirect, http.StatusPermanentRedirect} {
+		for _, key := range []string{"", "test-key"} {
+			t.Run(fmt.Sprintf("%d keyed=%t", status, key != ""), func(t *testing.T) {
+				t.Setenv(testKeenableKeyEnv, key)
+				var contacted atomic.Bool
+				dest := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					contacted.Store(true)
+				}))
+				t.Cleanup(dest.Close)
+				src := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					http.Redirect(w, r, dest.URL+r.URL.Path, status)
+				}))
+				t.Cleanup(src.Close)
+
+				b, err := newKeenableSearch(WebSearchOptions{APIKeyEnv: testKeenableKeyEnv, Proxy: netclient.ProxySpec{Mode: netclient.ModeOff}})
+				if err != nil {
+					t.Fatal(err)
+				}
+				k := b.(keenableSearch)
+				k.baseURL = src.URL
+				k.client.Transport = src.Client().Transport // trust the test certificate; redirect policy unchanged
+
+				_, err = k.Search(context.Background(), "private query", 5)
+				if err == nil || !strings.HasPrefix(err.Error(), fmt.Sprintf("status %d ", status)) {
+					t.Fatalf("err = %v, want the %d reported as an error", err, status)
+				}
+				if contacted.Load() {
+					t.Fatal("redirect destination was contacted")
+				}
+			})
+		}
 	}
 }
 

@@ -38,6 +38,10 @@ func newKeenableSearch(opts WebSearchOptions) (WebSearchBackend, error) {
 	if err != nil {
 		return nil, fmt.Errorf("proxy: %w", err)
 	}
+	// Never follow redirects: a 307/308 would replay the query and X-API-Key
+	// to whatever origin the Location names. ErrUseLastResponse hands the 3xx
+	// to the non-200 handling below without issuing the redirected request.
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	env := strings.TrimSpace(opts.APIKeyEnv)
 	if env == "" {
 		env = keenableDefaultKeyEnv

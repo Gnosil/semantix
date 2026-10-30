@@ -457,7 +457,7 @@ provider = "keenable"                 # 已注册的后端：keenable
 | --- | --- |
 | 15 秒内无响应 | `no response within 15s` |
 | HTTP 429 | `status 429 Too Many Requests: <响应体>`；无 key 时追加 `(keyless rate limit; set KEENABLE_API_KEY for higher limits)` |
-| 其他非 200 状态，如 5xx | `status <状态码>: <响应体前 300 字节>` |
+| 其他非 200 状态，如 5xx 或 3xx 重定向（从不跟随重定向，查询和 key 只发往 api.keenable.ai） | `status <状态码>: <响应体前 300 字节>` |
 | 网络失败（DNS、连接被拒、TLS） | 传输层错误 |
 | 响应不是合法 JSON | `decode response: ...` |
 
