@@ -19,6 +19,7 @@
 - [思考语言](./REASONING_LANGUAGE.zh-CN.md)
 - [任务合约与暂停策略](./TASK_CONTRACT.zh-CN.md)
 - [自定义 OpenAI-compatible provider](#自定义-openai-compatible-provider)
+- [客户端网页搜索](#客户端网页搜索)
 - [桌面端 Hooks](./DESKTOP_HOOKS.zh-CN.md)
 - [快捷键](#快捷键)
 - [权限与沙盒](#权限与沙盒)
@@ -79,6 +80,9 @@ enabled = []   # 省略/为空 = 全部内置工具
 bash_timeout_seconds = 120   # 前台安全上限；设为 0 表示不设工具层超时
 mcp_startup_timeout_seconds = 30   # 后台 initialize + tools/list 安全上限
 mcp_call_timeout_seconds = 300   # MCP 调用默认安全上限；可用 plugin/tool 覆盖
+
+# [tools.web_search]      # 可选的客户端 web_search，供没有服务端搜索的模型使用；默认关闭
+# provider = "keenable"   # 发送的数据、限流与失败行为见下文“客户端网页搜索”
 
 [environment]
 enabled = true   # 启动时把 OS、shell 和常见工具摘要稳定注入 prompt
@@ -421,6 +425,43 @@ Thinking 覆盖选项：
 | Enabled（开启） | 对兼容 provider 发送 `thinking.type = "enabled"`。 |
 | Disabled（关闭） | 对兼容 provider 发送 `thinking.type = "disabled"`。DeepSeek 风格 provider 下还会避免继续发送推理深度提示。 |
 | Adaptive（自适应） | 仅在服务文档明确支持 adaptive thinking 时使用，例如 MiniMax-M3 风格端点；语义是发送或保留 `thinking.type = "adaptive"`。 |
+
+## 客户端网页搜索
+
+服务端 `web_search`（`[[providers]]` 条目上的 `web_search = true`）只在自己执行搜索的端点上可用。对其他模型，Semantix 可以注册一个客户端 `web_search` 工具，由你选择的搜索服务提供结果。它默认关闭：在 `[tools.web_search]` 指定后端之前，不会注册工具，也不会发出任何搜索请求。
+
+```toml
+[tools.web_search]
+provider = "keenable"                 # 已注册的后端：keenable
+# api_key_env = "KEENABLE_API_KEY"    # 可选；这是默认变量名
+```
+
+- 模型通过 `use_capability` 以 `tool:web_search` 调用它，与 `web_fetch` 相同。该工具不会进入 provider 请求 schema，因此不会与服务端 `web_search` 冲突，后者保持不变。
+- `[tools] enabled` 非空时，需要列出 `web_search`。
+- `provider` 填了未知名称时，启动时打印警告并且不注册该工具；会话照常启动。
+- 参数：`query`（必填）和 `max_results`（1-10，默认 5）。每条结果包含标题、URL 和页面摘录；摘录会合并空白，最多 600 个字符。
+
+### Keenable 后端
+
+**发送的数据。** 每次调用向 `https://api.keenable.ai/v1/search/public` 发送一次 HTTPS `POST`，JSON 请求体为 `{"query": "...", "max_results": N}`，并带 `X-Keenable-Title: Semantix` 请求头。设置了 `api_key_env` 指定的变量（默认 `KEENABLE_API_KEY`）时，请求改发到 `/v1/search`，key 放在 `X-API-Key` 请求头中。不会发送会话中的其他内容（消息、文件、路径），但查询由模型撰写，可能包含对话中的细节。请求走 `[network]` 代理设置。
+
+**Key。** 可选。Semantix 每次调用时从进程环境读取该变量，进程环境包含 Semantix 全局 `.env` 中保存的值。Key 不会写入配置，也不会出现在工具输出中。
+
+**无 key 限流。** 每个 IP 每秒 10 次请求、每小时 1,000 次请求。设置 key 后不受此限制。
+
+### 失败行为
+
+搜索失败不会中断会话。工具向模型返回错误结果 `error: web_search (keenable): <原因>`，本轮继续。Semantix 不会重试；中断本轮会取消请求。
+
+| 情况 | `<原因>` |
+| --- | --- |
+| 15 秒内无响应 | `no response within 15s` |
+| HTTP 429 | `status 429 Too Many Requests: <响应体>`；无 key 时追加 `(keyless rate limit; set KEENABLE_API_KEY for higher limits)` |
+| 其他非 200 状态，如 5xx | `status <状态码>: <响应体前 300 字节>` |
+| 网络失败（DNS、连接被拒、TLS） | 传输层错误 |
+| 响应不是合法 JSON | `decode response: ...` |
+
+`query` 为空时返回 `error: query is required`，不会发出请求。没有结果不算错误：工具返回 `no results for "<query>"`。
 
 ## 快捷键
 

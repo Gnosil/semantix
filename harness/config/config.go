@@ -1681,6 +1681,7 @@ type ToolsConfig struct {
 	BackgroundJobs           BackgroundJobsConfig `toml:"background_jobs"`
 	Search                   SearchConfig         `toml:"search"`
 	Shell                    ShellConfig          `toml:"shell"`
+	WebSearch                WebSearchToolConfig  `toml:"web_search"`
 }
 
 const (
@@ -1749,6 +1750,17 @@ func (c *Config) BackgroundJobStalledWarningSeconds() int {
 type SearchConfig struct {
 	Engine string `toml:"engine"`
 	RgPath string `toml:"rg_path"`
+}
+
+// WebSearchToolConfig opts into a client-side web_search tool for models whose
+// endpoint has no provider-executed search (see ProviderEntry.WebSearch).
+// Provider names a registered search backend (builtin.WebSearchProviders, for
+// example "keenable"); empty, the default, keeps the tool unregistered.
+// APIKeyEnv optionally overrides the environment variable the backend reads its
+// key from; empty uses the backend's default name.
+type WebSearchToolConfig struct {
+	Provider  string `toml:"provider"`
+	APIKeyEnv string `toml:"api_key_env"`
 }
 
 // ShellConfig chooses the interpreter the bash tool runs commands under. Prefer
