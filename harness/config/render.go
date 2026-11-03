@@ -438,6 +438,14 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	} else {
 		b.WriteString("# path   = \"/opt/homebrew/bin/bash\"   # absolute path to the shell executable; empty = PATH lookup\n\n")
 	}
+	if c.Tools.WebSearch != (WebSearchToolConfig{}) {
+		b.WriteString("[tools.web_search]\n")
+		fmt.Fprintf(&b, "provider = %q   # client-side web_search backend; empty = off\n", c.Tools.WebSearch.Provider)
+		if c.Tools.WebSearch.APIKeyEnv != "" {
+			fmt.Fprintf(&b, "api_key_env = %q   # optional backend key variable\n", c.Tools.WebSearch.APIKeyEnv)
+		}
+		b.WriteString("\n")
+	}
 
 	renderLSPConfig(&b, c.LSP)
 
@@ -1190,6 +1198,16 @@ func RenderTOMLProjectDelta(c *Config) string {
 		}
 		if c.Tools.Shell.Path != d.Tools.Shell.Path {
 			fmt.Fprintf(&b, "path = %q\n", c.Tools.Shell.Path)
+		}
+		b.WriteString("\n")
+	}
+
+	// [tools.web_search]
+	if c.Tools.WebSearch != d.Tools.WebSearch {
+		b.WriteString("[tools.web_search]\n")
+		fmt.Fprintf(&b, "provider = %q\n", c.Tools.WebSearch.Provider)
+		if c.Tools.WebSearch.APIKeyEnv != "" {
+			fmt.Fprintf(&b, "api_key_env = %q\n", c.Tools.WebSearch.APIKeyEnv)
 		}
 		b.WriteString("\n")
 	}

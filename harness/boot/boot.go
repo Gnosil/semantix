@@ -766,6 +766,15 @@ func build(ctx context.Context, opts Options) (*BuildResult, error) {
 	// Register the full built-in inventory for use_capability dispatch. The
 	// provider-visible surface is narrowed later via SetProviderVisibleTools.
 	addBuiltins(reg, enabledBuiltins, writeRoots, bashSpec, bashTimeout, searchSpec, stderr, root, proxySpec, forbidReadRoots, readPathResolver, sessionGuard, managedConfig, opts.FileOverlay, opts.TerminalRunner, sessionTemp, fileWriteReceipt)
+	// [tools.web_search] opts into a client-side web_search tool backed by the
+	// named provider. Like web_fetch it is dispatched through use_capability,
+	// so it never sits next to a provider-executed web_search in the request
+	// schema.
+	if ws, err := builtin.ConfiguredWebSearch(cfg.Tools.WebSearch.Provider, builtin.WebSearchOptions{APIKeyEnv: cfg.Tools.WebSearch.APIKeyEnv, Proxy: proxySpec}); err != nil {
+		fmt.Fprintf(stderr, "warning: [tools.web_search]: %v\n", err)
+	} else if ws != nil && (len(enabledBuiltins) == 0 || slices.Contains(enabledBuiltins, ws.Name())) {
+		reg.Add(ws)
+	}
 	// Use the caller-supplied shared host when set, so controllers for the same
 	// workspace root reuse running MCP processes (e.g. one CodeGraph daemon
 	// instead of one per tab). Otherwise construct a private host per controller.
