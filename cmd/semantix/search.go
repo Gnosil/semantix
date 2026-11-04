@@ -198,7 +198,7 @@ func runSearch(args []string, stdout, stderr io.Writer, deps dependencies) error
 			Scope:         scopeName(hit.Slice.Scope),
 			Content:       string(hit.Slice.Content),
 			Score:         hit.Score,
-			Zone:          zones.Classify(hit.Score, top1).String(),
+			Zone:          zones.ClassifyHit(hit, top1).String(),
 			SourceSession: hit.Slice.Meta.SourceSession,
 		}
 	}

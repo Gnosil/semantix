@@ -6,7 +6,11 @@
 // treat the grey zone as "verify before reuse" instead of deciding blindly.
 package zone
 
-import "math"
+import (
+	"math"
+
+	"semantix/kernel/slice"
+)
 
 // Zone is the three-region verdict for a retrieval candidate.
 type Zone int
@@ -33,11 +37,9 @@ func (z Zone) String() string {
 	}
 }
 
-// Zones is the two-threshold configuration (Krites §3.1). Because BM25 and
-// cosine scores live on different scales, classification uses a relative
-// confidence (score/top1) combined with absolute floors that only bind on
-// the bounded cosine scale (BM25 scores are typically >> 1 and never trip
-// the absolute guards).
+// Zones combines relative confidence (score/top1) with absolute score floors.
+// Raw BM25 scores are unbounded: L2 callers use ClassifyHit to additionally
+// require query-token coverage independent of the batch's best score.
 type Zones struct {
 	TauHigh float64 // relative confidence >= TauHigh -> Hit
 	TauLow  float64 // relative confidence >= TauLow  -> Grey
@@ -48,8 +50,7 @@ type Zones struct {
 	// tool_pattern|result|memory — see slice.Type.String). Each override
 	// is a complete four-threshold snapshot; the global fields above act
 	// as the baseline for types without an override. nil = no per-type
-	// differentiation (the historical behavior). This package deliberately
-	// keys by string so zone stays free of the slice dependency.
+	// differentiation (the historical behavior).
 	ByType map[string]Zones
 }
 
@@ -89,6 +90,31 @@ func (z Zones) Classify(score, top1 float64) Zone {
 		return Grey
 	default:
 		return Miss
+	}
+}
+
+// ClassifyHit applies the L2 verdict to a retrieval candidate. Native BM25
+// hits must also meet TauHigh/TauLow on query-token coverage: a large raw
+// score or rank-one position alone cannot certify relevance (Issue #537).
+// Raw-score absolute floors still apply, including corpus-calibrated values.
+// Setting both absolute floors to zero explicitly selects relative-only
+// classification, as used by the harness's reference-history admission policy.
+// Vector/fused and legacy hits without coverage retain Classify's behavior.
+func (z Zones) ClassifyHit(hit slice.Hit, top1 float64) Zone {
+	verdict := z.Classify(hit.Score, top1)
+	if !hit.QueryCoverageValid || (z.AbsHigh == 0 && z.AbsLow == 0) {
+		return verdict
+	}
+	coverage := hit.QueryCoverage
+	switch {
+	case math.IsNaN(coverage) || math.IsInf(coverage, 0) || coverage <= 0 || coverage > 1:
+		return Miss
+	case coverage < z.TauLow:
+		return Miss
+	case coverage < z.TauHigh && verdict == Hit:
+		return Grey
+	default:
+		return verdict
 	}
 }
 

@@ -192,7 +192,7 @@ func (d *L3Decider) DecideL2(ctx context.Context, q Query) ([]slice.Hit, error) 
 		if h.Slice != nil {
 			z2 = z.ForType(h.Slice.Type.String()) // Issue #259 阶段 2
 		}
-		if z2.Classify(h.Score, top1) == zone.Hit {
+		if z2.ClassifyHit(h, top1) == zone.Hit {
 			out = append(out, h)
 		}
 	}

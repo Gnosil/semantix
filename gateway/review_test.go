@@ -23,7 +23,7 @@ func TestToolCallMessagesPreservedThroughInjection(t *testing.T) {
 
 	seed(t, g, &slice.Slice{
 		ID: "l2-tools", Type: slice.Prompt, Scope: slice.Project,
-		Content: []byte("prior widgets knowledge to inject"),
+		Content: []byte("prior widgets please knowledge to inject"),
 	})
 	// Keep the target's BM25 score above the absolute L2 hit threshold. Before
 	// empty admissions stopped emitting marker-only blocks, this single-item

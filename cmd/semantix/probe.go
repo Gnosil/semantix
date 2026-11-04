@@ -150,7 +150,7 @@ func runProbe(args []string, stdout, stderr io.Writer, deps dependencies) error 
 			rec := turnRecord{session: i, query: q, zone: "miss"}
 			if len(hits) > 0 {
 				rec.score = hits[0].Score
-				switch z.Classify(hits[0].Score, top1) {
+				switch z.ClassifyHit(hits[0], top1) {
 				case zone.Hit:
 					rec.zone = "hit"
 				case zone.Grey:

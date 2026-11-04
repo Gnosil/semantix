@@ -335,7 +335,7 @@ func (in *Injector) BuildHits(query string, hits []slice.Hit) (*Injection, error
 		if in.Zones != nil {
 			z := *in.Zones
 			z = z.ForType(h.Slice.Type.String()) // Issue #259 阶段 2
-			classified := z.Classify(h.Score, top1)
+			classified := z.ClassifyHit(h, top1)
 			d.Zone = classified.String()
 			switch classified {
 			case zone.Hit:
