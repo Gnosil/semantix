@@ -255,7 +255,7 @@ func Summarize(path string, costMiss, costHit float64) (*Summary, error) {
 	defer f.Close()
 
 	s := &Summary{ByProvider: map[string]*ProviderStats{}}
-	var l3In, l3Out int64 // tokens of L3-reused turns (not billed)
+	var l3In, l3Out, l3Hit int64 // tokens of L3-reused turns (not billed)
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 0, 64*1024), 8*1024*1024) // tolerate entries up to 8 MiB
 	for sc.Scan() {
@@ -296,6 +296,7 @@ func Summarize(path string, costMiss, costHit float64) (*Summary, error) {
 		if e.L3Reuse {
 			s.L3Reuses++
 			l3In += e.TokensIn
+			l3Hit += e.CacheHitToken
 			l3Out += e.TokensOut
 		}
 		for _, jd := range e.JudgeDecisions {
@@ -335,10 +336,14 @@ func Summarize(path string, costMiss, costHit float64) (*Summary, error) {
 		return nil, fmt.Errorf("usage: scan: %w", err)
 	}
 
-	billedIn := s.TokensIn - s.CacheHitTokens - l3In
+	// An L3 turn is a local reply: its CacheHitToken is the reused response
+	// size (gateway/pipeline.go), not a provider prefix-cache hit. TokensIn
+	// already contains it, so it leaves both the miss and the hit bucket.
+	providerHit := s.CacheHitTokens - l3Hit
+	billedIn := s.TokensIn - l3In - providerHit
 	billedOut := s.TokensOut - l3Out
 	paid := float64(billedIn)*costMiss/1e6 +
-		float64(s.CacheHitTokens)*costHit/1e6 +
+		float64(providerHit)*costHit/1e6 +
 		float64(billedOut)*costMiss/1e6
 	noCache := float64(s.TokensIn)*costMiss/1e6 + float64(s.TokensOut)*costMiss/1e6
 

@@ -318,3 +318,51 @@ func TestSummarizeCacheWrite(t *testing.T) {
 		t.Errorf("per-provider exact cache writes = %+v, want 350", p)
 	}
 }
+
+// TestSummarizeL3OnlyCostsZero: the gateway records an L3 reuse with
+// CacheHitToken set to the reused response size. That is a local reply, not a
+// provider cache hit, so an L3-only log must cost nothing and save everything.
+func TestSummarizeL3OnlyCostsZero(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "usage.jsonl")
+	line := `{"tokens_in":1000,"tokens_out":0,"cache_hit_tokens":800,"l3_reuse":true}` + "\n"
+	if err := os.WriteFile(path, []byte(line), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := Summarize(path, DefaultCostMissPerMTok, DefaultCostHitPerMTok)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !approx(s.CostPaidUSD, 0) {
+		t.Fatalf("paid = %v, want 0", s.CostPaidUSD)
+	}
+	if !approx(s.SavingsRate, 1) {
+		t.Fatalf("savings rate = %v, want 1", s.SavingsRate)
+	}
+}
+
+// TestSummarizeL3MixedKeepsUpstreamCost: L3 turns must not change what the
+// upstream turns in the same log cost.
+func TestSummarizeL3MixedKeepsUpstreamCost(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "usage.jsonl")
+	lines := `{"tokens_in":1000,"tokens_out":200,"cache_hit_tokens":600}` + "\n" +
+		`{"tokens_in":1000,"tokens_out":0,"cache_hit_tokens":800,"l3_reuse":true}` + "\n"
+	if err := os.WriteFile(path, []byte(lines), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := Summarize(path, DefaultCostMissPerMTok, DefaultCostHitPerMTok)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Upstream turn only: 400 miss + 600 hit in, 200 out.
+	wantPaid := 400*0.27/1e6 + 600*0.07/1e6 + 200*0.27/1e6
+	wantNoCache := 2000*0.27/1e6 + 200*0.27/1e6
+	if !approx(s.CostPaidUSD, wantPaid) {
+		t.Fatalf("paid = %v, want %v", s.CostPaidUSD, wantPaid)
+	}
+	if !approx(s.SavingsUSD, wantNoCache-wantPaid) {
+		t.Fatalf("savings = %v, want %v", s.SavingsUSD, wantNoCache-wantPaid)
+	}
+	if s.SavingsRate < 0 || s.SavingsRate > 1 {
+		t.Fatalf("savings rate = %v, want within [0,1]", s.SavingsRate)
+	}
+}
