@@ -236,6 +236,8 @@ type SliceStats struct {
 验证与回滚：用户编辑了注入块 / 会话出现回滚 → rejected++ → 降权
 ```
 
+L2 的 BM25 候选还需通过独立的查询词覆盖率判定（Issue #537）。覆盖率为候选包含的去重查询 token 数除以全部去重查询 token 数，达到 `tau_high` 才可判为 hit，处于 `tau_low` 与 `tau_high` 之间最多为 grey，更低为 miss。原始 BM25 分数、批内相对分及 `abs_high` / `abs_low` 仍参与判定。覆盖率基于现有 tokenizer，属于词面相关性启发式，无法证明语义等价。search、lookup、L2 注入与 L2 决策共享 `zone.ClassifyHit`。将两个绝对阈值均显式设为 0 会选择纯相对分模式，适用于 harness 已有的历史参考材料准入策略。
+
 ### 4.3 L3：结果复用（带验证，fail-closed）
 
 **可复用条件**（全部满足才命中）：

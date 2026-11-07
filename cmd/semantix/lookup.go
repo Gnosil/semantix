@@ -85,7 +85,7 @@ func runLookup(args []string, stdout, stderr io.Writer, deps dependencies) error
 			Type:          h.Slice.Type.String(),
 			Scope:         h.Slice.Scope.String(),
 			Score:         h.Score,
-			Zone:          zones.Classify(h.Score, top1).String(),
+			Zone:          zones.ClassifyHit(h, top1).String(),
 			Content:       string(h.Slice.Content),
 			SourceSession: h.Slice.Meta.SourceSession,
 		})

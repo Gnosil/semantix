@@ -312,13 +312,13 @@ func (b *Bridge) injectResult(ctx context.Context, query string, budget int) Inj
 	// Keep full-corpus BM25 scores. BuildHits applies the candidate cap only
 	// after its shared type and freshness eligibility checks.
 	z := zone.Default()
-	// This is a pure-BM25 path (kernelIndex), and the absolute floors are
-	// by design cosine-scale guards ("only bind on the bounded cosine
-	// scale" — zone.Zones doc). On BM25 they are wrong in both directions:
+	// This is a pure-BM25 reference-history path (kernelIndex). On BM25
+	// cosine-scale absolute floors are wrong in both directions:
 	// large libraries score >> 1 so the floors are dead letters, while a
 	// cold library's short distilled cards score < AbsLow and the floors
-	// silently veto every candidate. Zero them here; per-scale threshold
-	// calibration is the W0–W4 follow-up, not this wiring's job.
+	// silently veto every candidate. Both zero explicitly select the relative-only
+	// admission policy in ClassifyHit (Issue #537); per-scale threshold
+	// calibration is the W0–W4 follow-up.
 	z.AbsHigh, z.AbsLow = 0, 0
 	// The admission allowlist defaults to Context-only (issue #508 R1/R2:
 	// the only arm with a paired net win over off in both runs). Raw Prompt

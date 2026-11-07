@@ -93,7 +93,20 @@ func (ix *Index) Search(query string, k int, scope slice.Scope) ([]slice.Hit, er
 		}
 		// BM25 is lexical retrieval: a hit is lexical support by definition
 		// (Issue #260 lexical support gate).
-		hits = append(hits, slice.Hit{Slice: cloneSlice(doc.value), Score: score, Lexical: 1, LexicalValid: true})
+		covered := 0
+		for _, term := range queryTerms {
+			if doc.terms[term] > 0 {
+				covered++
+			}
+		}
+		hits = append(hits, slice.Hit{
+			Slice:              cloneSlice(doc.value),
+			Score:              score,
+			Lexical:            1,
+			LexicalValid:       true,
+			QueryCoverage:      float64(covered) / float64(len(queryTerms)),
+			QueryCoverageValid: true,
+		})
 	}
 
 	sort.Slice(hits, func(i, j int) bool {

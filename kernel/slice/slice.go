@@ -264,6 +264,12 @@ type Slice struct {
 type Hit struct {
 	Slice *Slice
 	Score float64
+	// QueryCoverage is the fraction of unique query tokens found in this
+	// BM25 candidate, independent of the batch's scores (Issue #537).
+	// QueryCoverageValid distinguishes native BM25 hits from vector/fused
+	// hits and legacy Index implementations that do not measure coverage.
+	QueryCoverage      float64 `json:"-"`
+	QueryCoverageValid bool    `json:"-"`
 	// Lexical is the lexical-support score in [0,1] contributed by the
 	// lexical (BM25) route of a fused retrieval: 0 means the candidate was
 	// a pure-vector hit with no term overlap (Issue #260 lexical support
