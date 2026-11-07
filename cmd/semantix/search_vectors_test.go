@@ -58,8 +58,8 @@ func TestSearchVectorsCacheColdWarmAndInvalidation(t *testing.T) {
 			t.Fatal(err)
 		}
 		var warn bytes.Buffer
-		vs, q, err := searchVectors(emb, store, items, "query", &warn)
-		if err != nil || warn.Len() != 0 {
+		vs, q, degraded, err := searchVectors(emb, store, items, "query", &warn)
+		if err != nil || warn.Len() != 0 || degraded {
 			t.Fatalf("search: %v %s", err, &warn)
 		}
 		if len(vs) != embedBatch+1 || len(q) != 2 {
@@ -171,9 +171,12 @@ func TestSearchVectorsFallbackNeverMixesSpaces(t *testing.T) {
 				texts[i] = string(item.Content)
 			}
 			var warn bytes.Buffer
-			vs, q, err := searchVectors(emb, store, items, "query", &warn)
+			vs, q, degraded, err := searchVectors(emb, store, items, "query", &warn)
 			if err != nil {
 				t.Fatal(err)
+			}
+			if !degraded {
+				t.Fatal("fallback did not report degraded")
 			}
 			want, _ := (embed.HashEmbedder{}).Embed(texts)
 			wantQ, _ := (embed.HashEmbedder{}).Embed([]string{"query"})

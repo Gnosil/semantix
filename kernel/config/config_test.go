@@ -32,6 +32,9 @@ func TestLoadDefaults(t *testing.T) {
 	assertField(t, r, "store.db", "", SourceDefault)
 	assertField(t, r, "store.scope", "project", SourceDefault)
 	assertField(t, r, "retrieval.retriever", "hybrid", SourceDefault)
+	// Issue #553: the active-query (lookup) route is a separate knob and
+	// keeps the pre-existing BM25 behavior unless explicitly enabled.
+	assertField(t, r, "retrieval.lookup_retriever", "bm25", SourceDefault)
 	assertField(t, r, "retrieval.limit", 5, SourceDefault)
 	assertField(t, r, "inject.budget", 4096, SourceDefault)
 	assertField(t, r, "verify.holdout", 0.3, SourceDefault)
