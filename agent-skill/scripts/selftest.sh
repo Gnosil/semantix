@@ -25,11 +25,20 @@ EOF
   || fail "extract failed"
 
 # --- lookup must find a hit; grey is not eligible for default injection ---
-LOOKUP="$("$SEMANTIX" lookup --query "办案偏好" --scope user --db "$TMP/mem.db" --json 2>/dev/null || true)"
+# Use a complete matching query so the positive control meets BM25 coverage.
+QUERY="我办案喜欢先用模板，再补细节"
+LOOKUP="$("$SEMANTIX" lookup --query "$QUERY" --scope user --db "$TMP/mem.db" --json 2>/dev/null || true)"
 echo "$LOOKUP" | grep -q '"zone": "hit"' || fail "lookup returned no hit zone: $LOOKUP"
 
+# A rank-one partial match must not certify itself as clearly reusable.
+PARTIAL="$("$SEMANTIX" lookup --query "办案偏好" --scope user --db "$TMP/mem.db" --json 2>/dev/null)" \
+  || fail "low-coverage lookup failed"
+if echo "$PARTIAL" | grep -q '"zone": "hit"'; then
+  fail "low-coverage lookup returned a hit zone: $PARTIAL"
+fi
+
 # --- inject must return a non-empty [semantix-reuse] block ---
-INJECT="$("$SEMANTIX" inject --query "处理案件" --scope user --db "$TMP/mem.db" 2>/dev/null || true)"
+INJECT="$("$SEMANTIX" inject --query "$QUERY" --scope user --db "$TMP/mem.db" 2>/dev/null || true)"
 echo "$INJECT" | grep -q '\[semantix-reuse\]' || fail "inject returned no reuse block"
 
 echo "SELFTEST PASS: extract → lookup(hit) → inject closed loop verified"
