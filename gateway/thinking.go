@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 )
 
@@ -32,37 +33,47 @@ type anthropicThinking struct {
 	BudgetTokens int    `json:"budget_tokens,omitempty"`
 }
 
-// translateThinking resolves the thinking parameter for an anthropic-vendor
-// upstream from the client's OpenAI-shape fields.
-//
-//   - The client's explicit `thinking` object wins verbatim (it is already
-//     in the target dialect; a client that sends both fields gets its
-//     explicit object, not a translation).
-//   - Otherwise a known `reasoning_effort` maps through effortBudgetTokens.
-//   - An unknown effort fails OPEN: no thinking parameter at all, plus a
-//     log warning — the endpoint's own default (GLM-5.3: thinking on,
-//     effort max) applies, which degrades gracefully; failing closed would
-//     turn a vocabulary drift into a hard 400 for every request.
-func translateThinking(effort string, clientThinking json.RawMessage) (json.RawMessage, bool) {
+// translateThinking keeps manual thinking budgets below the output limit.
+// An omitted limit leaves the default output allowance after thinking.
+// Explicit limits stay unchanged: generated budgets shrink to fit, while
+// incompatible explicit thinking objects return an error.
+func translateThinking(effort string, clientThinking json.RawMessage, maxTokens int, explicitLimit bool) (json.RawMessage, int, error) {
 	if len(clientThinking) > 0 && string(clientThinking) != "null" {
-		return clientThinking, true
+		var thinking anthropicThinking
+		if err := json.Unmarshal(clientThinking, &thinking); err != nil {
+			return nil, maxTokens, fmt.Errorf("parse thinking: %w", err)
+		}
+		if thinking.Type == "enabled" {
+			if thinking.BudgetTokens < 1024 {
+				return nil, maxTokens, fmt.Errorf("thinking.budget_tokens must be at least 1024")
+			}
+			if !explicitLimit {
+				maxTokens = thinking.BudgetTokens + defaultAnthropicMaxTokens
+			}
+			if thinking.BudgetTokens >= maxTokens {
+				return nil, maxTokens, fmt.Errorf("thinking.budget_tokens must be less than the output limit (%d)", maxTokens)
+			}
+		}
+		return clientThinking, maxTokens, nil
 	}
 	if effort == "" {
-		return nil, true
+		return nil, maxTokens, nil
 	}
 	budget, ok := effortBudgetTokens[effort]
 	if !ok {
 		log.Printf("gateway: unknown reasoning_effort %q — forwarding without a thinking parameter (endpoint default applies)", effort)
-		return nil, false
+		return nil, maxTokens, nil
+	}
+	if explicitLimit {
+		if maxTokens <= 1024 {
+			return nil, maxTokens, fmt.Errorf("output limit must exceed 1024 for enabled thinking")
+		}
+		budget = min(budget, maxTokens-1)
+	} else {
+		maxTokens = budget + defaultAnthropicMaxTokens
 	}
 	raw, err := json.Marshal(anthropicThinking{Type: "enabled", BudgetTokens: budget})
-	if err != nil {
-		// Marshal of a static struct cannot fail in practice; keep the
-		// fail-open contract anyway.
-		log.Printf("gateway: thinking translation: %v — forwarding without a thinking parameter", err)
-		return nil, false
-	}
-	return raw, true
+	return raw, maxTokens, err
 }
 
 // validateEffortForOpenAIPath warns (once per request) when the effort

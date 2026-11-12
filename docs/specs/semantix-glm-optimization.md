@@ -127,6 +127,18 @@ GLM 隐式缓存 + 格式敏感 = L1 字节稳定纪律**直接适用且更加�
    `model` 维度按「模型家族+端点」记录而非裸 model id，避免版本漂移污染
    evolve 统计与 L3 命中判定。
 
+#### Manual thinking token limits (Issue #549)
+
+The Anthropic adapter maps `low`, `medium`, `high`, and `max` to budgets of 1024, 4096, 16384, and 32768 tokens.
+`max_tokens` takes precedence over `max_completion_tokens` when both contain positive values.
+
+- With no positive output limit, enabled thinking sets the limit to its budget plus 4096. This preserves a 4096-token output allowance at every budget.
+- With an explicit positive output limit, the adapter reduces a generated budget to at most `max_tokens - 1`. A limit of 1024 or less returns HTTP 400 locally.
+- An explicit `thinking` object overrides `reasoning_effort`. For `type: "enabled"`, its budget must be at least 1024 and below an explicit output limit. The adapter returns HTTP 400 for invalid budgets or malformed thinking values and does not rewrite valid objects. With no output limit, the same default expansion applies.
+- `disabled` and `adaptive` objects pass through unchanged. Unknown effort values still use the endpoint default without a thinking parameter.
+
+These rules apply to the Anthropic request conversion. The OpenAI forwarding path is unchanged.
+
 ### 4.2 P0 · 命中遥测（一切标定的前提）
 
 1. **usage 解析适配**：**per-provider × per-路径**缓存命中字段适配器（报告 §3B：同栈两路径形态即不同）——

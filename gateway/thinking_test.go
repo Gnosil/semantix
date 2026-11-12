@@ -96,8 +96,8 @@ func TestAnthropicPreservesReasoningSequence(t *testing.T) {
 // client thinking override, and the unknown-effort fail-open.
 func TestThinkingTranslationLadder(t *testing.T) {
 	for effort, want := range effortBudgetTokens {
-		raw, ok := translateThinking(effort, nil)
-		if !ok || raw == nil {
+		raw, _, err := translateThinking(effort, nil, defaultAnthropicMaxTokens, false)
+		if err != nil || raw == nil {
 			t.Fatalf("%s: translation failed", effort)
 		}
 		var th anthropicThinking
@@ -110,22 +110,22 @@ func TestThinkingTranslationLadder(t *testing.T) {
 	}
 
 	// Explicit client thinking object wins verbatim over the effort field.
-	client := json.RawMessage(`{"type":"enabled","budget_tokens":512}`)
-	raw, ok := translateThinking("high", client)
-	if !ok || string(raw) != string(client) {
+	client := json.RawMessage(`{"type":"enabled","budget_tokens":1024}`)
+	raw, _, err := translateThinking("high", client, defaultAnthropicMaxTokens, false)
+	if err != nil || string(raw) != string(client) {
 		t.Fatalf("client thinking should win verbatim: %s", raw)
 	}
 
-	// Unknown effort fails open: no parameter, ok=false (logged).
-	raw, ok = translateThinking("ultra-brain", nil)
-	if ok || raw != nil {
-		t.Fatalf("unknown effort must fail open, got %s ok=%v", raw, ok)
+	// Unknown effort fails open: no parameter (logged).
+	raw, _, err = translateThinking("ultra-brain", nil, defaultAnthropicMaxTokens, false)
+	if err != nil || raw != nil {
+		t.Fatalf("unknown effort must fail open, got %s err=%v", raw, err)
 	}
 
 	// No effort, no client object: nothing to send.
-	raw, ok = translateThinking("", nil)
-	if !ok || raw != nil {
-		t.Fatalf("empty effort must be a clean no-op, got %s ok=%v", raw, ok)
+	raw, _, err = translateThinking("", nil, defaultAnthropicMaxTokens, false)
+	if err != nil || raw != nil {
+		t.Fatalf("empty effort must be a clean no-op, got %s err=%v", raw, err)
 	}
 }
 
