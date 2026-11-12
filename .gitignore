@@ -12,6 +12,7 @@
 .idea/
 .vscode/
 *.swp
+__pycache__/
 
 # Local data (kernel stores, session caches)
 /data/
