@@ -190,9 +190,13 @@ func toAnthropicRequest(body []byte, up UpstreamConfig, inj *inject.Injection) (
 	// Per-path thinking translation (#293): reasoning_effort maps onto
 	// thinking budgets; an explicit client thinking object wins; an unknown
 	// effort fails open to the endpoint default (no parameter at all).
-	if thinking, _ := translateThinking(openAI.ReasoningEffort, openAI.Thinking); thinking != nil {
-		out.Thinking = thinking
+	thinking, maxTokens, err := translateThinking(openAI.ReasoningEffort, openAI.Thinking,
+		out.MaxTokens, openAI.MaxTokens > 0 || openAI.MaxCompletionTok > 0)
+	if err != nil {
+		return nil, err
 	}
+	out.Thinking = thinking
+	out.MaxTokens = maxTokens
 
 	applyCacheBreakpoints(&out, system, inj, hasBlock, up.cacheBreakpointMode())
 
