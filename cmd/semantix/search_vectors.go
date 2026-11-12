@@ -43,7 +43,12 @@ func validSearchVector(v []float32, dim int) bool {
 // searchVectors uses the query's model dimension to validate cached vectors.
 // On any fallback, ALL vectors (including the query) use hash space. Mixing
 // cached model vectors with fallback hashes would silently corrupt ranking.
-func searchVectors(emb embed.Embedder, store slice.Store, items []*slice.Slice, query string, warn io.Writer) ([][]float32, []float32, error) {
+//
+// degraded reports that a model embedder was requested but produced no model
+// vectors (the result is hash space). Callers must not present hash cosine as
+// semantic similarity: hybrid retrieval degrades to BM25 instead of fusing
+// hash vectors, which measured worse than BM25 alone (Issue #553).
+func searchVectors(emb embed.Embedder, store slice.Store, items []*slice.Slice, query string, warn io.Writer) ([][]float32, []float32, bool, error) {
 	texts := make([]string, len(items))
 	for i, item := range items {
 		texts[i] = string(item.Content)
@@ -62,15 +67,17 @@ func searchVectors(emb embed.Embedder, store slice.Store, items []*slice.Slice, 
 	}
 	remote, ok := emb.(*embed.ModelEmbedder)
 	if !ok {
-		return hashAll()
+		vs, q, err := hashAll()
+		return vs, q, false, err
 	}
-	fallback := func() ([][]float32, []float32, error) {
+	fallback := func() ([][]float32, []float32, bool, error) {
 		fmt.Fprintln(warn, "semantix: vector search degraded to hash for the entire query; model vectors were not mixed with fallback vectors")
-		return hashAll()
+		vs, q, err := hashAll()
+		return vs, q, true, err
 	}
 	q, fellBack, err := remote.EmbedReport([]string{query})
 	if err != nil {
-		return nil, nil, fmt.Errorf("embed query: %w", err)
+		return nil, nil, false, fmt.Errorf("embed query: %w", err)
 	}
 	if fellBack || len(q) != 1 || !validSearchVector(q[0], len(q[0])) {
 		return fallback()
@@ -110,7 +117,7 @@ func searchVectors(emb embed.Embedder, store slice.Store, items []*slice.Slice, 
 		}
 		vs, fellBack, err := remote.EmbedReport(input)
 		if err != nil {
-			return nil, nil, fmt.Errorf("embed slices: %w", err)
+			return nil, nil, false, fmt.Errorf("embed slices: %w", err)
 		}
 		if fellBack || len(vs) != len(batch) {
 			return fallback()
@@ -130,5 +137,5 @@ func searchVectors(emb embed.Embedder, store slice.Store, items []*slice.Slice, 
 			}
 		}
 	}
-	return vecs, q[0], nil
+	return vecs, q[0], false, nil
 }
