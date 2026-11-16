@@ -35,6 +35,9 @@ type turnRuntime struct {
 	// rounds so the injected prefix stays byte-stable. A loop/progress guard may
 	// clear it once as the explicit negative-transfer fuse.
 	injectBlock string
+	// injectReference is the provenance-only provider block when replacement
+	// succeeds; the assembled injectBlock remains available for later rounds.
+	injectReference string
 	// injectTargets are the canonical slice IDs represented by injectBlock.
 	// injectionFused prevents a loop guard from penalizing or announcing the
 	// same slices more than once in one user turn.
