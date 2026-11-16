@@ -2,7 +2,7 @@
 
 # Semantix
 
-### Cross-session memory for AI coding agents — and a much smaller bill.
+### Cross-session memory and work reuse for AI coding agents.
 
 **Semantic Caching · Adaptive Scheduling · Speculative Prefetch · Cross-Session Learning**
 
@@ -18,7 +18,7 @@
 
 <br/>
 
-> **A coding agent loses its entire context when a session ends, and a provider's prefix cache hits only on byte-identical prompts — a single edit near the head invalidates everything after it.**
+> **A new coding session often repeats project discovery and tool work. Provider prefix caches can reuse computation for matching prefixes, but do not decide which experience from an earlier session is still relevant or valid.**
 >
 > Semantix addresses both: a complete coding agent with the memory kernel built in, and a standalone kernel that attaches to an agent already in use.
 
@@ -38,7 +38,7 @@ semantix                 # bare command → launch the coding agent here (first 
 semantix search "..."    # any subcommand → the memory kernel (search / extract / inject / verify / usage)
 ```
 
-Pin a version or arch with `... | sh -s -- v0.7.2 arm64`. Other install methods and the full command reference live in [docs/QUICKSTART.md](./docs/QUICKSTART.md).
+Pin a version or arch with `... | sh -s -- v0.7.3 arm64`. Other install methods and the full command reference live in [docs/QUICKSTART.md](./docs/QUICKSTART.md).
 
 ## Two ways to run it
 
@@ -50,28 +50,46 @@ Pin a version or arch with `... | sh -s -- v0.7.2 arm64`. Other install methods 
 | --- | --- | --- |
 | **Agent skill** | `semantix install --target claude-code` | Claude Code |
 | **Tool registration** | two tool schemas (`semantix_lookup` / `semantix_inject`) | custom / self-hosted agents |
-| **Gateway** | one base URL, no code change | any OpenAI-compatible client |
+| **Gateway** | configure upstreams and point the client at the gateway base URL | OpenAI-compatible Chat Completions clients |
 
-Fail-open throughout: on kernel error the agent falls back to its normal execution path.
+Memory integration is designed to fail open: on kernel error the agent falls back to its normal execution path. Direct result reuse is fail-closed: a failed validation rejects the cached result.
 
 ## Cross-session memory
 
-A project's build conventions, test layout and service flags have to be re-established in every new session. Semantix extracts reusable **slices** from finished sessions — task patterns, project knowledge, tool sequences, verified results — into a local scored library, and reinjects the relevant ones when a similar task appears. Each hit carries its retrieval zone (🟢 hit · 🟡 grey · ⚪ miss) and its source session — real `semantix search` / `dashboard` / `verify` output lives in the [reuse visualization walkthrough](./docs/TECHNICAL-OVERVIEW.md#reuse-visualization).
+A project's build conventions, test layout and service flags often need to be re-established in a new session. Semantix extracts reusable **slices** from finished sessions — task patterns, project knowledge, tool sequences and results — into a local scored library, and reinjects relevant slices when a similar task appears. Each hit carries its retrieval zone (🟢 hit · 🟡 grey · ⚪ miss) and its source session — real `semantix search` / `dashboard` / `verify` output lives in the [reuse visualization walkthrough](./docs/TECHNICAL-OVERVIEW.md#reuse-visualization).
 
-Hits, misses and manual corrections all feed back into slice scores and retrieval thresholds, so precision improves with use rather than volume alone. Type-aware eviction discards stale results first and retains project knowledge.
+Usage and feedback signals can update slice scores and retrieval thresholds. Type-aware eviction treats reusable project knowledge differently from short-lived results. These mechanisms support tuning; improved precision still needs to be measured on the target workload.
+
+## What the kernel reuses
+
+Semantix connects cross-session memory to three levels of reuse:
+
+| Layer | Current mechanism | What it can save |
+| --- | --- | --- |
+| **L1 · Provider prefix cache** | Gateway prefix hygiene and provider-aware cache handling help preserve matching prefixes | Repeated prompt computation, subject to the upstream's cache policy |
+| **L2 · Context reuse** | Retrieve relevant slices and assemble a budgeted context block with provenance | Repeated project discovery and instructions |
+| **L3 · Result reuse** | Return a stored result after relevance, isolation and validity checks pass | The main answer-generation call; grey-zone judging may still call a model |
+
+Three implementation choices are central to this approach:
+
+- **Validity checks for code-related results.** L3 checks captured dependency files using mtimes and SHA-256 fingerprints. The gateway also enforces conversation-context and model isolation and applies an age policy. Dependency-free results require explicit opt-in; gateway ingestion leaves that opt-in off by default. Checks cover captured dependencies, so external state and unrecorded dependencies still need revalidation. See [the L3 decision path](./kernel/cache/l3.go).
+- **Separate retrieval from permission to reuse.** Hit / Grey / Miss zones guide admission. L2 drops grey candidates by default, with an optional audit mode; L3 requires judge approval for grey candidates and rejects them when no judge is available. A judge approval still has to pass the isolation and dependency checks. See [L2 admission](./kernel/inject/inject.go) and [retrieval zones](./kernel/zone/zone.go).
+- **Use behavior history as well as facts.** Task patterns, project context, tool sequences, results and memory units have different uses. In the bundled agent, tool-pattern learning feeds scheduling and speculative read-only prefetch, with outcome feedback. This execution integration depends on the harness; pointing a client at the gateway alone does not install a tool scheduler. See [the kernel bridge](./harness/semantix/bridge.go).
+
+The default retrieval path is local BM25 and does not require a vector database or an embedding service. CLI search and the gateway also support vector and hybrid retrieval. The default vector backend uses deterministic token-hash embeddings; model embeddings are opt-in and use an OpenAI-compatible embeddings endpoint. The gateway's configured model backend uses HNSW indexing. Hash embeddings do not provide the same semantic capabilities as a trained embedding model. See [retriever construction](./gateway/retriever.go) and [the configuration reference](./docs/QUICKSTART.md).
 
 ## Cache hit rate and cost
 
-Provider prefix caches match byte-exactly: a hit requires the prompt to be identical to the previous one byte for byte, and a single differing character near the head invalidates everything after it.
+Provider prefix caches reuse matching prompt prefixes, with token/block granularity, minimum lengths and lifetimes determined by the serving stack. Changes near the start can invalidate much of an otherwise reusable prefix.
 
-The impact of that failure mode is routinely underestimated. Claude Code writes a per-request billing marker into the head of the system prompt. First-party endpoints strip it server-side; third-party endpoints do not, so there the line invalidates the cache from the first token. The spec behind the prefix-hygiene middleware attributes a **133× difference in hit rate** to that single header, and records cache spend rising **4–5×** when stripping is disabled. `semantix-gateway` strips it by default.
+`semantix-gateway` removes recognized attribution/billing marker lines from the head of the first system message and sorts tools by name by default. This removes two sources of prefix churn before forwarding. The implementation and tests are in [the prefix-hygiene middleware](./gateway/sanitize.go) and [its tests](./gateway/sanitize_test.go); workload observations are recorded in [the prefix audit](./docs/reports/glm-p0-1-prefix-audit.md).
 
 The design goal is to make the provider cache hittable rather than to work around it:
 
-- **Byte-stable injection** — retrieved slices are ordered by ID rather than by score, so semantically similar requests produce byte-identical prefixes.
+- **Deterministic context assembly** — admitted slices are ordered by relevance score, with ID as a stable tie-break within each zone. Different queries, scores or metadata can still change the injected bytes; similar meaning alone does not guarantee a prefix-cache hit.
 - **Prefix hygiene** — per-request attribution markers are stripped and the tool array is canonicalized by name, removing client enumeration order as a source of invalidation.
-- **Provider awareness** — a vendor capability table, per-vendor cache lifetimes (DeepSeek's 24-hour on-disk context cache, Anthropic's 5-minute ephemeral window), budget-aware `cache_control` breakpoint placement, and per-model price tables.
-- **L3 result reuse** — a verified result is returned without a model call, fail-closed.
+- **Provider awareness** — a vendor capability table, cache-control policies and per-model price tables. The gateway's configurable per-vendor L3 age windows are local reuse policy; they do not control the upstream's prefix-cache lifetime.
+- **L3 result reuse** — an eligible result is returned without the main generation call, fail-closed; optional grey-zone judging has its own cost.
 
 ### Per-provider adaptation
 
@@ -80,21 +98,21 @@ Cache behaviour is determined by the stack serving the model rather than by the 
 | Endpoint | Prompt-cache hit, steady turn | Where the number comes from |
 | --- | --- | --- |
 | DeepSeek | **99.8%** | provider-reported cache tokens |
-| GLM | **97.5%** | week-long spike; ~97.6% telemetry ceiling |
+| GLM (measured hosting stacks) | **97.5%** | week-long spike; observed ~97.6% telemetry ceiling |
 
-Both are per-turn prompt-token hit rates — `hit / (hit + miss)` over cache token counts returned by the provider, not estimates. `semantix-agent` displays the current turn's rate alongside the session average in its status line, so the figure is verifiable on any workload.
+Both are observed per-turn prompt-token hit rates — `hit / (hit + miss)` over cache token counts returned by the provider. They are workload-specific observations, not guaranteed rates or measures of memory relevance. `semantix-agent` displays the current turn's rate alongside the session average in its status line when the provider reports cache usage.
 
-A week-long GLM study measured the same model behind different hosts and found cache lifetimes differing several-fold: one stack held a prefix for 1–8 minutes with real expiry in `(8, 12]`; another maintained 96–98% for 120 seconds and had fallen to 28% at 301 seconds. This is why the TTL table is per-vendor rather than a single global value, and why GLM hit-rate telemetry carries a documented **~97.6%** reporting ceiling — trailing partial blocks never count as cached.
+A week-long GLM study measured the same model behind different hosts and found cache lifetimes differing several-fold: one stack held a prefix for 1–8 minutes with real expiry in `(8, 12]`; another maintained 96–98% for 120 seconds and had fallen to 28% at 301 seconds. These measurements motivate per-stack calibration. The report also documents an observed **~97.6%** telemetry ceiling on the measured stacks, where trailing partial blocks were not counted as cached.
 
 Method and raw runs: [docs/reports/glm-spike-week.md](./docs/reports/glm-spike-week.md) · [docs/reports/glm-p0-1-prefix-audit.md](./docs/reports/glm-p0-1-prefix-audit.md).
 
 Beyond caching, the scheduler learns tool-usage patterns to parallelize eligible calls and to prefetch read-only context during model wait time.
 
-### Measured
+### Evidence and evaluation limits
 
-- **79.8% cost saved** on a synthetic replay comparison — methodology in [docs/reports/m0-cost-comparison.md](./docs/reports/m0-cost-comparison.md)
+- **79.8% modeled cost saving** in a synthetic demo, assuming 80% of repeated tool steps can be avoided and estimated tokens per step. This is a cost-model illustration, not a measured production billing reduction — assumptions in [docs/reports/m0-cost-comparison.md](./docs/reports/m0-cost-comparison.md).
 - **80% cache hit rate (L3/L2)** on a small demo library (4 extracted sessions) — the one-screen `semantix dashboard` snapshot is captured in the [reuse visualization walkthrough](./docs/TECHNICAL-OVERVIEW.md#reuse-visualization)
-- A replay gate (`semantix verify`) enforces **≥ 70% relevance**; validating that hit rate on real user sessions is the open v1.0 gate — [#58](https://github.com/Gnosil/semantix/issues/58)
+- The default replay verdict (`semantix verify`) uses an **auto-classified Hit share of ≥ 70%**. Its output labels this `relevance`, but that statistic is not human-labeled precision. Optional `--labels` calibration supports oracle-based evaluation; real-session relevance validation is tracked in [#58](https://github.com/Gnosil/semantix/issues/58).
 
 **These are replay / demo measurements, not production benchmarks.** The full evidence trail — and everything else technical — lives in [docs/TECHNICAL-OVERVIEW.md](./docs/TECHNICAL-OVERVIEW.md).
 
@@ -106,7 +124,7 @@ Installed via the one-liner above? Extract slices from a past session, then reus
 semantix extract --input session.jsonl --db .semantix/project.db --project demo
 semantix search  --query "fix failing go test" --db .semantix/project.db
 semantix inject  --query "fix failing go test" --db .semantix/project.db   # L2 reuse block
-semantix verify  --session <session-dir> --project demo                    # replay gate (≥70%)
+semantix verify  --session <session-dir> --project demo                    # replay verdict (auto-Hit share ≥70%)
 semantix dashboard                                                         # one-screen snapshot
 ```
 
@@ -120,10 +138,10 @@ Prefer to build from source (Go 1.26+)? `go build -o semantix ./cmd/semantix && 
 | Claude Code | Tool registration via `semantix_lookup` / `semantix_inject` schemas | ✅ documented (`agent-skill/tools/`) |
 | LangChain apps | Middleware with two hooks (message rewrite + session extraction) | ✅ documented ([report](./docs/reports/langchain-middleware.md)) |
 | Custom / self-hosted | Session bypass: export / event bypass / direct call | ✅ documented (`agent-skill/hooks/session-bypass.md`) |
-| Any OpenAI-compatible client | `semantix-gateway` in front, custom base URL | ✅ shipped |
+| OpenAI-compatible Chat Completions clients | `semantix-gateway` in front, configured upstreams and custom base URL | ✅ shipped |
 | Milvus (vector DB) | Optional compose stack (docker-compose.milvus.yml) + MCP server; orchestrator does RAG, Semantix caches LLM calls | ✅ documented ([guide](./docs/integrations/milvus.md)) |
 
-Cursor, Windsurf, Codex CLI, Gemini CLI, Copilot agent mode and Cline / Continue / Aider all reach the kernel through one of the paths above; none requires kernel changes. Priorities follow observed usage — concrete integration requests are tracked as [issues](https://github.com/Gnosil/semantix/issues) (template: `.github/ISSUE_TEMPLATE/integration_request.yml`).
+Other agents can integrate through tool registration, supported gateway requests or session export. Compatibility depends on the client's protocol and available hooks; the paths above do not imply that every client has a tested adapter or the bundled agent's full execution integration. Concrete integration requests are tracked as [issues](https://github.com/Gnosil/semantix/issues) (template: `.github/ISSUE_TEMPLATE/integration_request.yml`).
 
 ## Documentation
 
