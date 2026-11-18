@@ -59,12 +59,17 @@ type fileSlice struct {
 }
 
 type fileRetrieval struct {
-	Retriever  *string  `toml:"retriever"`
-	Limit      *int     `toml:"limit"`
-	VectorDim  *int     `toml:"vector_dim"`
-	Fusion     *string  `toml:"fusion"`      // hybrid 融合策略: weighted | rrf (Issue #274)
-	RrfK       *int     `toml:"rrf_k"`       // RRF 常数,默认 60
-	BM25Weight *float64 `toml:"bm25_weight"` // weighted 模式 BM25 路权重,默认 0.5
+	Retriever *string `toml:"retriever"`
+	// LookupRetriever is the semantix_lookup (active memory query) route.
+	// It defaults to bm25 so that enabling hybrid for `search`
+	// (retrieval.retriever, default hybrid) never silently changes what an
+	// agent gets from lookup (Issue #553).
+	LookupRetriever *string  `toml:"lookup_retriever"`
+	Limit           *int     `toml:"limit"`
+	VectorDim       *int     `toml:"vector_dim"`
+	Fusion          *string  `toml:"fusion"`      // hybrid 融合策略: weighted | rrf (Issue #274)
+	RrfK            *int     `toml:"rrf_k"`       // RRF 常数,默认 60
+	BM25Weight      *float64 `toml:"bm25_weight"` // weighted 模式 BM25 路权重,默认 0.5
 	// Grey-zone 四阈值 (Issue #259 阶段 1): semantix.toml 键,被
 	// --tau-*/--abs-* flag 覆盖;值域 (0,1] / >= 0,且 tau_high > tau_low。
 	TauHigh *float64 `toml:"tau_high"`
@@ -221,6 +226,9 @@ func Load(opts Options) (*Resolved, error) {
 		return nil, err
 	}
 	if err := add(mergePtr("retrieval.retriever", "hybrid", "SEMANTIX_RETRIEVER", file.Retrieval.Retriever, (*string)(nil))); err != nil {
+		return nil, err
+	}
+	if err := add(mergePtr("retrieval.lookup_retriever", "bm25", "SEMANTIX_LOOKUP_RETRIEVER", file.Retrieval.LookupRetriever, (*string)(nil))); err != nil {
 		return nil, err
 	}
 	if err := add(mergePtr("retrieval.limit", 5, "SEMANTIX_LIMIT", file.Retrieval.Limit, (*int)(nil))); err != nil {
@@ -483,6 +491,14 @@ func (r *Resolved) validate() error {
 				case "bm25", "vector", "hybrid":
 				default:
 					errs = append(errs, fmt.Sprintf("retrieval.retriever: invalid value %q (want bm25|vector|hybrid)", s))
+				}
+			}
+		case "retrieval.lookup_retriever":
+			if s, ok := f.Value.(string); ok {
+				switch s {
+				case "bm25", "vector", "hybrid":
+				default:
+					errs = append(errs, fmt.Sprintf("retrieval.lookup_retriever: invalid value %q (want bm25|vector|hybrid)", s))
 				}
 			}
 		case "retrieval.fusion":
