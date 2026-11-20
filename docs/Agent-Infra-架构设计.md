@@ -238,6 +238,11 @@ type SliceStats struct {
 
 L2 的 BM25 候选还需通过独立的查询词覆盖率判定（Issue #537）。覆盖率为候选包含的去重查询 token 数除以全部去重查询 token 数，达到 `tau_high` 才可判为 hit，处于 `tau_low` 与 `tau_high` 之间最多为 grey，更低为 miss。原始 BM25 分数、批内相对分及 `abs_high` / `abs_low` 仍参与判定。覆盖率基于现有 tokenizer，属于词面相关性启发式，无法证明语义等价。search、lookup、L2 注入与 L2 决策共享 `zone.ClassifyHit`。将两个绝对阈值均显式设为 0 会选择纯相对分模式，适用于 harness 已有的历史参考材料准入策略。
 
+Codex 原生插件通过 `UserPromptSubmit` 同步调用同一 L2 注入器，由宿主把
+命中内容作为带来源说明的历史上下文送入本轮首次模型请求。`Stop` 将对应用户文本与
+最终助手回复交给现有提取器，使用插件目录下的独立项目库。
+宿主交互、失败行为和验收条件见 [Codex 插件契约](specs/issue-565-codex-memory-plugin.md)。
+
 ### 4.3 L3：结果复用（带验证，fail-closed）
 
 **可复用条件**（全部满足才命中）：
