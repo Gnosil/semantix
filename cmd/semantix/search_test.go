@@ -193,9 +193,10 @@ func TestSearchHybridRespectsLimitAboveDefaultPool(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		name string
-		args []string
-		want int
+		name           string
+		args           []string
+		want           int
+		wantDualRoutes int
 	}{
 		{
 			name: "hybrid weighted pure bm25 limit 30",
@@ -204,10 +205,11 @@ func TestSearchHybridRespectsLimitAboveDefaultPool(t *testing.T) {
 			want: 30,
 		},
 		{
-			name: "hybrid rrf limit 25",
+			name: "hybrid rrf limit 30",
 			args: []string{"search", "--query", "cobalt lighthouse protocol fixture", "--db", db,
-				"--retriever", "hybrid", "--fusion", "rrf", "--limit", "25", "--json"},
-			want: 25,
+				"--retriever", "hybrid", "--fusion", "rrf", "--limit", "30", "--json"},
+			want:           30,
+			wantDualRoutes: 30,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -228,6 +230,17 @@ func TestSearchHybridRespectsLimitAboveDefaultPool(t *testing.T) {
 			}
 			if len(resp.Data) != tc.want {
 				t.Fatalf("got %d results, want %d", len(resp.Data), tc.want)
+			}
+			if tc.wantDualRoutes > 0 {
+				dualRoutes := 0
+				for _, hit := range resp.Data {
+					if hit.Score > 0.5 {
+						dualRoutes++
+					}
+				}
+				if dualRoutes != tc.wantDualRoutes {
+					t.Fatalf("got %d dual-route RRF hits (Score > 0.5), want %d", dualRoutes, tc.wantDualRoutes)
+				}
 			}
 		})
 	}
