@@ -132,6 +132,7 @@ func handleCodexHook(event codexHookEvent, dataDir string, deps dependencies) (s
 	}
 	var transcript bytes.Buffer
 	enc := json.NewEncoder(&transcript)
+	enc.SetEscapeHTML(false) // Internal JSONL must stay within the extractor's line limit.
 	for _, message := range []struct {
 		Role    string `json:"role"`
 		Content string `json:"content"`
