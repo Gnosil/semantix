@@ -76,6 +76,40 @@ func TestCodexHookCapturesAndRecallsWithinProject(t *testing.T) {
 	}
 }
 
+func TestCodexHookCapturesLargeStopWithinInputLimit(t *testing.T) {
+	dataDir, workspace := t.TempDir(), t.TempDir()
+	deps := productionDependencies()
+	event := codexHookEvent{
+		Name: "UserPromptSubmit", CWD: workspace, Session: "session", Turn: "one",
+		Prompt: "Remember the cobalt lighthouse project convention.",
+	}
+	callCodexHook(t, event, dataDir, deps)
+	event.Name = "Stop"
+	event.Response = "Synthetic fixture: " + strings.Repeat("<", 700_000)
+	var input bytes.Buffer
+	enc := json.NewEncoder(&input)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(event); err != nil {
+		t.Fatal(err)
+	}
+	if input.Len() > codexHookInputLimit {
+		t.Fatal("Stop fixture exceeds the hook input limit")
+	}
+	var stdout, stderr bytes.Buffer
+	if code := runCodexHook(&input, &stdout, &stderr, dataDir, deps); code != 0 || stdout.String() != "{}\n" || stderr.Len() != 0 {
+		t.Fatalf("Stop: exit=%d stdout=%q stderr=%q", code, &stdout, &stderr)
+	}
+	pending, err := filepath.Glob(filepath.Join(dataDir, "projects", "*", "pending", "*.txt"))
+	if err != nil || len(pending) != 0 {
+		t.Fatalf("pending captures = %v, %v", pending, err)
+	}
+	event.Name, event.Session, event.Response = "UserPromptSubmit", "next-session", ""
+	got := callCodexHook(t, event, dataDir, deps)
+	if got.Context == nil || !strings.Contains(got.Context.Text, "cobalt lighthouse") {
+		t.Fatalf("expected the captured prompt to be recalled, got %+v", got.Context)
+	}
+}
+
 func TestCodexHookIgnoresUnavailableOrExpiredCapture(t *testing.T) {
 	dataDir, workspace := t.TempDir(), t.TempDir()
 	event := map[string]string{
