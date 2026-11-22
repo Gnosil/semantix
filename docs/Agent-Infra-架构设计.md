@@ -243,6 +243,10 @@ Codex 原生插件通过 `UserPromptSubmit` 同步调用同一 L2 注入器，�
 最终助手回复交给现有提取器，使用插件目录下的独立项目库。
 宿主交互、失败行为和验收条件见 [Codex 插件契约](specs/issue-565-codex-memory-plugin.md)。
 
+DeepSeek Harness 的 Host 插件在首步准入时召回，并在会话记录 `turn/end` 后
+写回已完成的轮次。它调用同一个本地适配器，使用独立的 DSH 数据目录。
+详见 [DSH 插件契约](specs/dsh-memory-plugin.md)。
+
 ### 4.3 L3：结果复用（带验证，fail-closed）
 
 **可复用条件**（全部满足才命中）：

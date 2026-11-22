@@ -145,6 +145,20 @@ codex plugin add semantix-memory@semantix-plugins
 `semantix lookup --scope project --db <project-memory.jsonl> --query <query>`。
 详见 [Codex 插件契约](specs/issue-565-codex-memory-plugin.md)。
 
+### DeepSeek Harness（DSH）自动记忆插件
+
+安装包含 `codex-hook` 的 Semantix CLI，让 DSH 启动环境能从 `PATH` 找到它。
+从本仓库根目录为 DSH 的 `headless` profile 安装本地插件：
+
+```bash
+dsh plugin --profile headless add ./plugins/semantix-dsh-memory
+```
+
+安装后在目标项目启动 `dsh --profile headless "你的任务"`。插件在首个模型请求前
+召回相关记忆，并在成功完成文本轮次后写回。默认数据目录是 `~/.semantix/dsh`，
+可用绝对路径 `SEMANTIX_DSH_DATA_DIR` 覆盖。卸载时数据保留。
+完整用法和已验证版本见[插件说明](../plugins/semantix-dsh-memory/README.md)。
+
 **维护**：`gc`（清理过期/低权重切片，评分 + 上限淘汰）。`import`（从 JSONL 恢复切片，
 默认标 `import` 来源档，`--trust` 一次动作升 `user-curated`）与 `trust <id>`（显式升档，
 仅允许升档、写审计行）——来源/完整性标签（Issue #279）：`import` 档与未标注（legacy）
