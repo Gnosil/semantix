@@ -1,0 +1,7 @@
+{
+  "name": "semantix-memory",
+  "version": "0.1.0",
+  "description": "Local project memory with automatic recall and completed-turn capture.",
+  "hooks": "./hooks/hooks.json",
+  "interface": { "displayName": "Semantix Memory" }
+}

@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "semantix codex-hook", "commandWindows": "semantix.exe codex-hook", "timeout": 2 }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "semantix codex-hook", "commandWindows": "semantix.exe codex-hook", "timeout": 5 }] }
+    ]
+  }
+}

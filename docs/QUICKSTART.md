@@ -122,6 +122,29 @@ semantix install --target custom --dir ./agent  # 自定义目录
 semantix install --target claude-code --uninstall   # 卸载（仅移除 install 记录的文件）
 ```
 
+### Codex 自动记忆插件
+
+先从包含 `codex-hook` 命令的版本安装 Semantix，并让 Codex 启动环境的
+`PATH` 能找到 `semantix`。在支持插件内置 Hooks 的 Codex CLI（如 0.159.3）中，
+从 Semantix 仓库根目录运行：
+
+```bash
+codex plugin marketplace add .
+codex plugin add semantix-memory@semantix-plugins
+```
+
+开启新的 Codex 会话，在 `/hooks` 审阅并信任 `UserPromptSubmit` 和 `Stop`。
+插件在首次模型请求前注入相关的项目记忆，并在本轮完成后从用户文本和助手最终回复
+提取记忆。插件数据在 Codex 提供的 `PLUGIN_DATA` 下按项目隔离，同一个 Git
+工作目录的子目录共用一份记忆。没有 Git 根目录时按工作目录隔离。
+待处理的用户文本暂存在本地，写回成功后删除，过期记录会在后续提交时清理。
+记忆处理无需网络，召回失败时 Codex 仍可继续对话。
+
+要停止使用，禁用插件或执行 `codex plugin remove semantix-memory@semantix-plugins`。
+禁用插件会停用 Hook，保留已有记忆。显式查询可使用
+`semantix lookup --scope project --db <project-memory.jsonl> --query <query>`。
+详见 [Codex 插件契约](specs/issue-565-codex-memory-plugin.md)。
+
 **维护**：`gc`（清理过期/低权重切片，评分 + 上限淘汰）。`import`（从 JSONL 恢复切片，
 默认标 `import` 来源档，`--trust` 一次动作升 `user-curated`）与 `trust <id>`（显式升档，
 仅允许升档、写审计行）——来源/完整性标签（Issue #279）：`import` 档与未标注（legacy）

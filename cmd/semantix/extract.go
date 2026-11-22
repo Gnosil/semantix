@@ -14,6 +14,10 @@ import (
 )
 
 func runExtract(args []string, stdout, stderr io.Writer, deps dependencies) error {
+	return runExtractFrom(args, os.Stdin, stdout, stderr, deps)
+}
+
+func runExtractFrom(args []string, stdin io.Reader, stdout, stderr io.Writer, deps dependencies) error {
 	flags := flag.NewFlagSet("extract", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	input := flags.String("input", "", "session JSONL path, or - for stdin")
@@ -52,7 +56,7 @@ func runExtract(args []string, stdout, stderr io.Writer, deps dependencies) erro
 	if err != nil {
 		return err
 	}
-	data, err := readInput(*input)
+	data, err := readInput(*input, stdin)
 	if err != nil {
 		return err
 	}
@@ -208,9 +212,9 @@ func extractionCompression(items []*slice.Slice) (rawBytes, storedBytes int, rat
 	return rawBytes, storedBytes, ratio
 }
 
-func readInput(path string) ([]byte, error) {
+func readInput(path string, stdin io.Reader) ([]byte, error) {
 	if path == "-" {
-		data, err := io.ReadAll(os.Stdin)
+		data, err := io.ReadAll(stdin)
 		if err != nil {
 			return nil, fmt.Errorf("read stdin: %w", err)
 		}

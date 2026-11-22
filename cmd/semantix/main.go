@@ -177,6 +177,10 @@ func buildCommands() []commandSpec {
 			run: func(args []string, stdout, stderr io.Writer, _ dependencies) int {
 				return runInstall(args, stdout, stderr)
 			}},
+		{name: "codex-hook", group: groupProduct,
+			usage:   "semantix codex-hook < hook.json",
+			summary: "handle a Codex plugin lifecycle event",
+			run:     runCodexHookCommand},
 		{name: "version", group: groupProduct,
 			usage:   "semantix version [--json]",
 			summary: "version + commit + build time",
@@ -231,6 +235,10 @@ func run(args []string, stdout, stderr io.Writer, deps dependencies) int {
 	// once per invocation so every command's flag defaults come from config.
 	// An invalid config file is a usage-class error (exit 2, §4.3); a missing
 	// file is fine — built-in defaults apply.
+	// Plugin state and admission defaults are independent of workspace config.
+	if args[0] == "codex-hook" {
+		return runCodexHookCommand(args[1:], stdout, stderr, deps)
+	}
 	cfg, cfgErr := config.Load(config.Options{})
 	if cfgErr != nil {
 		var cerr *config.Error
