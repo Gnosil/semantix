@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -171,5 +173,62 @@ func TestSearchHybridFusionBM25Weight(t *testing.T) {
 		"--bm25-weight", "1.5", "--limit", "2"}, &out, &emptyStderr{}, productionDependencies())
 	if code != 2 {
 		t.Fatalf("bm25-weight=1.5 code = %d, want 2 (usage error)", code)
+	}
+}
+
+func TestSearchHybridRespectsLimitAboveDefaultPool(t *testing.T) {
+	dir := t.TempDir()
+	db := filepath.Join(dir, "lib.db")
+	store := openTestStore(t, db)
+	for i := range 30 {
+		sl := &slice.Slice{
+			ID:      fmt.Sprintf("hlim-%02d", i),
+			Type:    slice.Prompt,
+			Scope:   slice.Project,
+			Content: []byte(fmt.Sprintf("cobalt lighthouse protocol fixture number-%02d", i)),
+		}
+		if err := store.Put(sl); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	for _, tc := range []struct {
+		name string
+		args []string
+		want int
+	}{
+		{
+			name: "hybrid weighted pure bm25 limit 30",
+			args: []string{"search", "--query", "cobalt lighthouse protocol fixture", "--db", db,
+				"--retriever", "hybrid", "--bm25-weight", "1", "--limit", "30", "--json"},
+			want: 30,
+		},
+		{
+			name: "hybrid rrf limit 25",
+			args: []string{"search", "--query", "cobalt lighthouse protocol fixture", "--db", db,
+				"--retriever", "hybrid", "--fusion", "rrf", "--limit", "25", "--json"},
+			want: 25,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var out bytes.Buffer
+			code := run(tc.args, &out, &emptyStderr{}, productionDependencies())
+			if code != 0 {
+				t.Fatalf("search code = %d, out:\n%s", code, out.String())
+			}
+			var resp struct {
+				OK   bool           `json:"ok"`
+				Data []searchResult `json:"data"`
+			}
+			if err := json.Unmarshal(out.Bytes(), &resp); err != nil {
+				t.Fatalf("decode search json: %v\nout:\n%s", err, out.String())
+			}
+			if !resp.OK {
+				t.Fatalf("expected ok=true envelope, got %+v", resp)
+			}
+			if len(resp.Data) != tc.want {
+				t.Fatalf("got %d results, want %d", len(resp.Data), tc.want)
+			}
+		})
 	}
 }
