@@ -161,7 +161,9 @@ func runSearch(args []string, stdout, stderr io.Writer, deps dependencies) error
 				}
 			}
 		} else {
-			bm25hits, err := index.Search(query, 20, scope)
+			// Keep at least 20 BM25 candidates for fusion on small --limit requests
+			// while honoring larger --limit values (Issue #568).
+			bm25hits, err := index.Search(query, max(20, *limit), scope)
 			if err != nil {
 				return fmt.Errorf("search index: %w", err)
 			}

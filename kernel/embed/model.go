@@ -63,7 +63,8 @@ func (m *ModelEmbedder) Model() string {
 // persisting endpoint URLs or credentials. Rotate the model name when replacing
 // a model in place; an unchanged alias cannot reveal changed model weights.
 func (m *ModelEmbedder) CacheKey() string {
-	h := sha256.Sum256([]byte("l2-normalized-v1\x00" + strings.TrimRight(m.cfg.BaseURL, "/") + "\x00" + m.cfg.Model))
+	// Rebuild vectors cached before response indices were honored (Issue #558).
+	h := sha256.Sum256([]byte("l2-normalized-indexed-v2\x00" + strings.TrimRight(m.cfg.BaseURL, "/") + "\x00" + m.cfg.Model))
 	return hex.EncodeToString(h[:])
 }
 
@@ -125,6 +126,7 @@ func (m *ModelEmbedder) call(ctx context.Context, texts []string) ([][]float32, 
 	}
 	var parsed struct {
 		Data []struct {
+			Index     *int      `json:"index"`
 			Embedding []float32 `json:"embedding"`
 		} `json:"data"`
 	}
@@ -142,10 +144,25 @@ func (m *ModelEmbedder) call(ctx context.Context, texts []string) ([][]float32, 
 		}
 	}
 	vecs := make([][]float32, len(parsed.Data))
+	seen := make([]bool, len(parsed.Data))
+	indexed := len(parsed.Data) > 0 && parsed.Data[0].Index != nil
 	for i, d := range parsed.Data {
+		// Fully unindexed compatible endpoints retain positional ordering.
+		// Once indices are present, every row must identify one unique input.
+		if (d.Index != nil) != indexed {
+			return nil, fmt.Errorf("embed: response mixes indexed and unindexed vectors")
+		}
+		index := i
+		if d.Index != nil {
+			index = *d.Index
+		}
+		if index < 0 || index >= len(vecs) || seen[index] {
+			return nil, fmt.Errorf("embed: invalid or duplicate vector index %d", index)
+		}
+		seen[index] = true
 		vec := append([]float32(nil), d.Embedding...)
 		normalize(vec)
-		vecs[i] = vec
+		vecs[index] = vec
 	}
 	return vecs, nil
 }
