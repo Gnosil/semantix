@@ -54,9 +54,9 @@ func TestSearchVectorsRefreshesLegacyPositionalEmbeddings(t *testing.T) {
 				t.Fatal(err)
 			}
 			var warn bytes.Buffer
-			vecs, _, err := searchVectors(remote, store, items, "query", &warn)
-			if err != nil || warn.Len() > 0 {
-				t.Fatalf("search: %v %s", err, &warn)
+			vecs, _, degraded, err := searchVectors(remote, store, items, "query", &warn)
+			if err != nil || degraded || warn.Len() > 0 {
+				t.Fatalf("search: %v (degraded=%v) %s", err, degraded, &warn)
 			}
 			if calls != 2 || !reflect.DeepEqual(vecs, [][]float32{{1, 0}}) {
 				t.Fatalf("calls = %d, vectors = %v; want query plus refreshed document", calls, vecs)

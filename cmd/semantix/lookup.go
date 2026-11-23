@@ -27,6 +27,7 @@ func runLookup(args []string, stdout, stderr io.Writer, deps dependencies) error
 	// Without --json the legacy bare-array output is kept for compat.
 	jsonOut := flags.Bool("json", false, "output as JSON envelope (H1 protocol)")
 	evolveDB := flags.String("evolve-db", "", "optional evolve state dir; its tuned tau_l2 sets the grey-zone floor unless --tau-low is given (Issue #220)")
+	rf := addRetrieverFlags(flags, deps, "retrieval.lookup_retriever", "bm25")
 	zf := addZoneFlags(flags)
 	if err := flags.Parse(args); err != nil {
 		return usageWrap(err)
@@ -52,6 +53,10 @@ func runLookup(args []string, stdout, stderr io.Writer, deps dependencies) error
 	if *query == "" {
 		return usagef("lookup: --query is required")
 	}
+	opt, err := rf.options(flags, deps)
+	if err != nil {
+		return err
+	}
 
 	store, err := deps.openStore(storePath(*dbOverride, *scopeValue))
 	if err != nil {
@@ -61,15 +66,21 @@ func runLookup(args []string, stdout, stderr io.Writer, deps dependencies) error
 	idx := deps.newIndex()
 	// index is session-local: rebuild from the store so lookup sees
 	// previously extracted slices.
-	if err := indexFromStore(store, idx); err != nil {
+	items, err := store.ListAll()
+	if err != nil {
 		return err
+	}
+	for _, sl := range items {
+		if err := idx.Insert(sl); err != nil {
+			return err
+		}
 	}
 
 	scope, err := parseScope(*scopeValue)
 	if err != nil {
 		return err
 	}
-	hits, err := idx.Search(*query, *limit, scope)
+	hits, err := retrieveHits(store, items, idx, *query, *limit, scope, opt, stderr)
 	if err != nil {
 		return err
 	}
