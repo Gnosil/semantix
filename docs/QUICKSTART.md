@@ -144,6 +144,8 @@ codex plugin add semantix-memory@semantix-plugins
 禁用插件会停用 Hook，保留已有记忆。显式查询可使用
 `semantix lookup --scope project --db <project-memory.jsonl> --query <query>`。
 详见 [Codex 插件契约](specs/issue-565-codex-memory-plugin.md)。
+若安装后没有召回，请先按[安装排查](../plugins/semantix-memory/README.zh-CN.md)
+核对执行文件、源码版本与 Hook 信任状态。
 
 ### DeepSeek Harness（DSH）自动记忆插件
 

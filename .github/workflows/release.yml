@@ -44,6 +44,16 @@ jobs:
           bash scripts/release/build-full.sh --version "$VERSION"
           echo "-- dist assets:"; ls -1 dist
 
+      - name: Verify Codex memory in the release binary
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          asset="semantix-$VERSION-linux-amd64"
+          (cd dist && awk -v asset="$asset" '$2 == asset || $2 == "*" asset' SHA256SUMS | sha256sum --check --strict -)
+          python3 scripts/release/verify-codex-memory.py "dist/$asset" \
+            --expect-version "$VERSION" --expect-commit "$(git rev-parse --short=12 HEAD)"
+
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
