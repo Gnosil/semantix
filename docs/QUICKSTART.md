@@ -64,6 +64,27 @@ semantix verify --session <会话目录> --project demo > eval.tsv
 # 逐行标 ✅/❌，命中率 = ✅/总行数
 ```
 
+### Offline replay with human labels
+
+For [#58](https://github.com/Gnosil/semantix/issues/58), use an independent,
+chronologically ordered real-session cohort and a fresh replay database.
+Use one JSONL file per session, with file modification times in session order
+and user turns such as `{"role":"user","content":"…"}`.
+Score human-labeled top-1 relevance separately from the CLI's automatic Hit
+zone share. In a repository checkout, run:
+
+```sh
+semantix verify --session /path/to/prepared-sessions --project demo --scope project --holdout 0.3 --db replay-only.db --json > replay.json
+python3 scripts/tools/score_verify.py replay.json --prepare labels.tsv
+# Fill one 0 or 1 for every row after reviewing the query and top-1 candidate.
+python3 scripts/tools/score_verify.py replay.json --labels labels.tsv
+```
+
+The helper rejects incomplete or duplicate labels and reports the ≥70% human
+yield and ≤30% grey thresholds separately. The JSON replay contains source
+text; keep it local, and use anonymous basenames if sharing the ID-only labels.
+The scorer is offline and does not establish dataset eligibility.
+
 ### Model-vector reuse
 
 `search --retriever vector|hybrid --embedder model` reuses persisted vectors only
