@@ -136,6 +136,7 @@ semantix dashboard                                                      # 一屏
 | --- | --- | --- |
 | Semantix Agent | 内置捆绑：`[semantix] enabled=true` + `semantix_lookup` 工具 | ✅ v0.3.0 起随包发布 |
 | Claude Code | 工具注册（`semantix_lookup` / `semantix_inject` schema） | ✅ 已文档化（`agent-skill/tools/`） |
+| Codex CLI | 可选的本地市场插件，通过 Hooks 读写项目记忆 | [安装与排查](./plugins/semantix-memory/README.zh-CN.md) |
 | DeepSeek Harness（DSH） | 本地 Host 插件，自动召回和写入项目记忆 | 已验证 [DSH headless](./plugins/semantix-dsh-memory/README.md) |
 | LangChain 应用 | 两个 hook 的中间件（消息改写 + 会话提取） | ✅ 已文档化（[报告](./docs/reports/langchain-middleware.md)） |
 | 自研 / 私有 agent | 会话绕行：export / 事件旁路 / 直接调用 | ✅ 已文档化（`agent-skill/hooks/session-bypass.md`） |
