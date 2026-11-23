@@ -2926,18 +2926,16 @@ func TestQueueNewMessageOnEnterDuringRunning(t *testing.T) {
 
 func TestQueuedFoldedPasteExpandsBeforeInterjectSend(t *testing.T) {
 	runner := &recordingTurnRunner{}
-	events := make(chan event.Event, 8)
-	dir := t.TempDir()
 	ctrl := control.New(control.Options{
 		Runner:     runner,
-		Sink:       event.FuncSink(func(e event.Event) { events <- e }),
-		SessionDir: dir,
+		Sink:       event.Discard,
+		SessionDir: t.TempDir(),
 		Label:      "test",
 	})
+	t.Cleanup(ctrl.Close)
 	ctrl.EnsureSessionPath()
 	m := newTestChatTUI()
 	m.ctrl = ctrl
-	m.eventCh = make(chan event.Event, 8)
 	m.state = tuiRunning
 
 	pasted := strings.Repeat("queued pasted content\n", 10)
@@ -2952,11 +2950,15 @@ func TestQueuedFoldedPasteExpandsBeforeInterjectSend(t *testing.T) {
 	model, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	m = model.(chatTUI)
 
-	bodies := m.inboxBodies()
-	if len(bodies) != 1 {
-		t.Fatalf("queue should have 1 item, got %d", len(bodies))
+	items := m.inboxSnap().Items
+	if len(items) != 1 {
+		t.Fatalf("queue should have 1 item, got %d", len(items))
 	}
-	queued := bodies[0]
+	_, envelope, err := ctrl.ReadInboxItem(items[0].ID)
+	if err != nil {
+		t.Fatalf("read queued interject: %v", err)
+	}
+	queued := envelope.SubmitText
 	if queued == display {
 		t.Fatalf("queued interject kept the folded placeholder: %q", queued)
 	}
@@ -2970,17 +2972,13 @@ func TestQueuedFoldedPasteExpandsBeforeInterjectSend(t *testing.T) {
 		}
 	}
 
-	// Resume inbox so controller can dispatch after TurnDone.
-	_ = m.ctrl.SetInboxPaused(false)
-	model, _ = m.Update(agentEventMsg(event.Event{Kind: event.TurnDone}))
-	m = model.(chatTUI)
-	// Controller dispatches asynchronously via maybeDispatch; wait briefly.
-	waitForCLIEvent(t, events, event.TurnDone)
-
-	// Admission may start a turn; wait for runner input.
-	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) && len(runner.inputs) == 0 {
-		time.Sleep(10 * time.Millisecond)
+	// Exercise the same prepared inbox envelope and durable acknowledgement
+	// without a detached dispatch that can reopen the inbox after TurnDone.
+	if err := ctrl.SetInboxPausedPassive(false); err != nil {
+		t.Fatalf("resume inbox: %v", err)
+	}
+	if err := ctrl.RunInboxTurn(context.Background(), items[0].ID); err != nil {
+		t.Fatalf("run queued interject: %v", err)
 	}
 	if len(runner.inputs) != 1 {
 		t.Fatalf("runner should receive queued interject, inputs=%q", runner.inputs)
@@ -2991,6 +2989,9 @@ func TestQueuedFoldedPasteExpandsBeforeInterjectSend(t *testing.T) {
 	}
 	if !strings.Contains(sent, "queued pasted content") {
 		t.Fatalf("runner input missing pasted content:\n%s", sent)
+	}
+	if remaining := ctrl.InboxSnapshot().Items; len(remaining) != 0 {
+		t.Fatalf("queued interject was not acknowledged: %d item(s) remaining", len(remaining))
 	}
 }
 
