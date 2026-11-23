@@ -1,0 +1,4 @@
+- insert:
+    - id: semantix-dsh-memory
+      name: '@semantix/dsh-memory'
+      config: {}

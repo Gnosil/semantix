@@ -1,0 +1,15 @@
+{
+  "name": "@semantix/dsh-memory",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Project memory for DeepSeek Harness, powered by the local Semantix CLI.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": ["index.js", "cordis.patch.yml", "locale", "icon.svg"],
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } }
+}

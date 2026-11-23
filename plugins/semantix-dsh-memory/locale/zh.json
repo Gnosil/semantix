@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Semantix 项目记忆",
+    "description": "在首次模型请求前召回项目记忆，在本地保存已完成的文本轮次。需要在 PATH 中安装 Semantix CLI。"
+  }
+}

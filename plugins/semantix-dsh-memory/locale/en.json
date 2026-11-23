@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Semantix memory",
+    "description": "Recall project memory before the first model request and save completed text turns locally. Requires the Semantix CLI on PATH."
+  }
+}
