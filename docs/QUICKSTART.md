@@ -102,10 +102,12 @@ No provider-side prompt/KV caching is controlled by this feature.
 | `calibrate` | L3 负向校准报告（judge vs oracle + 运行时汇总） | `--audit` `--usage` `--stub` `--min-consistency` |
 | `usage` | 成本节省统计 | `--db` `--evolve-db` |
 | `lookup` | semantix_lookup 工具（JSON） | `--query` `--limit` `--scope` `--evolve-db` |
-| `inject` | L2 注入块（规范序/预算截断） | `--query` `--budget` `--k` `--evolve-db` |
+| `inject` | L2 注入块（规范序/预算截断） | `--query` `--budget` `--k` `--evolve-db` `--preview-handoff` |
 
 **产品与管理**：`doctor` 健康检查（db / config / embedder / judge，任一 FAIL 退出码 3）、
 `install` 一键安装、`version`。
+
+`semantix inject --query "..." --preview-handoff` 仅供人工离线预览。只压缩已准入、带有来源的历史任务卡片的显示外壳，原路径、历史验证命令和任务内容逐字保留。历史验证不表示当前完成；缺少验证记录会明确提示。不支持的卡片或无字节收益时回退为原注入块，默认输出和实际模型请求均不改变。
 
 `semantix install` 按 `agent-skill/` 现有文档（SKILL.md + tools/ + hooks/ + config/ + scripts/）
 落盘到目标 harness，幂等可重跑，`--uninstall` 精确移除安装的文件：

@@ -139,6 +139,7 @@ func runInject(args []string, stdout, stderr io.Writer, deps dependencies) error
 	scopeValue := flags.String("scope", cfgString(deps.resolved, "store.scope", "project"), "slice scope: session, project, or user")
 	k := flags.Int("k", cfgInt(deps.resolved, "retrieval.limit", 5), "top-k slices to consider")
 	budget := flags.Int("budget", cfgInt(deps.resolved, "inject.budget", inject.DefaultBudget), "max injection block bytes")
+	previewHandoff := flags.Bool("preview-handoff", false, "display compact historical outcome cards when safe (offline human preview)")
 	dbOverride := flags.String("db", cfgString(deps.resolved, "store.db", ""), "database path override")
 	evolveDB := flags.String("evolve-db", "", "optional evolve state dir; its tuned tau_l2 sets the grey-zone floor unless --tau-low is given (Issue #220)")
 	zf := addZoneFlags(flags)
@@ -182,7 +183,11 @@ func runInject(args []string, stdout, stderr io.Writer, deps dependencies) error
 		return err
 	}
 	// This command only assembles text; no provider has accepted it.
-	fmt.Fprintf(stdout, "%s\n", stripESC(inj.Text))
+	text := inj.Text
+	if *previewHandoff {
+		text = inject.HandoffPreview(inj)
+	}
+	fmt.Fprintf(stdout, "%s\n", stripESC(text))
 	return nil
 }
 
