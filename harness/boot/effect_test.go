@@ -7,6 +7,7 @@ package boot
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"sync"
 	"testing"
@@ -14,6 +15,7 @@ import (
 
 	"semantix/harness/ablation"
 	"semantix/harness/agent"
+	"semantix/harness/control"
 	"semantix/harness/event"
 	"semantix/harness/provider"
 )
@@ -42,13 +44,31 @@ func (p *effectRecordingProvider) requests() []provider.Request {
 	return append([]provider.Request(nil), p.reqs...)
 }
 
+// Effect fixtures must use their own config and fail locally if their provider
+// is missing. Auto-discovery can pick up a Git marker above the temp dir and
+// omit the fixture's config, leaving the normal (networked) default provider.
+func buildOfflineEffectFixture(t *testing.T, dir string, opts Options) *control.Controller {
+	t.Helper()
+	const model = "test-model/x"
+	opts.WorkspaceRoot = dir
+	opts.Model = model
+	ctrl, err := Build(context.Background(), opts)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if got := ctrl.ModelRef(); got != model {
+		ctrl.Close()
+		t.Fatalf("unexpected fixture provider %q, want %q", got, model)
+	}
+	return ctrl
+}
+
 // effectRun builds the real stack around a recording provider, runs one
 // prompt, and returns every request that reached the provider boundary.
 func effectRun(t *testing.T, kind, tokenMode string, arm ablation.Set) []provider.Request {
 	t.Helper()
-	isolateConfigHome(t)
+	t.Setenv("SEMANTIX_HOME", isolateConfigHome(t))
 	dir := robustTempDir(t)
-	t.Chdir(dir)
 
 	rec := &effectRecordingProvider{}
 	provider.Register(kind, func(provider.Config) (provider.Provider, error) {
@@ -66,10 +86,7 @@ kind = "`+kind+`"
 model = "x"
 `)
 
-	ctrl, err := Build(context.Background(), Options{Sink: event.Discard, TokenMode: tokenMode, Ablation: arm})
-	if err != nil {
-		t.Fatalf("Build: %v", err)
-	}
+	ctrl := buildOfflineEffectFixture(t, dir, Options{Sink: event.Discard, TokenMode: tokenMode, Ablation: arm})
 	defer ctrl.Close()
 	if err := ctrl.Run(context.Background(), "reply ok"); err != nil {
 		t.Fatalf("Run: %v", err)
@@ -183,9 +200,10 @@ func (p *budgetRunawayProvider) roundCount() int {
 // real Build assembly. Nothing else would stop it: ordinary chat has no round
 // ceiling, and this provider never repeats itself.
 func TestEffectTaskBudgetLandsARunawayThroughRealBuild(t *testing.T) {
-	isolateConfigHome(t)
-	dir := robustTempDir(t)
-	t.Chdir(dir)
+	t.Setenv("SEMANTIX_HOME", isolateConfigHome(t))
+	parent := robustTempDir(t)
+	writeFile(t, parent, ".git", "gitdir: .git-data\n")
+	dir := filepath.Join(parent, "workspace")
 
 	rec := &budgetRunawayProvider{}
 	provider.Register("boot-budget-gate", func(provider.Config) (provider.Provider, error) {
@@ -204,10 +222,8 @@ kind = "boot-budget-gate"
 model = "x"
 `)
 
-	ctrl, err := Build(context.Background(), Options{Sink: event.Discard})
-	if err != nil {
-		t.Fatalf("Build: %v", err)
-	}
+	t.Chdir(dir)
+	ctrl := buildOfflineEffectFixture(t, dir, Options{Sink: event.Discard})
 	defer ctrl.Close()
 
 	runCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
