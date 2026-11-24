@@ -122,6 +122,7 @@ No provider-side prompt/KV caching is controlled by this feature.
 |---|---|---|
 | `extract` | 会话 JSONL → 语义切片入库 | `--input` `--db` `--scope` `--project` |
 | `search` | 检索切片 | `--query` `--retriever bm25\|vector\|hybrid` `--fusion weighted\|rrf` `--limit` `--json` |
+| `dream` | 离线预览项目关系图 | `--session <file\|dir>`（可重复，输入须来自同一个项目） |
 | `verify` | 离线回放命中率验证（门禁）；`--calibrate` 分桶校准报告 | `--session` `--holdout` `--db` `--strict` `--calibrate` `--labels` |
 | `eval` | 检索策略比较（单阈值 vs 三段） | `--set` `--train-frac` `--tau-*` |
 | `eval-judge` | LLM judge 真实性评估（门禁） | `--stub` `--audit` `--min-consistency` |
