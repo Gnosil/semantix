@@ -7,7 +7,10 @@ import (
 
 	"semantix/harness/event"
 	"semantix/harness/provider"
+	"semantix/harness/semantix"
 	"semantix/harness/tool"
+	"semantix/kernel/inject"
+	"semantix/kernel/slice"
 )
 
 func TestSemantixHistoryUsesUserRoleAndFixedSystemPolicy(t *testing.T) {
@@ -75,5 +78,54 @@ func TestSemantixHistoryStaysWithCurrentTurn(t *testing.T) {
 		if !strings.Contains(got[i].Content, content) {
 			t.Fatalf("message[%d]=%q, want content %q; history must stay with current turn", i, got[i].Content, content)
 		}
+	}
+}
+
+func TestManagedContextReplacementKeepsTranscriptAndFallsBack(t *testing.T) {
+	source := "<semantix-managed-context project=\"demo\" revision=\"v1\">\n{\n  \"release_channel\": \"stable\"\n}</semantix-managed-context>"
+	result, err := (&inject.Injector{Budget: 4096, AllowedTypes: map[slice.SliceType]bool{slice.Context: true}, MinOrigin: slice.OriginSessionAuto}).BuildHits("release channel", []slice.Hit{{Score: 1, Slice: &slice.Slice{
+		ID: "s1", Type: slice.Context, Content: []byte(source),
+		Meta: slice.SliceMeta{ProjectSlug: "demo", BaseCommit: "v1", Origin: slice.OriginUserCurated, SourceSession: "session"},
+	}}})
+	if err != nil || result == nil || result.Text == "" {
+		t.Fatalf("real L2 assembly failed: result=%+v err=%v", result, err)
+	}
+	block := result.Text
+	sess := &Session{Messages: []provider.Message{
+		{Role: provider.RoleSystem, Content: "policy"},
+		{Role: provider.RoleUser, Content: source},
+		{Role: provider.RoleUser, Content: "Which release channel?"},
+	}}
+	a := New(&fakeProvider{reply: "ok"}, tool.NewRegistry(), sess, Options{}, event.Discard)
+	a.semantix = semantix.NewBridge(semantix.Config{Enabled: true, Mode: "replace", ProjectDir: t.TempDir()})
+	defer a.semantix.Close()
+	a.turn.injectBlock = block
+	a.turn.injectTargets = []string{"s1"}
+	prepared, err := a.prepareSamplingRequest(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(prepared.req.Messages) != 4 ||
+		prepared.req.Messages[1].Content != `<semantix-managed-context project="demo" revision="v1">{"release_channel":"stable"}</semantix-managed-context>` ||
+		!strings.Contains(prepared.req.Messages[2].Content, `source="session"`) ||
+		!strings.Contains(prepared.req.Messages[2].Content, "content=earlier managed context user message") ||
+		strings.Contains(prepared.req.Messages[2].Content, "release_channel") ||
+		prepared.req.Messages[3].Content != "Which release channel?" ||
+		strings.Contains(prepared.req.Messages[0].Content, "semantix-reuse") ||
+		!strings.Contains(prepared.req.Messages[0].Content, semantixHistoryPolicy) ||
+		sess.Messages[1].Content != source {
+		t.Fatalf("replacement changed the wrong context: %+v", prepared.req.Messages)
+	}
+	if _, err := a.streamProviderRequest(context.Background(), prepared.req); err != nil || !a.turn.injectionDelivered {
+		t.Fatalf("replacement reference was not attributed to provider delivery: %v", err)
+	}
+	a.turn.injectBlock = strings.Replace(block, `commit="v1"`, `commit="stale"`, 1)
+	fallback, err := a.prepareSamplingRequest(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(joinContents(fallback.req.Messages), a.turn.injectBlock) ||
+		!strings.Contains(joinContents(fallback.req.Messages), source) {
+		t.Fatalf("mismatched provenance did not keep original injection: %+v", fallback.req.Messages)
 	}
 }
