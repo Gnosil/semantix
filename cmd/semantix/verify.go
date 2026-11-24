@@ -355,7 +355,23 @@ type verifyLine struct {
 }
 
 func collectSessionFiles(paths []string) ([]string, error) {
-	var files []string
+	type sessionFile struct {
+		path string
+		info os.FileInfo
+	}
+	var sessions []sessionFile
+	add := func(path string, info os.FileInfo) error {
+		for _, prior := range sessions {
+			// Stat follows symbolic links; SameFile also catches hard links.
+			// Check file identity, not contents: distinct sessions can repeat
+			// the same prompt and still be a valid holdout.
+			if os.SameFile(prior.info, info) {
+				return errors.New("duplicate session file; pass each session only once")
+			}
+		}
+		sessions = append(sessions, sessionFile{path: path, info: info})
+		return nil
+	}
 	for _, p := range paths {
 		info, err := os.Stat(p)
 		if err != nil {
@@ -368,25 +384,31 @@ func collectSessionFiles(paths []string) ([]string, error) {
 			}
 			for _, e := range entries {
 				if !e.IsDir() && strings.HasSuffix(e.Name(), ".jsonl") {
-					files = append(files, filepath.Join(p, e.Name()))
+					path := filepath.Join(p, e.Name())
+					child, err := os.Stat(path)
+					if err != nil {
+						return nil, err
+					}
+					if err := add(path, child); err != nil {
+						return nil, err
+					}
 				}
 			}
 			continue
 		}
-		files = append(files, p)
+		if err := add(p, info); err != nil {
+			return nil, err
+		}
 	}
 	// Time order: a coding agent names session files with timestamps, but
-	// mtime is the reliable proxy for "earlier vs later". Stat failures
-	// (file removed between walk and sort) surface as errors instead of a
-	// nil-pointer panic.
-	sort.Slice(files, func(i, j int) bool {
-		a, aerr := os.Stat(files[i])
-		b, berr := os.Stat(files[j])
-		if aerr != nil || berr != nil {
-			return false // keep relative order; the replay loop reports the error
-		}
-		return a.ModTime().Before(b.ModTime())
+	// mtime is the proxy for "earlier vs later". Sort the collected snapshot.
+	sort.Slice(sessions, func(i, j int) bool {
+		return sessions[i].info.ModTime().Before(sessions[j].info.ModTime())
 	})
+	files := make([]string, len(sessions))
+	for i, file := range sessions {
+		files[i] = file.path
+	}
 	return files, nil
 }
 

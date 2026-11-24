@@ -117,6 +117,58 @@ func TestVerifyRequiresTwoSessions(t *testing.T) {
 	}
 }
 
+func TestVerifyRejectsDuplicateSessionFiles(t *testing.T) {
+	for _, form := range []string{"repeated file", "directory and child", "symlink", "hard link"} {
+		t.Run(form, func(t *testing.T) {
+			dir := t.TempDir()
+			original := writeSession(t, dir, "original.jsonl", []string{"synthetic cobalt orchard route"})
+			first, second := original, original
+			switch form {
+			case "directory and child":
+				first = dir
+			case "symlink", "hard link":
+				second = filepath.Join(dir, "alias.jsonl")
+				link := os.Symlink
+				if form == "hard link" {
+					link = os.Link
+				}
+				if err := link(original, second); err != nil {
+					t.Skipf("creating a %s is not available: %v", form, err)
+				}
+			}
+			var out bytes.Buffer
+			db := filepath.Join(t.TempDir(), "v.db")
+			args := []string{"--session", first, "--session", second, "--db", db, "--holdout", "0.5"}
+			if code := runVerify(args, &out, productionDependencies()); code != 1 ||
+				out.String() != "verify: duplicate session file; pass each session only once\n" {
+				t.Fatalf("expected duplicate error without source paths; code=%d out=%q", code, &out)
+			}
+			if _, err := os.Stat(db); !os.IsNotExist(err) {
+				t.Fatalf("validation must precede replay database creation; stat error=%v", err)
+			}
+		})
+	}
+}
+
+func TestVerifyKeepsDistinctSessionsWithIdenticalPrompts(t *testing.T) {
+	dir := t.TempDir()
+	earlier := writeSession(t, dir, "earlier.jsonl", []string{"synthetic cobalt orchard route"})
+	later := writeSession(t, dir, "later.jsonl", []string{"synthetic cobalt orchard route"})
+	for i, path := range []string{earlier, later} {
+		mtime := time.Unix(1000+int64(i)*60, 0)
+		if err := os.Chtimes(path, mtime, mtime); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var out bytes.Buffer
+	db := filepath.Join(t.TempDir(), "v.db")
+	args := []string{"--session", later, "--session", earlier, "--db", db, "--holdout", "0.5"}
+	if code := runVerify(args, &out, productionDependencies()); code != 0 ||
+		!strings.Contains(out.String(), "\nlater.jsonl\t1\t") || strings.Contains(out.String(), "\nearlier.jsonl\t1\t") {
+		t.Fatalf("distinct files must remain eligible and split by mtime; code=%d out=%q", code, &out)
+	}
+}
+
 func TestVerifyToleratesCorruptLines(t *testing.T) {
 	dir := t.TempDir()
 	p1 := writeSession(t, dir, "s1.jsonl", []string{"a", "b"})
