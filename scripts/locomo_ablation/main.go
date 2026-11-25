@@ -1,11 +1,15 @@
-// Command locomo_ablation runs a 6-arm controlled ablation comparing baseline
+// Command locomo_ablation runs a controlled ablation comparing baseline
 // BM25 against deterministic graph expansion strategies on LoCoMo:
 //   - Arm0: BM25 baseline
 //   - ArmA: PR #586 naive query concatenation (support >= 2)
-//   - ArmB: Non-destructive weighted fusion (0.85 primary BM25 + 0.15 expansion BM25)
+//   - ArmB: Weighted fusion (0.85 primary BM25 + 0.15 expansion BM25)
 //   - ArmC: Tighter graph (support >= 3, PMI >= 3.0, maxDocFrac <= 0.15) with concat
 //   - ArmD: Confidence-gated expansion (only when baseline coverage < 0.6 or relMargin < 0.12)
 //   - ArmE: Combined (tighter graph + weighted fusion + confidence gate)
+//   - ArmF: Partial credit for missing query terms from prefix-trained associations
+//   - Arms G/H: One-hop propagation on observed / shuffled full-session turn order
+//   - ArmI: Shuffle full-session interior turns within speaker (matched control)
+//   - ArmJ: Same propagation as G, with edges restricted to prefix sessions
 package main
 
 import (
@@ -111,6 +115,13 @@ func (a *armReport) finalize() {
 	}
 }
 
+func (a *armReport) recordGraph(cat int, hits []slice.Hit, gold, lateGold map[string]bool, contributed bool) {
+	if contributed {
+		a.Expanded++
+	}
+	a.record(cat, hits, gold, lateGold)
+}
+
 var (
 	sessionKey  = regexp.MustCompile(`^session_([1-9][0-9]*)$`)
 	evidenceKey = regexp.MustCompile(`D:?([0-9]+):([0-9]+)`)
@@ -139,12 +150,17 @@ type graphConfig struct {
 	maxDocFrac float64
 }
 
-func buildNeighbors(sessions [][]turn, cfg graphConfig) (map[string][]string, int) {
-	type candidate struct {
-		term    string
-		support int
-		pmi     float64
-	}
+// prefixPairs holds the common training evidence for the legacy and soft-match arms.
+type prefixPairs struct {
+	turnCount int
+	termTurns map[string]int
+	pairTurns map[graph.Triple]int
+	edges     []graph.Edge
+}
+
+const maxPairDocFrac = 0.25
+
+func observePrefix(sessions [][]turn) prefixPairs {
 	termTurns := make(map[string]int)
 	pairTurns := make(map[graph.Triple]int)
 	turnCount := 0
@@ -161,18 +177,15 @@ func buildNeighbors(sessions [][]turn, cfg graphConfig) (map[string][]string, in
 		}
 		train = append(train, rows)
 	}
-	if turnCount == 0 {
-		return map[string][]string{}, 0
-	}
 	var g graph.Graph
 	for i, session := range train {
 		for _, row := range session {
 			for j, from := range row {
-				if float64(termTurns[from])/float64(turnCount) > cfg.maxDocFrac {
+				if float64(termTurns[from])/float64(turnCount) > maxPairDocFrac {
 					continue
 				}
 				for _, to := range row[j+1:] {
-					if float64(termTurns[to])/float64(turnCount) <= cfg.maxDocFrac {
+					if float64(termTurns[to])/float64(turnCount) <= maxPairDocFrac {
 						tr := graph.Triple{Relation: "co_mentioned", From: from, To: to}
 						g.Observe(strconv.Itoa(i), tr)
 						pairTurns[tr]++
@@ -181,18 +194,26 @@ func buildNeighbors(sessions [][]turn, cfg graphConfig) (map[string][]string, in
 			}
 		}
 	}
-	edges := g.Edges()
+	return prefixPairs{turnCount: turnCount, termTurns: termTurns, pairTurns: pairTurns, edges: g.Edges()}
+}
+
+func (p prefixPairs) legacyNeighbors(cfg graphConfig) (map[string][]string, int) {
+	type candidate struct {
+		term    string
+		support int
+		pmi     float64
+	}
 	ranked := make(map[string][]candidate)
 	keptEdges := 0
-	n := float64(turnCount)
-	for _, edge := range edges {
+	n := float64(p.turnCount)
+	for _, edge := range p.edges {
 		sup := len(edge.Sessions)
-		if sup < cfg.minSupport {
+		pa := float64(p.termTurns[edge.From]) / n
+		pb := float64(p.termTurns[edge.To]) / n
+		if sup < cfg.minSupport || pa > cfg.maxDocFrac || pb > cfg.maxDocFrac {
 			continue
 		}
-		pab := float64(pairTurns[edge.Triple]) / n
-		pa := float64(termTurns[edge.From]) / n
-		pb := float64(termTurns[edge.To]) / n
+		pab := float64(p.pairTurns[edge.Triple]) / n
 		pmi := 0.0
 		if pab > 0 && pa > 0 && pb > 0 {
 			pmi = math.Log2(pab / (pa * pb))
@@ -213,7 +234,7 @@ func buildNeighbors(sessions [][]turn, cfg graphConfig) (map[string][]string, in
 					return a.pmi > b.pmi
 				}
 			} else {
-				left, right := a.support*termTurns[b.term], b.support*termTurns[a.term]
+				left, right := a.support*p.termTurns[b.term], b.support*p.termTurns[a.term]
 				if left != right {
 					return left > right
 				}
@@ -282,13 +303,17 @@ func fuseWeighted(primary, secondary []slice.Hit, alpha float64) []slice.Hit {
 			out = append(out, slice.Hit{Slice: sl, Score: sc})
 		}
 	}
+	sortHits(out)
+	return out
+}
+
+func sortHits(out []slice.Hit) {
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Score == out[j].Score {
 			return out[i].Slice.ID < out[j].Slice.ID
 		}
 		return out[i].Score > out[j].Score
 	})
-	return out
 }
 
 // lowConfidence reports whether baseline BM25 is uncertain (empty, low top-1
@@ -316,7 +341,12 @@ func evaluateAll(dialogues []dialogue) ([]*armReport, error) {
 	armC := newArmReport("ArmC_TightGraph_Sup3_PMI3")
 	armD := newArmReport("ArmD_ConfidenceGated")
 	armE := newArmReport("ArmE_Combined_BCD")
-	arms := []*armReport{armBase, armA, armB, armC, armD, armE}
+	armF := newArmReport("ArmF_PrefixSoftMatch")
+	armG := newArmReport("ArmG_ObservedTurnOrder")
+	armH := newArmReport("ArmH_ShuffledTurnOrder")
+	armI := newArmReport("ArmI_SpeakerShuffledTurnOrder")
+	armJ := newArmReport("ArmJ_PrefixTurnOrder")
+	arms := []*armReport{armBase, armA, armB, armC, armD, armE, armF, armG, armH, armI, armJ}
 
 	for idx, d := range dialogues {
 		var order []int
@@ -343,6 +373,9 @@ func evaluateAll(dialogues []dialogue) ([]*armReport, error) {
 		sort.Ints(order)
 		cutoff := len(order) * 4 / 5
 		var train [][]turn
+		var corpus [][]*slice.Slice
+		var docs []termDocument
+		speakerByID := make(map[string]string)
 		index := bm25.New()
 		heldOut := make(map[string]bool)
 		for i, number := range order {
@@ -350,25 +383,49 @@ func evaluateAll(dialogues []dialogue) ([]*armReport, error) {
 			if i < cutoff {
 				train = append(train, ts)
 			}
+			var sessionDocs []*slice.Slice
 			for _, t := range ts {
 				if t.ID == "" {
 					return nil, fmt.Errorf("dialogue %d: empty turn ID", idx+1)
 				}
+				if _, exists := heldOut[t.ID]; exists {
+					return nil, fmt.Errorf("dialogue %d: duplicate turn ID %s", idx+1, t.ID)
+				}
 				heldOut[t.ID] = i >= cutoff
-				if err := index.Insert(&slice.Slice{ID: t.ID, Scope: slice.Project, Content: []byte(t.Speaker + " " + t.Text)}); err != nil {
+				speakerByID[t.ID] = t.Speaker
+				doc := &slice.Slice{ID: t.ID, Scope: slice.Project, Content: []byte(t.Speaker + " " + t.Text)}
+				if err := index.Insert(doc); err != nil {
 					return nil, fmt.Errorf("dialogue %d insert %s: %w", idx+1, t.ID, err)
 				}
+				docs = append(docs, newTermDocument(doc))
+				sessionDocs = append(sessionDocs, doc)
 			}
+			corpus = append(corpus, sessionDocs)
 		}
 
-		relDefault, edgesDefault := buildNeighbors(train, graphConfig{minSupport: 2, minPMI: 0, maxDocFrac: 0.25})
-		relTight, edgesTight := buildNeighbors(train, graphConfig{minSupport: 3, minPMI: 3.0, maxDocFrac: 0.15})
+		pairs := observePrefix(train)
+		relDefault, edgesDefault := pairs.legacyNeighbors(graphConfig{minSupport: 2, maxDocFrac: maxPairDocFrac})
+		relTight, edgesTight := pairs.legacyNeighbors(graphConfig{minSupport: 3, minPMI: 3.0, maxDocFrac: 0.15})
+		soft, softEdges := pairs.softGraph()
+		turnArms := []struct {
+			report *armReport
+			graph  turnGraph
+		}{
+			{armG, newTurnGraph(corpus, originalOrder, nil)},
+			{armH, newTurnGraph(corpus, shuffledOrder, nil)},
+			{armI, newTurnGraph(corpus, speakerShuffledOrder, speakerByID)},
+			{armJ, newTurnGraph(corpus[:cutoff], originalOrder, nil)},
+		}
 
 		armA.GraphEdges += edgesDefault
 		armB.GraphEdges += edgesDefault
 		armD.GraphEdges += edgesDefault
 		armC.GraphEdges += edgesTight
 		armE.GraphEdges += edgesTight
+		armF.GraphEdges += softEdges
+		for _, arm := range turnArms {
+			arm.report.GraphEdges += arm.graph.edgeCount
+		}
 
 		totalDocs := len(heldOut)
 		for _, q := range d.QA {
@@ -453,6 +510,13 @@ func evaluateAll(dialogues []dialogue) ([]*armReport, error) {
 				hitsE = fuseWeighted(baseline, expOnlyC, 0.85)
 			}
 			armE.record(q.Category, hitsE, gold, lateGold)
+
+			hitsF, applied := soft.rerank(q.Text, baseline, docs)
+			armF.recordGraph(q.Category, hitsF, gold, lateGold, applied)
+			for _, arm := range turnArms {
+				hits, applied := arm.graph.rerank(baseline)
+				arm.report.recordGraph(q.Category, hits, gold, lateGold, applied)
+			}
 		}
 	}
 

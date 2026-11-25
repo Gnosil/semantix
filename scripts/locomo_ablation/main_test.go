@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -28,8 +29,8 @@ func TestEvaluateAllAblationArms(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(arms) != 6 {
-		t.Fatalf("got %d arms, want 6", len(arms))
+	if len(arms) != 11 {
+		t.Fatalf("got %d arms, want 11", len(arms))
 	}
 	for _, a := range arms {
 		if a.All.Queries != 2 {
@@ -45,5 +46,23 @@ func TestEvaluateAllAblationArms(t *testing.T) {
 	}
 	if arms[2].GraphEdges == 0 {
 		t.Fatalf("ArmB expected non-zero graph edges")
+	}
+	// Only the prefix contains the repeated pair. The soft graph credits
+	// lighthouse for cobalt, and cannot expand the late-only word spotlight.
+	if arms[6].GraphEdges != 1 || arms[6].Expanded != 1 {
+		t.Fatalf("unexpected prefix graph report: %+v", arms[6])
+	}
+	if arms[7].GraphEdges != 13 || arms[10].GraphEdges != 12 {
+		t.Fatalf("turn edges: full=%d, prefix=%d", arms[7].GraphEdges, arms[10].GraphEdges)
+	}
+}
+
+func TestDuplicateTurnAcrossCutoff(t *testing.T) {
+	input := dialogue{Conversation: map[string]json.RawMessage{
+		"session_1": json.RawMessage(`[{"dia_id":"D1:1","text":"early"}]`),
+		"session_2": json.RawMessage(`[{"dia_id":"D1:1","text":"late"}]`),
+	}}
+	if _, err := evaluateAll([]dialogue{input}); err == nil || !strings.Contains(err.Error(), "duplicate turn ID D1:1") {
+		t.Fatalf("expected duplicate ID error, got %v", err)
 	}
 }
