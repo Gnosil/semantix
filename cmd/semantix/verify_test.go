@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"math"
 	"os"
 	"path/filepath"
@@ -166,6 +167,42 @@ func TestVerifyKeepsDistinctSessionsWithIdenticalPrompts(t *testing.T) {
 	if code := runVerify(args, &out, productionDependencies()); code != 0 ||
 		!strings.Contains(out.String(), "\nlater.jsonl\t1\t") || strings.Contains(out.String(), "\nearlier.jsonl\t1\t") {
 		t.Fatalf("distinct files must remain eligible and split by mtime; code=%d out=%q", code, &out)
+	}
+}
+
+func TestVerifyDistinctReplayLabelsForSameBasename(t *testing.T) {
+	paths := []string{
+		writeSession(t, t.TempDir(), "training.jsonl", []string{"earlier prompt"}),
+		writeSession(t, t.TempDir(), "session.jsonl", []string{"first replay"}),
+		writeSession(t, t.TempDir(), "session.jsonl", []string{"second replay"}),
+		writeSession(t, t.TempDir(), "session.jsonl~2", []string{"third replay"}),
+	}
+	args := []string{"--json", "--holdout", "0.75", "--db", filepath.Join(t.TempDir(), "v.db")}
+	for i, path := range paths {
+		mtime := time.Unix(1000+int64(i)*60, 0)
+		if err := os.Chtimes(path, mtime, mtime); err != nil {
+			t.Fatal(err)
+		}
+		args = append(args, "--session", path)
+	}
+	var out bytes.Buffer
+	if code := runVerify(args, &out, productionDependencies()); code != 0 {
+		t.Fatalf("runVerify code = %d: %s", code, &out)
+	}
+	var report struct {
+		Data verifySummary
+	}
+	if err := json.Unmarshal(out.Bytes(), &report); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"session.jsonl", "session.jsonl~3", "session.jsonl~2"}
+	if len(report.Data.Rows) != len(want) {
+		t.Fatalf("got %d replay rows, want %d", len(report.Data.Rows), len(want))
+	}
+	for i, row := range report.Data.Rows {
+		if row.Session != want[i] || row.Turn != 1 {
+			t.Errorf("row %d identity = (%q, %d), want (%q, 1)", i, row.Session, row.Turn, want[i])
+		}
 	}
 }
 

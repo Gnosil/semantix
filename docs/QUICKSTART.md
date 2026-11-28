@@ -83,8 +83,10 @@ python3 scripts/tools/score_verify.py replay.json --labels labels.tsv
 
 The helper rejects incomplete or duplicate labels and reports the ≥70% human
 yield and ≤30% grey thresholds separately. The JSON replay contains source
-text; keep it local, and use anonymous basenames if sharing the labels. The
-versioned SHA-256 header identifies the exact replay bytes, even if another
+text; keep it local, and use anonymous basenames if sharing the labels.
+Replay uses file basenames as session labels and appends suffixes such as
+`~2` to distinguish files with the same name. The versioned SHA-256 header
+identifies the exact replay bytes, even if another
 report has the same session and turn IDs. Keep the original JSON unchanged;
 for edited or regenerated JSON, or legacy labels without the header, prepare
 a new TSV and relabel instead of copying the old marks.

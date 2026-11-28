@@ -354,7 +354,12 @@ type verifyLine struct {
 	Content string `json:"content"`
 }
 
-func collectSessionFiles(paths []string) ([]string, error) {
+type verifySession struct {
+	path  string
+	label string
+}
+
+func collectSessionFiles(paths []string) ([]verifySession, error) {
 	type sessionFile struct {
 		path string
 		info os.FileInfo
@@ -405,16 +410,37 @@ func collectSessionFiles(paths []string) ([]string, error) {
 	sort.Slice(sessions, func(i, j int) bool {
 		return sessions[i].info.ModTime().Before(sessions[j].info.ModTime())
 	})
-	files := make([]string, len(sessions))
-	for i, file := range sessions {
-		files[i] = file.path
+
+	// Keep basenames for the report and reserve real names before assigning
+	// suffixes, so a generated label cannot hide another session's basename.
+	used := make(map[string]bool, len(sessions))
+	for _, file := range sessions {
+		used[filepath.Base(file.path)] = true
+	}
+	occurrences := make(map[string]int, len(used))
+	files := make([]verifySession, 0, len(sessions))
+	for _, file := range sessions {
+		base := filepath.Base(file.path)
+		label := base
+		occurrences[base]++
+		if occurrences[base] > 1 {
+			for {
+				label = base + "~" + strconv.Itoa(occurrences[base])
+				if !used[label] {
+					used[label] = true
+					break
+				}
+				occurrences[base]++
+			}
+		}
+		files = append(files, verifySession{path: file.path, label: label})
 	}
 	return files, nil
 }
 
 // parseTurns extracts user turns (in order) from one session JSONL.
-func parseTurns(path string) ([]verifyTurn, error) {
-	f, err := os.Open(path)
+func parseTurns(session verifySession) ([]verifyTurn, error) {
+	f, err := os.Open(session.path)
 	if err != nil {
 		return nil, err
 	}
@@ -440,7 +466,7 @@ func parseTurns(path string) ([]verifyTurn, error) {
 			continue // skip empty steering lines
 		}
 		n++
-		turns = append(turns, verifyTurn{Session: filepath.Base(path), Turn: n, Query: strings.TrimSpace(l.Content)})
+		turns = append(turns, verifyTurn{Session: session.label, Turn: n, Query: strings.TrimSpace(l.Content)})
 	}
 	return turns, sc.Err()
 }
@@ -543,10 +569,10 @@ func runVerify(args []string, stdout io.Writer, deps dependencies) int {
 
 	// Train: index every user turn of earlier sessions as a P-slice.
 	trained := 0
-	for _, path := range train {
-		turns, err := parseTurns(path)
+	for _, session := range train {
+		turns, err := parseTurns(session)
 		if err != nil {
-			fmt.Fprintf(stdout, "verify: %s: %v\n", path, err)
+			fmt.Fprintf(stdout, "verify: %s: %v\n", session.path, err)
 			return 1
 		}
 		for _, t := range turns {
@@ -620,10 +646,10 @@ func runVerify(args []string, stdout io.Writer, deps dependencies) int {
 	replayed := 0
 	zones := zf.zones()
 	var zoneCount [3]int // [0]=miss [1]=grey [2]=hit
-	for _, path := range replay {
-		turns, err := parseTurns(path)
+	for _, session := range replay {
+		turns, err := parseTurns(session)
 		if err != nil {
-			fmt.Fprintf(stdout, "verify: %s: %v\n", path, err)
+			fmt.Fprintf(stdout, "verify: %s: %v\n", session.path, err)
 			return 1
 		}
 		for _, t := range turns {
